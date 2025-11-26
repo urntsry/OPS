@@ -1,0 +1,1102 @@
+{
+  "employees": {
+    "阮慧喬": {
+      "id": "50095",
+      "dept": "廠務部",
+      "title": "",
+      "supervisor": "",
+      "role": "owner"
+    },
+    "賴葦蓁": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "阮氏泰娟": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "林怡彣": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "張麗卿": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "武氏燕": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "范進士": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "温玲怡": {
+      "id": "70037",
+      "dept": "管理部",
+      "title": "會計",
+      "supervisor": "古先生",
+      "role": "owner"
+    },
+    "劉育惠": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "潘芷菱": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "張夢茹": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "曾世聞": {
+      "id": "70018",
+      "dept": "管理部",
+      "title": "業務",
+      "supervisor": "古振宇",
+      "role": "owner"
+    },
+    "潘育昌": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "張庭憲": {
+      "id": "10003",
+      "dept": "廠務部",
+      "title": "廠長",
+      "supervisor": "古先生",
+      "role": "owner"
+    },
+    "白思恩": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "范姜群皓": {
+      "id": "50144",
+      "dept": "廠務部",
+      "title": "組長",
+      "supervisor": "古志禹",
+      "role": "owner"
+    },
+    "林珠華": {
+      "id": "30023",
+      "dept": "廠務部",
+      "title": "組長",
+      "supervisor": "",
+      "role": "owner"
+    },
+    "阮氏河": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "吳春珠": {
+      "id": "30008",
+      "dept": "廠務部",
+      "title": "組長",
+      "supervisor": "古志禹",
+      "role": "owner"
+    },
+    "羅玉珍": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    },
+    "黎維俊": {
+      "id": "TBD",
+      "dept": "TBD",
+      "title": "TBD",
+      "role": "collaborator"
+    }
+  },
+  "task_matrix": [
+    {
+      "meta": {
+        "name": "阮慧喬",
+        "id": "50095",
+        "title": "",
+        "department": "廠務部",
+        "supervisor": "",
+        "file": "工作內容盤點-310電熱布包組.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "賴葦蓁",
+        "阮氏泰娟",
+        "林怡彣",
+        "張麗卿",
+        "武氏燕",
+        "范進士"
+      ],
+      "tasks": [
+        {
+          "title": "理布",
+          "site": "ALL",
+          "frequency": "daily",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "賴葦蓁"
+          ]
+        },
+        {
+          "title": "產品縫製/開發",
+          "site": "ALL",
+          "frequency": "daily",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "賴葦蓁"
+          ]
+        },
+        {
+          "title": "人員訓練/管理",
+          "site": "ALL",
+          "frequency": "daily",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "武氏燕"
+          ]
+        },
+        {
+          "title": "生產線產品檢查",
+          "site": "ALL",
+          "frequency": "daily",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "賴葦蓁"
+          ]
+        },
+        {
+          "title": "填寫內外皮QC檢驗表",
+          "site": "ALL",
+          "frequency": "daily",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": []
+        },
+        {
+          "title": "日用品採購",
+          "site": "ALL",
+          "frequency": "monthly",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "林怡彣"
+          ]
+        },
+        {
+          "title": "手縫針管理",
+          "site": "ALL",
+          "frequency": "daily",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "武氏燕"
+          ]
+        },
+        {
+          "title": "環境清潔督導",
+          "site": "ALL",
+          "frequency": "weekly",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "張麗卿"
+          ]
+        },
+        {
+          "title": "3D模子管理",
+          "site": "ALL",
+          "frequency": "weekly",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "阮氏泰娟"
+          ]
+        },
+        {
+          "title": "設備保養",
+          "site": "ALL",
+          "frequency": "weekly",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "范進士"
+          ]
+        },
+        {
+          "title": "生產進度回報",
+          "site": "ALL",
+          "frequency": "weekly",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "林怡彣"
+          ]
+        },
+        {
+          "title": "產品模子拍照給日本確認",
+          "site": "ALL",
+          "frequency": "weekly",
+          "default_assignee": "阮慧喬",
+          "backup_assignees": [
+            "張麗卿"
+          ]
+        }
+      ]
+    },
+    {
+      "meta": {
+        "name": "温玲怡",
+        "id": "70037",
+        "title": "會計",
+        "department": "管理部",
+        "supervisor": "古先生",
+        "file": "工作內容盤點-業務部.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "劉育惠",
+        "潘芷菱",
+        "張夢茹"
+      ],
+      "tasks": [
+        {
+          "title": "國內應收帳款核對/沖銷",
+          "site": "KS,316,310",
+          "frequency": "daily",
+          "default_assignee": "温玲怡",
+          "backup_assignees": [
+            "劉育惠"
+          ]
+        },
+        {
+          "title": "國內應付帳款核對/匯款",
+          "site": "KS,316,310",
+          "frequency": "daily",
+          "default_assignee": "温玲怡",
+          "backup_assignees": [
+            "劉育惠",
+            "潘芷菱"
+          ]
+        },
+        {
+          "title": "辦公室設備修繕/更換",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "温玲怡",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "掃辦公室廁所",
+          "site": "KS",
+          "frequency": "weekly",
+          "default_assignee": "温玲怡",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "職工福利委員會會議召集/帳務彙整",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "温玲怡",
+          "backup_assignees": []
+        },
+        {
+          "title": "職工福利委員會年度預算/決算/稅務申報",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "温玲怡",
+          "backup_assignees": []
+        },
+        {
+          "title": "跑銀行",
+          "site": "KS",
+          "frequency": "weekly",
+          "default_assignee": "温玲怡",
+          "backup_assignees": [
+            "劉育惠"
+          ]
+        },
+        {
+          "title": "繳納電費/電話費",
+          "site": "316,310",
+          "frequency": "monthly",
+          "default_assignee": "温玲怡",
+          "backup_assignees": []
+        },
+        {
+          "title": "公務車etag儲值",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "温玲怡",
+          "backup_assignees": []
+        }
+      ]
+    },
+    {
+      "meta": {
+        "name": "曾世聞",
+        "id": "70018",
+        "title": "業務",
+        "department": "管理部",
+        "supervisor": "古振宇",
+        "file": "工作內容盤點-管理部.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "潘育昌",
+        "張庭憲",
+        "白思恩"
+      ],
+      "tasks": [
+        {
+          "title": "與客戶洽談業務",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "曾世聞",
+          "backup_assignees": []
+        },
+        {
+          "title": "報價單填寫",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "曾世聞",
+          "backup_assignees": [
+            "潘育昌"
+          ]
+        },
+        {
+          "title": "與廠商詢價",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "曾世聞",
+          "backup_assignees": [
+            "潘育昌"
+          ]
+        },
+        {
+          "title": "加工單開立",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "曾世聞",
+          "backup_assignees": []
+        },
+        {
+          "title": "外出洽談業務",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "曾世聞",
+          "backup_assignees": []
+        },
+        {
+          "title": "外出施工",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "曾世聞",
+          "backup_assignees": [
+            "白思恩"
+          ]
+        },
+        {
+          "title": "送貨",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "曾世聞",
+          "backup_assignees": [
+            "白思恩"
+          ]
+        },
+        {
+          "title": "出貨處理",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "曾世聞",
+          "backup_assignees": [
+            "潘育昌",
+            "白思恩"
+          ]
+        },
+        {
+          "title": "採購配件",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "曾世聞",
+          "backup_assignees": [
+            "潘育昌"
+          ]
+        },
+        {
+          "title": "現場協調及解釋工單內容",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "曾世聞",
+          "backup_assignees": []
+        }
+      ]
+    },
+    {
+      "meta": {
+        "name": "張庭憲",
+        "id": "10003",
+        "title": "廠長",
+        "department": "廠務部",
+        "supervisor": "古先生",
+        "file": "工作內容盤點-高上316接頭組.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "潘育昌",
+        "曾世聞",
+        "范姜群皓",
+        "張夢茹"
+      ],
+      "tasks": [
+        {
+          "title": "出勤核對加班/請假簽核",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "支援主管交辦事項,加工單產線進度,控管生產排程",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "潘育昌",
+            "曾世聞"
+          ]
+        },
+        {
+          "title": "外出施工人員安全衛生管理",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "潘育昌",
+            "曾世聞"
+          ]
+        },
+        {
+          "title": "品質異常處理與改善",
+          "site": "316",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "潘育昌",
+            "曾世聞"
+          ]
+        },
+        {
+          "title": "巡查機具設備使用狀況",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "工廠日常用品、五金零件採購",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "新進員工生產教育訓練",
+          "site": "316",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "工廠機台輔助工具製作",
+          "site": "KS,316",
+          "frequency": "daily",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "監視系統保養維護",
+          "site": "KS,316,310",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "廠房配備箱巡查保養",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "頂樓太陽能板清洗保養",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "發電機(ATS)保養",
+          "site": "KS,316",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "智能機台保養",
+          "site": "KS,316,310",
+          "frequency": "weekly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "空壓機保養",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "飲水機保養",
+          "site": "KS,316,310",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓",
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "事業生活廢棄物清運",
+          "site": "KS,316,310",
+          "frequency": "weekly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "棉毯下腳料整理分類清運",
+          "site": "316",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "布類下腳料及板材清運",
+          "site": "316",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "化糞池抽肥",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "公務車定期檢驗保養",
+          "site": "KS,316",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "2.8T天車保養",
+          "site": "KS,316",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "冷氣冷卻水塔清洗",
+          "site": "KS,316,310",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "貨梯保養(電梯)",
+          "site": "KS",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓",
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "空調冷氣保養",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "廠房鐵捲門/大門保養",
+          "site": "KS,316,310",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "消防設備保養/檢查/申報",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "移工勞動部訪查",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "工廠加工設備/修繕更換",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "潘育昌"
+          ]
+        },
+        {
+          "title": "高上廠納管/改善計畫",
+          "site": "316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "高上廠員工停車場管理",
+          "site": "316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": []
+        },
+        {
+          "title": "高上廠房承租窗口",
+          "site": "316,310",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "ISO審核/廠務部",
+          "site": "KS,316",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "防颱措施事項",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "廠房內外環境驅蟲/消毒",
+          "site": "KS,316,310",
+          "frequency": "monthly",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        },
+        {
+          "title": "工廠水電維修",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "張庭憲",
+          "backup_assignees": [
+            "范姜群皓"
+          ]
+        }
+      ]
+    },
+    {
+      "meta": {
+        "name": "林珠華",
+        "id": "30023",
+        "title": "組長",
+        "department": "廠務部",
+        "supervisor": "",
+        "file": "工作內容盤點-高上316車縫布包組.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "阮氏河"
+      ],
+      "tasks": [
+        {
+          "title": "環境打掃",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        },
+        {
+          "title": "發工單製作內容",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        },
+        {
+          "title": "檢查每工單布料",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        },
+        {
+          "title": "領線/布/棉等",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        },
+        {
+          "title": "做完工單檢查QC",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        },
+        {
+          "title": "教新人車縫",
+          "site": "316",
+          "frequency": "daily",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        },
+        {
+          "title": "針車保養,冷氣保養",
+          "site": "316",
+          "frequency": "weekly",
+          "default_assignee": "林珠華",
+          "backup_assignees": [
+            "阮氏河"
+          ]
+        }
+      ]
+    },
+    {
+      "meta": {
+        "name": "吳春珠",
+        "id": "30008",
+        "title": "組長",
+        "department": "廠務部",
+        "supervisor": "古志禹",
+        "file": "工作內容盤點-高獅車縫布包組.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "羅玉珍"
+      ],
+      "tasks": [
+        {
+          "title": "工單內容製作",
+          "site": "KS",
+          "frequency": "daily",
+          "default_assignee": "吳春珠",
+          "backup_assignees": [
+            "羅玉珍"
+          ]
+        },
+        {
+          "title": "打掃環境",
+          "site": "KS",
+          "frequency": "weekly",
+          "default_assignee": "吳春珠",
+          "backup_assignees": [
+            "羅玉珍"
+          ]
+        },
+        {
+          "title": "機台保養",
+          "site": "KS",
+          "frequency": "weekly",
+          "default_assignee": "吳春珠",
+          "backup_assignees": [
+            "羅玉珍"
+          ]
+        },
+        {
+          "title": "教育訓練",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "吳春珠",
+          "backup_assignees": [
+            "羅玉珍"
+          ]
+        },
+        {
+          "title": "參與福委會議",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "吳春珠",
+          "backup_assignees": [
+            "羅玉珍"
+          ]
+        }
+      ]
+    },
+    {
+      "meta": {
+        "name": "范姜群皓",
+        "id": "50144",
+        "title": "組長",
+        "department": "廠務部",
+        "supervisor": "古志禹",
+        "file": "工作內容盤點-高獅電熱布包組.xlsx"
+      },
+      "collaborators_in_sheet": [
+        "黎維俊",
+        "張夢茹"
+      ],
+      "tasks": [
+        {
+          "title": "現場工作進度追蹤",
+          "site": "KS",
+          "frequency": "daily",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "現場工作安排協調",
+          "site": "KS",
+          "frequency": "daily",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "工單內容製作",
+          "site": "KS",
+          "frequency": "daily",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "各組支援",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "外出施工",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": []
+        },
+        {
+          "title": "修理針車",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "更換飲水機濾芯",
+          "site": "KS",
+          "frequency": "monthly",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "冷氣清洗",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "整理回收",
+          "site": "KS",
+          "frequency": "monthly",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "現場工作環境整理",
+          "site": "KS",
+          "frequency": "monthly",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "現場設備修繕/更換",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "防颱準備",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "新進同仁教育訓練",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "ISO內部稽核人員",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "設備盤點",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "下午茶安排",
+          "site": "KS,316,310",
+          "frequency": "monthly",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "活動安排策劃",
+          "site": "KS,316,310",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "掃廁所",
+          "site": "KS",
+          "frequency": "weekly",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "黎維俊"
+          ]
+        },
+        {
+          "title": "調節組員自身相關問題",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": [
+            "張夢茹"
+          ]
+        },
+        {
+          "title": "參與福委會",
+          "site": "KS",
+          "frequency": "event_triggered",
+          "default_assignee": "范姜群皓",
+          "backup_assignees": []
+        }
+      ]
+    }
+  ]
+}

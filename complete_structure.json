@@ -1,0 +1,510 @@
+{
+  "summary": {
+    "total_files": 6,
+    "total_employees": 6,
+    "total_tasks": 48,
+    "frequency_types": []
+  },
+  "employees": {
+    "吳春珠": [
+      {
+        "file": "工作內容盤點-高獅車縫布包組.xlsx",
+        "role": "主要負責人",
+        "employee_id": "未找到"
+      }
+    ],
+    "張庭憲": [
+      {
+        "file": "工作內容盤點-高上316接頭組.xlsx",
+        "role": "主要負責人",
+        "employee_id": "未找到"
+      }
+    ],
+    "曾世聞": [
+      {
+        "file": "工作內容盤點-管理部.xlsx",
+        "role": "主要負責人",
+        "employee_id": "未找到"
+      }
+    ],
+    "林珠華": [
+      {
+        "file": "工作內容盤點-高上316車縫布包組.xlsx",
+        "role": "主要負責人",
+        "employee_id": "未找到"
+      }
+    ],
+    "范姜群皓": [
+      {
+        "file": "工作內容盤點-高獅電熱布包組.xlsx",
+        "role": "主要負責人",
+        "employee_id": "未找到"
+      }
+    ],
+    "阮慧喬": [
+      {
+        "file": "工作內容盤點-310電熱布包組.xlsx",
+        "role": "主要負責人",
+        "employee_id": "未找到"
+      }
+    ]
+  },
+  "files": [
+    {
+      "file_name": "工作內容盤點-310電熱布包組.xlsx",
+      "primary_employee": {
+        "name": "阮慧喬"
+      },
+      "collaborators": [],
+      "frequency_types": [],
+      "total_tasks": 0,
+      "tasks": []
+    },
+    {
+      "file_name": "工作內容盤點-管理部.xlsx",
+      "primary_employee": {
+        "name": "曾世聞",
+        "supervisor": "古振宇",
+        "job_title": "業務"
+      },
+      "collaborators": [],
+      "frequency_types": [],
+      "total_tasks": 0,
+      "tasks": []
+    },
+    {
+      "file_name": "工作內容盤點-高上316接頭組.xlsx",
+      "primary_employee": {
+        "name": "張庭憲",
+        "supervisor": "古先生",
+        "job_title": "廠長"
+      },
+      "collaborators": [],
+      "frequency_types": [],
+      "total_tasks": 23,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-高上316車縫布包組.xlsx",
+      "primary_employee": {
+        "name": "林珠華",
+        "job_title": "組長"
+      },
+      "collaborators": [],
+      "frequency_types": [],
+      "total_tasks": 0,
+      "tasks": []
+    },
+    {
+      "file_name": "工作內容盤點-高獅車縫布包組.xlsx",
+      "primary_employee": {
+        "name": "吳春珠",
+        "supervisor": "古志禹",
+        "job_title": "組長"
+      },
+      "collaborators": [],
+      "frequency_types": [],
+      "total_tasks": 5,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-高獅電熱布包組.xlsx",
+      "primary_employee": {
+        "name": "范姜群皓",
+        "supervisor": "古志禹",
+        "job_title": "組長"
+      },
+      "collaborators": [],
+      "frequency_types": [],
+      "total_tasks": 20,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": true,
+          "location_310": true,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequencies": [],
+          "main_assignee": null,
+          "backup_assignees": []
+        }
+      ]
+    }
+  ]
+}

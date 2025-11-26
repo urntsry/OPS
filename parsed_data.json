@@ -1,0 +1,450 @@
+{
+  "summary": {
+    "total_files": 7,
+    "total_employees": 0,
+    "total_tasks": 62
+  },
+  "employees": [],
+  "files": [
+    {
+      "file_name": "工作內容盤點-310電熱布包組.xlsx",
+      "employee": {
+        "name": "阮慧喬"
+      },
+      "total_tasks": 1,
+      "tasks": [
+        {
+          "task_name": "說明:主辦→實際執行工作者;協辦→支援執行工作者或職務代理人",
+          "location_316": null,
+          "location_310": null
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-業務部.xlsx",
+      "employee": {
+        "name": "温玲怡",
+        "supervisor": "古先生",
+        "job_title": "會計"
+      },
+      "total_tasks": 8,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_13": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_14": "●"
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-管理部.xlsx",
+      "employee": {
+        "name": "曾世聞",
+        "supervisor": "古振宇",
+        "job_title": "業務"
+      },
+      "total_tasks": 1,
+      "tasks": [
+        {
+          "task_name": "說明:主辦→實際執行工作者;協辦→支援執行工作者或職務代理人",
+          "location_316": null,
+          "location_310": null
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-高上316接頭組.xlsx",
+      "employee": {
+        "name": "張庭憲",
+        "supervisor": "古先生",
+        "job_title": "廠長"
+      },
+      "total_tasks": 24,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": null,
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": null,
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_12": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": null,
+          "frequency_12": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": null,
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_12": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_13": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": null,
+          "frequency_13": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "說明:主辦→實際執行工作者;協辦→支援執行工作者或職務代理人",
+          "location_316": null,
+          "location_310": null
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-高上316車縫布包組.xlsx",
+      "employee": {
+        "name": "林珠華",
+        "job_title": "組長"
+      },
+      "total_tasks": 1,
+      "tasks": [
+        {
+          "task_name": "說明:主辦→實際執行工作者;協辦→支援執行工作者或職務代理人",
+          "location_316": null,
+          "location_310": null
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-高獅車縫布包組.xlsx",
+      "employee": {
+        "name": "吳春珠",
+        "supervisor": "古志禹",
+        "job_title": "組長"
+      },
+      "total_tasks": 6,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "說明:主辦→實際執行工作者;協辦→支援執行工作者或職務代理人",
+          "location_316": null,
+          "location_310": null
+        }
+      ]
+    },
+    {
+      "file_name": "工作內容盤點-高獅電熱布包組.xlsx",
+      "employee": {
+        "name": "范姜群皓",
+        "supervisor": "古志禹",
+        "job_title": "組長"
+      },
+      "total_tasks": 21,
+      "tasks": [
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_8": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_13": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_13": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_10": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": "●",
+          "location_310": "●",
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_9": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_14": "●"
+        },
+        {
+          "task_name": "●",
+          "location_316": null,
+          "location_310": null,
+          "frequency_11": "●"
+        },
+        {
+          "task_name": "說明:主辦→實際執行工作者;協辦→支援執行工作者或職務代理人",
+          "location_316": null,
+          "location_310": null
+        }
+      ]
+    }
+  ]
+}

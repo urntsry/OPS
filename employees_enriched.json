@@ -1,0 +1,86 @@
+[
+  {
+    "id": "未找到",
+    "name": "阮慧喬",
+    "job_title": "N/A",
+    "department": "N/A",
+    "supervisor": "N/A",
+    "file": "工作內容盤點-310電熱布包組.xlsx",
+    "task_count": 1,
+    "inferred_dept": "廠務部",
+    "inferred_site": "310",
+    "inferred_group": "電熱布包組"
+  },
+  {
+    "id": "未找到",
+    "name": "温玲怡",
+    "job_title": "會計",
+    "department": "N/A",
+    "supervisor": "古先生",
+    "file": "工作內容盤點-業務部.xlsx",
+    "task_count": 8,
+    "inferred_dept": "業務部",
+    "inferred_site": "ALL",
+    "inferred_group": "業務"
+  },
+  {
+    "id": "未找到",
+    "name": "曾世聞",
+    "job_title": "業務",
+    "department": "N/A",
+    "supervisor": "古振宇",
+    "file": "工作內容盤點-管理部.xlsx",
+    "task_count": 1,
+    "inferred_dept": "管理部",
+    "inferred_site": "ALL",
+    "inferred_group": "管理"
+  },
+  {
+    "id": "未找到",
+    "name": "張庭憲",
+    "job_title": "廠長",
+    "department": "N/A",
+    "supervisor": "古先生",
+    "file": "工作內容盤點-高上316接頭組.xlsx",
+    "task_count": 24,
+    "inferred_dept": "廠務部",
+    "inferred_site": "316",
+    "inferred_group": "接頭組"
+  },
+  {
+    "id": "未找到",
+    "name": "林珠華",
+    "job_title": "組長",
+    "department": "N/A",
+    "supervisor": "N/A",
+    "file": "工作內容盤點-高上316車縫布包組.xlsx",
+    "task_count": 1,
+    "inferred_dept": "廠務部",
+    "inferred_site": "316",
+    "inferred_group": "車縫布包組"
+  },
+  {
+    "id": "未找到",
+    "name": "吳春珠",
+    "job_title": "組長",
+    "department": "N/A",
+    "supervisor": "古志禹",
+    "file": "工作內容盤點-高獅車縫布包組.xlsx",
+    "task_count": 6,
+    "inferred_dept": "廠務部",
+    "inferred_site": "KS",
+    "inferred_group": "車縫布包組"
+  },
+  {
+    "id": "未找到",
+    "name": "范姜群皓",
+    "job_title": "組長",
+    "department": "N/A",
+    "supervisor": "古志禹",
+    "file": "工作內容盤點-高獅電熱布包組.xlsx",
+    "task_count": 21,
+    "inferred_dept": "廠務部",
+    "inferred_site": "KS",
+    "inferred_group": "電熱布包組"
+  }
+]

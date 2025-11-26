@@ -1,0 +1,591 @@
+[
+  {
+    "meta": {
+      "file": "工作內容盤點-310電熱布包組.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "部門",
+      "廠務部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      }
+    ]
+  },
+  {
+    "meta": {
+      "file": "工作內容盤點-業務部.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "會計",
+      "部門",
+      "管理部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "會計",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "會計",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "會計",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "會計",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "會計",
+        "backup_assignees": []
+      }
+    ]
+  },
+  {
+    "meta": {
+      "file": "工作內容盤點-管理部.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "業務",
+      "部門",
+      "管理部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      }
+    ]
+  },
+  {
+    "meta": {
+      "file": "工作內容盤點-高上316接頭組.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "廠長",
+      "部門",
+      "廠務部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "廠長",
+        "backup_assignees": []
+      }
+    ]
+  },
+  {
+    "meta": {
+      "file": "工作內容盤點-高上316車縫布包組.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "組長",
+      "部門",
+      "廠務部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      }
+    ]
+  },
+  {
+    "meta": {
+      "file": "工作內容盤點-高獅車縫布包組.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "組長",
+      "部門",
+      "廠務部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      }
+    ]
+  },
+  {
+    "meta": {
+      "file": "工作內容盤點-高獅電熱布包組.xlsx"
+    },
+    "collaborators": [
+      "職稱",
+      "組長",
+      "部門",
+      "廠務部",
+      "組別",
+      "更新日期"
+    ],
+    "tasks": [
+      {
+        "title": "高獅",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": null,
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "組長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "組長",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": [
+          "更新日期"
+        ]
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      },
+      {
+        "title": "●",
+        "frequency": "event_triggered",
+        "site": "ALL",
+        "default_assignee": "職稱",
+        "backup_assignees": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,15 @@
+# THERMOTECH-OPS 環境設定指南
+
+## 重要：請手動建立 .env.local 檔案
+
+在專案根目錄 `thermotech-ops-app/` 下，建立一個名為 `.env.local` 的檔案，並貼上以下內容：
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://gjmkckijqurympmsizb.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqbWtja2lqcXVyeW1wbXNzaXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNDg0NzIsImV4cCI6MjA3OTYyNDQ3Mn0.OTr_a064IDcYBusmzE75TUjpro8iUdgGtoqcjtQSqz8
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqbWtja2lqcXVyeW1wbXNzaXpiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDA0ODQ3MiwiZXhwIjoyMDc5NjI0NDcyfQ.hkcIYIOJKq55vrCS-9Yrftc_zVrKo2ZtpeYMmJdxaBQ
+```
+
+完成後，繼續執行下一步。
+
+

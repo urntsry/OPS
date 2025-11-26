@@ -1,0 +1,277 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   THERMOTECH-OPS: Win95 + DOS Hybrid
+   簡潔緊湊、無多餘符號、11px 字體
+   ============================================ */
+
+:root {
+  /* Win95 Color Palette */
+  --win-teal: #008080;
+  --win-grey: #C0C0C0;
+  --win-white: #FFFFFF;
+  --win-dark-grey: #808080;
+  --win-black: #000000;
+  --win-blue: #000080;
+  --win-light-grey: #DFDFDF;
+  
+  /* DOS-like accent */
+  --dos-green: #00FF00;
+  --dos-amber: #FFAA00;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'MS Sans Serif', 'Segoe UI', Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  background-color: var(--win-grey);
+  color: var(--win-black);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   WIN95 3D BEVEL EFFECTS
+   ============================================ */
+
+.outset {
+  background-color: var(--win-grey);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-black);
+  border-bottom: 2px solid var(--win-black);
+  box-shadow: inset 1px 1px 0 var(--win-light-grey), inset -1px -1px 0 var(--win-dark-grey);
+}
+
+.inset {
+  background-color: var(--win-white);
+  border-top: 2px solid var(--win-dark-grey);
+  border-left: 2px solid var(--win-dark-grey);
+  border-right: 2px solid var(--win-light-grey);
+  border-bottom: 2px solid var(--win-light-grey);
+  box-shadow: inset 1px 1px 0 var(--win-black), inset -1px -1px 0 var(--win-white);
+}
+
+/* ============================================
+   DOS-LIKE TYPOGRAPHY
+   ============================================ */
+
+.mono {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+/* ============================================
+   COMPONENTS
+   ============================================ */
+
+/* Button */
+.btn {
+  background-color: var(--win-grey);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-black);
+  border-bottom: 2px solid var(--win-black);
+  box-shadow: inset 1px 1px 0 var(--win-light-grey), inset -1px -1px 0 var(--win-dark-grey);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  min-height: 20px;
+  text-align: center;
+}
+
+.btn:active {
+  background-color: var(--win-white);
+  border-top: 2px solid var(--win-dark-grey);
+  border-left: 2px solid var(--win-dark-grey);
+  border-right: 2px solid var(--win-light-grey);
+  border-bottom: 2px solid var(--win-light-grey);
+  box-shadow: inset 1px 1px 0 var(--win-black), inset -1px -1px 0 var(--win-white);
+  transform: translate(1px, 1px);
+}
+
+.btn:disabled {
+  color: var(--win-dark-grey);
+  cursor: not-allowed;
+}
+
+/* Window */
+.window {
+  background-color: var(--win-grey);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-black);
+  border-bottom: 2px solid var(--win-black);
+  box-shadow: inset 1px 1px 0 var(--win-light-grey), inset -1px -1px 0 var(--win-dark-grey);
+}
+
+/* Title Bar */
+.titlebar {
+  background: linear-gradient(90deg, #000080 0%, #1084D0 100%);
+  color: var(--win-white);
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Input */
+.input {
+  background-color: var(--win-white);
+  border-top: 2px solid var(--win-dark-grey);
+  border-left: 2px solid var(--win-dark-grey);
+  border-right: 2px solid var(--win-light-grey);
+  border-bottom: 2px solid var(--win-light-grey);
+  box-shadow: inset 1px 1px 0 var(--win-black), inset -1px -1px 0 var(--win-white);
+  padding: 2px 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  outline: none;
+}
+
+/* Card */
+.card {
+  background-color: var(--win-grey);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-black);
+  border-bottom: 2px solid var(--win-black);
+  padding: 4px;
+}
+
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.table th,
+.table td {
+  padding: 2px 4px;
+  text-align: left;
+  border: 1px solid var(--win-dark-grey);
+}
+
+.table th {
+  background-color: var(--win-grey);
+  font-weight: bold;
+}
+
+.table tr:hover {
+  background-color: var(--win-blue);
+  color: var(--win-white);
+}
+
+/* Status Bar */
+.statusbar {
+  background-color: var(--win-grey);
+  border-top: 2px solid var(--win-white);
+  padding: 2px 4px;
+  font-size: 11px;
+  display: flex;
+  gap: 8px;
+}
+
+/* DOS-like status */
+.status-ok { color: var(--dos-green); }
+.status-warn { color: var(--dos-amber); }
+.status-err { color: #FF0000; }
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--win-white);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--win-grey);
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-black);
+  border-bottom: 2px solid var(--win-black);
+}
+
+/* Utility Classes */
+.text-11 { font-size: 11px; }
+.text-bold { font-weight: bold; }
+.text-mono { font-family: 'Courier New', monospace; }
+
+/* Layout */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.gap-2 { gap: 2px; }
+.gap-4 { gap: 4px; }
+.gap-8 { gap: 8px; }
+
+.p-2 { padding: 2px; }
+.p-4 { padding: 4px; }
+.p-8 { padding: 8px; }
+
+.mb-2 { margin-bottom: 2px; }
+.mb-4 { margin-bottom: 4px; }
+.mb-8 { margin-bottom: 8px; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
