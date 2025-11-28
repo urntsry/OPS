@@ -58,7 +58,9 @@ export default function LoginPage() {
         employeeId: data.employee_id,
         fullName: data.full_name,
         role: data.role,
-        department: data.department
+        department: data.department,
+        jobTitle: data.job_title,
+        siteCode: data.site_code
       }))
 
       // 導向首頁
@@ -74,7 +76,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-teal-700">
       <div className="window" style={{ width: '450px' }}>
         <div className="titlebar">
-          THERMOTECH-OPS v2.7
+          THERMOTECH-OPS v2.8
         </div>
         
         <div className="p-8 bg-grey-200">

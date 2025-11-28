@@ -51,8 +51,8 @@ export default function TaskClassificationPage() {
       
       if (task.item_type === 'capability') {
         console.log('[TaskClassification] 設定為職能清單，清除任務分配')
-        updates.default_assignee_id = null
-        updates.backup_assignee_id = null
+        updates.default_assignee_id = undefined
+        updates.backup_assignee_id = undefined
         updates.is_active = false // 職能清單不需要啟用
       }
       

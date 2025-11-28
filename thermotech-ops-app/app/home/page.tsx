@@ -69,13 +69,17 @@ export default function HomePage() {
       console.log('[HomePage] 載入使用者:', user)
       setUserId(user.id)
       setUserRole(user.role)
-      const profile = {
+      const profile: Profile = {
         id: user.id,
         employee_id: user.employeeId,
         full_name: user.fullName,
         department: user.department,
+        job_title: user.jobTitle || '',
         role: user.role,
-        points_balance: 0 // 之後從 API 載入
+        site_code: user.siteCode || 'ALL',
+        points_balance: 0, // 之後從 API 載入
+        avatar_url: undefined,
+        created_at: new Date().toISOString()
       }
       setUserProfile(profile)
       setViewingUserId(user.id) // 預設查看自己
@@ -141,11 +145,11 @@ export default function HomePage() {
         handleSwitchView(user.id)
         setSearchEmployeeId('')
       } else {
-        showToast('找不到該員工編號', 'error')
+        setToast({ message: '找不到該員工編號', type: 'error' })
       }
     } catch (error) {
       console.error('[HomePage] 搜尋失敗:', error)
-      showToast('搜尋失敗', 'error')
+      setToast({ message: '搜尋失敗', type: 'error' })
     }
   }
   
