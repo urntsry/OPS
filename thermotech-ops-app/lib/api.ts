@@ -51,6 +51,16 @@ export interface TaskDefinition {
   site_location: string
   is_active: boolean
   source_file?: string
+  // v3.0 新增欄位
+  task_category?: 'routine' | 'assignment' | 'public' | 'announcement'
+  display_type?: 'event' | 'collapsed' | 'periodic'
+  schedule_type?: 'once' | 'range' | 'recurring'
+  schedule_config?: any
+  // v2.0 新增欄位
+  item_type?: 'capability' | 'actual_task'
+  event_category?: '報修' | '活動' | '清潔' | '會計' | '人事' | '職訓' | '會議' | '出差' | string
+  is_template?: boolean
+  default_notify_users?: string[]
 }
 
 export interface DailyAssignment {
@@ -153,7 +163,7 @@ export async function getAllTaskDefinitions() {
 }
 
 /**
- * 根據負責人取得任務定義
+ * 根據負責人取得任務定義（只取實際任務，排除職能清單）
  */
 export async function getTaskDefinitionsByAssignee(userId: string) {
   console.log('[API] 取得使用者任務定義:', userId)
@@ -162,13 +172,14 @@ export async function getTaskDefinitionsByAssignee(userId: string) {
     .select('*')
     .or(`default_assignee_id.eq.${userId},backup_assignee_id.eq.${userId}`)
     .eq('is_active', true)
+    .neq('item_type', 'capability') // 排除職能清單
   
   if (error) {
     console.error('[API] 取得任務定義失敗:', error)
     throw error
   }
   
-  console.log('[API] 成功取得任務定義:', data?.length)
+  console.log('[API] 成功取得實際任務:', data?.length)
   return data as TaskDefinition[]
 }
 
@@ -467,4 +478,110 @@ export async function getAllTodayAssignmentsSummary() {
   console.log('[API] 成功取得任務概況:', data?.length)
   return data
 }
+
+// ===========================================
+// v3.0 新增功能：任務排程管理
+// ===========================================
+
+/**
+ * 更新任務完整資訊（包含排程設定）
+ */
+export async function updateTaskDefinitionFull(
+  taskId: number,
+  updates: Partial<TaskDefinition>
+) {
+  console.log('[API] ========== updateTaskDefinitionFull ==========')
+  console.log('[API] 任務 ID:', taskId)
+  console.log('[API] 更新內容:', updates)
+  console.log('[API] 更新欄位:', Object.keys(updates))
+  
+  const { data, error } = await supabase
+    .from('task_definitions')
+    .update(updates)
+    .eq('id', taskId)
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('[API] ========== 更新任務失敗 ==========')
+    console.error('[API] 錯誤代碼:', error.code)
+    console.error('[API] 錯誤訊息:', error.message)
+    console.error('[API] 錯誤詳情:', error.details)
+    console.error('[API] 錯誤提示:', error.hint)
+    throw error
+  }
+  
+  console.log('[API] 任務更新成功，回傳資料:', data)
+  return data
+}
+
+/**
+ * 取得任務在特定日期的顯示資訊（使用資料庫函數）
+ */
+export async function getTasksForDate(date: string, userId?: string) {
+  console.log('[API] 取得日期任務:', date, userId)
+  
+  // 如果有指定 userId，只取該使用者的任務
+  let query = supabase
+    .from('task_definitions')
+    .select('*')
+  
+  if (userId) {
+    query = query.or(`default_assignee_id.eq.${userId},backup_assignee_id.eq.${userId}`)
+  }
+  
+  const { data, error } = await query
+  
+  if (error) {
+    console.error('[API] 取得任務失敗:', error)
+    throw error
+  }
+  
+  console.log('[API] 取得任務成功:', data?.length)
+  return data || []
+}
+
+/**
+ * 創建新任務（v3.0 完整版）
+ */
+export async function createTaskDefinitionV3(taskData: {
+  title: string
+  description?: string
+  task_category: 'routine' | 'assignment' | 'public' | 'announcement'
+  display_type: 'event' | 'collapsed' | 'periodic'
+  schedule_type: 'once' | 'range' | 'recurring'
+  schedule_config: any
+  base_points: number
+  site_location: string
+  default_assignee_id?: string
+  backup_assignee_id?: string
+}) {
+  console.log('[API] 創建新任務 v3:', taskData)
+  
+  const { data, error } = await supabase
+    .from('task_definitions')
+    .insert({
+      ...taskData,
+      // 保持向下相容，根據 schedule_config 自動設定 frequency
+      frequency: taskData.schedule_type === 'recurring' 
+        ? (taskData.schedule_config.type || 'event_triggered')
+        : 'event_triggered',
+      is_active: true,
+      requires_photo: false,
+      requires_approval: false,
+      difficulty_level: 1,
+      source_file: '手動建立'
+    })
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('[API] 創建任務失敗:', error)
+    throw error
+  }
+  
+  console.log('[API] 任務創建成功:', data)
+  return data
+}
+
 

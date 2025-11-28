@@ -19,8 +19,11 @@ import {
   createDailyAssignment,
   deleteTaskDefinition,
   deleteDailyAssignment,
+  getAllProfiles,
+  getProfileByEmployeeId,
   type TaskDefinition,
-  type DailyAssignment
+  type DailyAssignment,
+  type Profile
 } from '@/lib/api'
 
 export default function HomePage() {
@@ -45,6 +48,12 @@ export default function HomePage() {
   const [userId, setUserId] = useState<string>('')
   const [userRole, setUserRole] = useState<string>('user')
   
+  // 管理者視圖功能
+  const [allUsers, setAllUsers] = useState<Profile[]>([])
+  const [viewingUserId, setViewingUserId] = useState<string>('') // 當前查看的用戶
+  const [viewingUserProfile, setViewingUserProfile] = useState<Profile | null>(null)
+  const [searchEmployeeId, setSearchEmployeeId] = useState('')
+  
   // 載入登入使用者資訊
   useEffect(() => {
     const currentUser = localStorage.getItem('currentUser')
@@ -60,19 +69,85 @@ export default function HomePage() {
       console.log('[HomePage] 載入使用者:', user)
       setUserId(user.id)
       setUserRole(user.role)
-      setUserProfile({
+      const profile = {
         id: user.id,
         employee_id: user.employeeId,
         full_name: user.fullName,
         department: user.department,
         role: user.role,
         points_balance: 0 // 之後從 API 載入
-      })
+      }
+      setUserProfile(profile)
+      setViewingUserId(user.id) // 預設查看自己
+      setViewingUserProfile(profile) // 預設查看自己
     } catch (error) {
       console.error('[HomePage] 解析使用者資訊失敗:', error)
       window.location.href = '/'
     }
   }, [])
+  
+  // 載入所有用戶（僅 Admin）
+  useEffect(() => {
+    if (userRole === 'admin' && userId) {
+      loadAllUsers()
+    }
+  }, [userRole, userId])
+  
+  const loadAllUsers = async () => {
+    try {
+      console.log('[HomePage] 載入所有用戶...')
+      const users = await getAllProfiles()
+      setAllUsers(users)
+      console.log('[HomePage] 載入用戶數:', users.length)
+    } catch (error) {
+      console.error('[HomePage] 載入用戶失敗:', error)
+    }
+  }
+  
+  // 切換查看的用戶
+  const handleSwitchView = async (targetUserId: string) => {
+    console.log('[HomePage] 切換視圖到用戶:', targetUserId)
+    
+    if (!targetUserId) {
+      console.log('[HomePage] 切換回自己')
+      setViewingUserId(userId)
+      setViewingUserProfile(userProfile)
+      return
+    }
+    
+    try {
+      setViewingUserId(targetUserId)
+      
+      // 從 allUsers 中找到該用戶
+      const targetUser = allUsers.find(u => u.id === targetUserId)
+      if (targetUser) {
+        setViewingUserProfile(targetUser)
+        console.log('[HomePage] 切換到:', targetUser.full_name)
+      }
+    } catch (error) {
+      console.error('[HomePage] 切換視圖失敗:', error)
+    }
+  }
+  
+  // 通過員工編號搜尋
+  const handleSearchByEmployeeId = async () => {
+    if (!searchEmployeeId.trim()) return
+    
+    console.log('[HomePage] 搜尋員工編號:', searchEmployeeId)
+    
+    try {
+      const user = await getProfileByEmployeeId(searchEmployeeId)
+      if (user) {
+        handleSwitchView(user.id)
+        setSearchEmployeeId('')
+      } else {
+        showToast('找不到該員工編號', 'error')
+      }
+    } catch (error) {
+      console.error('[HomePage] 搜尋失敗:', error)
+      showToast('搜尋失敗', 'error')
+    }
+  }
   
   // 計算視窗位置（不重疊）
   const getModalPosition = (index: number) => {
@@ -97,14 +172,17 @@ export default function HomePage() {
       return
     }
     
+    // 決定要載入哪個用戶的任務
+    const targetUserId = viewingUserId || userId
+    
     async function loadUserTasks() {
-      console.log('[HomePage] 開始載入使用者任務')
+      console.log('[HomePage] 開始載入使用者任務，目標用戶:', targetUserId)
       setLoading(true)
       
       try {
         // 1. 取得使用者的任務定義（例行公事）
         console.log('[HomePage] 取得任務定義...')
-        const taskDefs = await getTaskDefinitionsByAssignee(userId)
+        const taskDefs = await getTaskDefinitionsByAssignee(targetUserId)
         console.log('[HomePage] 任務定義:', taskDefs.length)
         
         // 轉換為顯示格式
@@ -143,7 +221,7 @@ export default function HomePage() {
     }
     
     loadUserTasks()
-  }, [userId]) // 依賴 userId
+  }, [userId, viewingUserId]) // 依賴 userId 和 viewingUserId
   
   // 轉換頻率為中文標籤
   function getFrequencyLabel(frequency: string): string {
@@ -444,6 +522,134 @@ export default function HomePage() {
             type={toast.type} 
             onClose={() => setToast(null)} 
           />
+        )}
+
+        {/* 管理者視圖切換器（僅 Admin）- 方案 C */}
+        {userRole === 'admin' && (
+          <div className="window p-2 mb-2">
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '8px',
+              fontSize: '11px'
+            }}>
+              {/* 當前檢視提示 */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                padding: '4px 8px',
+                background: viewingUserId && viewingUserId !== userId ? '#000080' : '#008080',
+                color: '#FFFFFF',
+                border: '2px outset #C0C0C0'
+              }}>
+                <span className="text-bold">
+                  當前檢視：
+                  {viewingUserProfile 
+                    ? `${viewingUserProfile.full_name} (${viewingUserProfile.employee_id})`
+                    : userProfile
+                    ? `${userProfile.full_name} (${userProfile.employee_id}) - 自己`
+                    : '載入中...'}
+                </span>
+                {viewingUserId && viewingUserId !== userId && (
+                  <Button 
+                    onClick={() => handleSwitchView(userId)}
+                    style={{ fontSize: '11px', padding: '2px 8px' }}
+                  >
+                    返回自己
+                  </Button>
+                )}
+              </div>
+
+              {/* 切換方式選項 */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {/* 下拉選單 */}
+                <div style={{ flex: 1 }}>
+                  <label style={{ marginRight: '4px' }}>選擇員工：</label>
+                  <select
+                    value={viewingUserId || userId}
+                    onChange={(e) => handleSwitchView(e.target.value)}
+                    className="inset"
+                    style={{
+                      fontSize: '11px',
+                      fontFamily: 'monospace',
+                      background: '#FFFFFF',
+                      padding: '2px 4px',
+                      minWidth: '200px'
+                    }}
+                  >
+                    <option value={userId}>
+                      {userProfile?.full_name} ({userProfile?.employee_id}) - 自己
+                    </option>
+                    <optgroup label="────── 其他員工 ──────">
+                      {allUsers
+                        .filter(u => u.id !== userId)
+                        .sort((a, b) => a.employee_id.localeCompare(b.employee_id))
+                        .map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.full_name} ({user.employee_id}) - {user.department}
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                {/* 搜尋框 */}
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <label style={{ whiteSpace: 'nowrap' }}>搜尋：</label>
+                  <input
+                    type="text"
+                    placeholder="員工編號"
+                    value={searchEmployeeId}
+                    onChange={(e) => setSearchEmployeeId(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearchByEmployeeId()
+                      }
+                    }}
+                    className="inset"
+                    style={{
+                      fontSize: '11px',
+                      fontFamily: 'monospace',
+                      background: '#FFFFFF',
+                      padding: '2px 4px',
+                      width: '100px'
+                    }}
+                  />
+                  <Button 
+                    onClick={handleSearchByEmployeeId}
+                    style={{ fontSize: '11px', padding: '2px 8px' }}
+                  >
+                    🔍
+                  </Button>
+                </div>
+              </div>
+
+              {/* 快速切換按鈕 */}
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <span style={{ marginRight: '4px' }}>快速切換：</span>
+                <Button 
+                  onClick={() => handleSwitchView(userId)}
+                  style={{ 
+                    fontSize: '11px', 
+                    padding: '2px 8px',
+                    background: viewingUserId === userId || !viewingUserId ? '#FFFFFF' : '#C0C0C0'
+                  }}
+                >
+                  自己
+                </Button>
+                <Button 
+                  onClick={loadAllUsers}
+                  style={{ fontSize: '11px', padding: '2px 8px' }}
+                >
+                  重新載入
+                </Button>
+                <span style={{ marginLeft: 'auto', color: '#808080' }}>
+                  共 {allUsers.length} 位員工
+                </span>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Admin Tabs (only for admin) */}

@@ -3,14 +3,19 @@
 import { useState, useEffect } from 'react'
 import Button from './Button'
 import Card from './Card'
+import TaskEditor from './TaskEditor'
+import TaskClassificationPage from './TaskClassificationPage'
 import { 
   getAllProfiles, 
   getAllTaskDefinitions,
   updateTaskDefinitionAssignee,
   deleteTaskDefinition,
+  updateTaskDefinitionFull,
   type Profile,
   type TaskDefinition
 } from '@/lib/api'
+
+type SettingsTab = 'assignment' | 'classification'
 
 export default function SettingsPage() {
   const [users, setUsers] = useState<Profile[]>([])
@@ -20,6 +25,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [taskToDelete, setTaskToDelete] = useState<TaskDefinition | null>(null)
+  const [taskToEdit, setTaskToEdit] = useState<TaskDefinition | null>(null)
+  const [activeTab, setActiveTab] = useState<SettingsTab>('classification')
 
   // 載入資料
   useEffect(() => {
@@ -35,8 +42,14 @@ export default function SettingsPage() {
         
         // 載入所有任務定義（包含 is_active = false 的）
         const tasksData = await getAllTaskDefinitions()
-        console.log('[SettingsPage] 任務數量:', tasksData.length)
-        setTaskDefs(tasksData)
+        console.log('[SettingsPage] 任務數量（全部）:', tasksData.length)
+        
+        // 只保留實際任務（排除職能清單）
+        const actualTasks = tasksData.filter(t => t.item_type !== 'capability')
+        console.log('[SettingsPage] 實際任務數量:', actualTasks.length)
+        console.log('[SettingsPage] 職能清單數量:', tasksData.length - actualTasks.length)
+        
+        setTaskDefs(actualTasks)
         
         // 預設選擇第一個員工
         if (profilesData.length > 0) {
@@ -175,20 +188,163 @@ export default function SettingsPage() {
     }
   }
 
+  // 開啟任務編輯器
+  const handleEditTask = (task: TaskDefinition) => {
+    console.log('[SettingsPage] ========== 開啟任務編輯器 ==========')
+    console.log('[SettingsPage] 任務 ID:', task.id)
+    console.log('[SettingsPage] 任務標題:', task.title)
+    console.log('[SettingsPage] 完整任務資料:', task)
+    console.log('[SettingsPage] v3.0 欄位檢查:', {
+      task_category: task.task_category,
+      display_type: task.display_type,
+      schedule_type: task.schedule_type,
+      schedule_config: task.schedule_config
+    })
+    setTaskToEdit(task)
+    console.log('[SettingsPage] taskToEdit 狀態已設定')
+  }
+
+  // 儲存任務編輯
+  const handleSaveTaskEdit = async (updates: Partial<TaskDefinition>) => {
+    if (!taskToEdit) {
+      console.error('[SettingsPage] taskToEdit 為空，無法儲存')
+      return
+    }
+    
+    console.log('[SettingsPage] ========== 儲存任務編輯 ==========')
+    console.log('[SettingsPage] 任務 ID:', taskToEdit.id)
+    console.log('[SettingsPage] 更新內容:', updates)
+    
+    try {
+      // 呼叫 API 更新
+      console.log('[SettingsPage] 呼叫 API updateTaskDefinitionFull...')
+      const updatedTask = await updateTaskDefinitionFull(taskToEdit.id, updates)
+      console.log('[SettingsPage] API 回傳結果:', updatedTask)
+      
+      // 更新本地狀態
+      setTaskDefs(prev => prev.map(t => 
+        t.id === taskToEdit.id ? { ...t, ...updatedTask } : t
+      ))
+      
+      console.log('[SettingsPage] 本地狀態已更新')
+      
+      setToast(`✓ 已更新「${taskToEdit.title}」`)
+      setTimeout(() => setToast(null), 3000)
+      
+      setTaskToEdit(null)
+      console.log('[SettingsPage] 編輯器已關閉')
+    } catch (error) {
+      console.error('[SettingsPage] ========== 更新任務失敗 ==========')
+      console.error('[SettingsPage] 錯誤詳情:', error)
+      alert('更新失敗，請稍後再試')
+    }
+  }
+
   const selectedStats = selectedUserId ? getUserStats(selectedUserId) : null
+
+  console.log('[SettingsPage] Render 檢查:', {
+    loading,
+    usersCount: users.length,
+    taskDefsCount: taskDefs.length,
+    taskToEdit: taskToEdit ? `Task #${taskToEdit.id} - ${taskToEdit.title}` : null,
+    taskToDelete: taskToDelete ? `Task #${taskToDelete.id}` : null
+  })
 
   if (loading) {
     return (
       <div className="window">
-        <div className="titlebar">系統設定 - 任務分配管理</div>
+        <div className="titlebar">系統設定</div>
         <div className="p-4 text-center text-mono">載入中...</div>
       </div>
     )
   }
 
+  // 如果是分類頁面，直接顯示
+  if (activeTab === 'classification') {
+    return (
+      <div>
+        {/* 分頁切換 */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '4px', 
+          marginBottom: '0',
+          background: '#C0C0C0',
+          padding: '4px'
+        }}>
+          <button
+            onClick={() => setActiveTab('classification')}
+            style={{
+              padding: '6px 16px',
+              fontSize: '11px',
+              background: '#C0C0C0',
+              border: '2px solid',
+              borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            任務分類管理
+          </button>
+          <button
+            onClick={() => setActiveTab('assignment')}
+            style={{
+              padding: '6px 16px',
+              fontSize: '11px',
+              background: '#808080',
+              color: '#C0C0C0',
+              border: '2px solid #808080',
+              cursor: 'pointer'
+            }}
+          >
+            人員指派管理
+          </button>
+        </div>
+        <TaskClassificationPage />
+      </div>
+    )
+  }
+
   return (
-    <div className="window">
-      <div className="titlebar">系統設定 - 任務分配管理</div>
+    <div>
+      {/* 分頁切換 */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '4px', 
+        marginBottom: '0',
+        background: '#C0C0C0',
+        padding: '4px'
+      }}>
+        <button
+          onClick={() => setActiveTab('classification')}
+          style={{
+            padding: '6px 16px',
+            fontSize: '11px',
+            background: '#808080',
+            color: '#C0C0C0',
+            border: '2px solid #808080',
+            cursor: 'pointer'
+          }}
+        >
+          任務分類管理
+        </button>
+        <button
+          onClick={() => setActiveTab('assignment')}
+          style={{
+            padding: '6px 16px',
+            fontSize: '11px',
+            background: '#C0C0C0',
+            border: '2px solid',
+            borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
+        >
+          人員指派管理
+        </button>
+      </div>
+      
+      <div className="window">
+      <div className="titlebar">系統設定 - 人員指派管理</div>
       
       {/* Toast 通知 */}
       {toast && (
@@ -256,15 +412,15 @@ export default function SettingsPage() {
               <table className="w-full text-11" style={{ borderCollapse: 'collapse' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#C0C0C0' }}>
                   <tr className="border-b-2 border-grey-600">
-                    <th style={{width: '40px', padding: '4px', textAlign: 'left'}}>ID</th>
+                    <th style={{width: '40px', padding: '4px', textAlign: 'left'}}>序號</th>
                     <th style={{padding: '4px', textAlign: 'left'}}>標題</th>
                     <th style={{width: '60px', padding: '4px', textAlign: 'left'}}>頻率</th>
                     <th style={{width: '50px', padding: '4px', textAlign: 'left'}}>廠區</th>
-                    <th style={{width: '50px', padding: '4px', textAlign: 'center'}}>操作</th>
+                    <th style={{width: '80px', padding: '4px', textAlign: 'center'}}>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {taskDefs.map(task => {
+                  {taskDefs.map((task, index) => {
                     // 計算有多少人被指派此任務
                     const assignedCount = users.filter(u => 
                       task.default_assignee_id === u.id || task.backup_assignee_id === u.id
@@ -272,7 +428,7 @@ export default function SettingsPage() {
                     
                     return (
                       <tr key={task.id} className="border-b border-grey-300 hover:bg-grey-100">
-                        <td className="text-mono" style={{padding: '4px'}}>{task.id}</td>
+                        <td className="text-mono" style={{padding: '4px'}}>{index + 1}</td>
                         <td style={{padding: '4px'}}>
                           {task.title}
                           {!task.is_active && <span className="text-grey-600"> (未啟用)</span>}
@@ -283,7 +439,20 @@ export default function SettingsPage() {
                            task.frequency === 'monthly' ? '每月' : '事件'}
                         </td>
                         <td className="text-mono text-11" style={{padding: '4px'}}>{task.site_location}</td>
-                        <td style={{padding: '4px', textAlign: 'center'}}>
+                        <td style={{padding: '4px', textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center'}}>
+                          <button
+                            onClick={() => handleEditTask(task)}
+                            style={{
+                              fontSize: '11px',
+                              padding: '2px 6px',
+                              background: '#C0C0C0',
+                              border: '1px solid #808080',
+                              cursor: 'pointer'
+                            }}
+                            title="編輯任務"
+                          >
+                            編
+                          </button>
                           <button
                             onClick={() => handleDeleteTask(task)}
                             style={{
@@ -507,6 +676,56 @@ export default function SettingsPage() {
           </div>
         </>
       )}
+
+      {/* 任務編輯器 */}
+      {taskToEdit && (
+        <>
+          {console.log('[SettingsPage] 渲染 TaskEditor，task:', taskToEdit)}
+          {/* 半透明背景 */}
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.5)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onClick={() => {
+              console.log('[SettingsPage] 點擊背景，關閉編輯器')
+              setTaskToEdit(null)
+            }}
+          >
+            {/* 編輯器視窗容器 - 阻止點擊事件冒泡 */}
+            <div 
+              style={{
+                zIndex: 10001,
+                maxHeight: '90vh',
+                maxWidth: '90vw',
+                overflowY: 'auto'
+              }}
+              onClick={(e) => {
+                e.stopPropagation() // 防止點擊視窗時關閉
+                console.log('[SettingsPage] 點擊視窗內容（不關閉）')
+              }}
+            >
+              <TaskEditor 
+                task={taskToEdit}
+                onSave={handleSaveTaskEdit}
+                onCancel={() => {
+                  console.log('[SettingsPage] 點擊取消，關閉編輯器')
+                  setTaskToEdit(null)
+                }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
     </div>
   )
 }
