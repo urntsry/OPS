@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Calendar from '@/components/Calendar'
 import EventList from '@/components/EventList'
@@ -36,6 +36,14 @@ import {
 } from '@/lib/api'
 
 export default function HomePage() {
+  return (
+    <Suspense fallback={<div style={{ background: '#C0C0C0', width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}>LOADING...</div>}>
+      <HomePageInner />
+    </Suspense>
+  )
+}
+
+function HomePageInner() {
   const device = useDevice()
   const router = useRouter()
   const searchParams = useSearchParams()
