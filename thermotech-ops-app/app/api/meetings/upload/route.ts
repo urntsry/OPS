@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         meeting_id: meeting.id,
         raw_content: rawContent,
         file_type: fileType,
+        file_url: fileUrl,
       }),
     }).catch(e => console.error('[upload] Analyze trigger failed:', e))
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   getMeetings, getMeetingCategories, createMeetingCategory, deleteMeetingCategory,
   searchMeetings, getMeetingDeadlines, getMeetingTasks, updateMeetingTaskStatus,
-  updateMeetingDeadlineStatus, deleteMeeting,
+  updateMeetingDeadlineStatus, deleteMeeting, updateMeeting,
   type Meeting, type MeetingCategory, type MeetingDeadline, type MeetingTask
 } from '@/lib/meetingApi'
 
@@ -185,10 +185,20 @@ function RecordsTab() {
                 >
                   <td style={{ padding: '2px 4px', color: 'var(--text-muted)', fontSize: '9px' }}>{m.meeting_date}</td>
                   <td style={{ padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</td>
-                  <td style={{ padding: '2px 4px', fontSize: '9px' }}>
-                    {m.category ? (
-                      <span style={{ color: m.category.color, fontWeight: 'bold' }}>{m.category.name}</span>
-                    ) : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                  <td style={{ padding: '1px 2px', fontSize: '9px' }} onClick={e => e.stopPropagation()}>
+                    <select
+                      value={m.category_id || ''}
+                      onChange={async (e) => {
+                        const newCatId = e.target.value || null
+                        await updateMeeting(m.id, { category_id: newCatId } as any)
+                        loadData()
+                      }}
+                      className="inset"
+                      style={{ fontSize: '9px', fontFamily: 'monospace', padding: '0 2px', background: 'var(--bg-input)', color: 'var(--text-primary)', width: '100%', cursor: 'pointer' }}
+                    >
+                      <option value="">-</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
                   </td>
                   <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: '9px' }}>
                     <span style={{ color: m.status === 'analyzed' ? 'var(--status-success)' : m.status === 'analyzing' ? 'var(--status-warning)' : 'var(--text-muted)' }}>
@@ -206,7 +216,7 @@ function RecordsTab() {
 }
 
 // ============================================
-// MEETING DETAIL VIEW
+// MEETING DETAIL VIEW — Formal Meeting Record Format
 // ============================================
 function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskToggle, onDeadlineToggle }: {
   meeting: Meeting
@@ -219,98 +229,173 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
 }) {
   const [showRaw, setShowRaw] = useState(false)
   const analysis = meeting.ai_analysis
+  const info = analysis?.meeting_info || {}
+  const sections = analysis?.content_sections || []
+
+  const cellStyle: React.CSSProperties = { padding: '3px 6px', fontSize: '10px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', verticalAlign: 'top' }
+  const labelStyle: React.CSSProperties = { ...cellStyle, fontWeight: 'bold', background: 'var(--bg-window)', width: '70px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }
 
   return (
     <div>
-      {/* Header */}
+      {/* Nav bar */}
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
         <button className="btn" onClick={onBack} style={{ fontSize: '9px', padding: '1px 6px' }}>← BACK</button>
-        <span style={{ fontWeight: 'bold', flex: 1 }}>{meeting.title}</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>{meeting.meeting_date}</span>
+        <div style={{ flex: 1 }} />
+        {meeting.file_url && (
+          <a href={meeting.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '9px', color: 'var(--accent-blue)' }}>OPEN FILE</a>
+        )}
         <button className="btn" onClick={() => onDelete(meeting.id)} style={{ fontSize: '9px', padding: '1px 6px', color: 'var(--accent-red)' }}>DEL</button>
       </div>
 
-      {/* Summary */}
-      {meeting.summary && (
-        <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
-          <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>AI SUMMARY</div>
-          <div style={{ padding: '4px 6px', fontSize: '10px', background: 'var(--bg-inset)' }}>{meeting.summary}</div>
-        </div>
-      )}
+      {/* ====== Formal Meeting Record Document ====== */}
+      <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
 
-      {/* Key Decisions */}
-      {analysis?.key_decisions?.length > 0 && (
-        <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
-          <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>KEY DECISIONS</div>
-          <div style={{ padding: '4px 6px', background: 'var(--bg-inset)' }}>
-            {analysis.key_decisions.map((d: string, i: number) => (
-              <div key={i} style={{ fontSize: '10px', marginBottom: '2px' }}>• {d}</div>
-            ))}
+        {/* Document Header */}
+        <div style={{ background: 'var(--bg-inset)', padding: '8px 12px', borderBottom: '1px solid var(--border-mid-dark)', textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{info.doc_number ? `表單編號 ${info.doc_number}` : ''}</div>
+          <div style={{ fontSize: '12px', fontWeight: 'bold', margin: '4px 0', letterSpacing: '2px' }}>
+            {info.company || '工德股份有限公司/振禹企業有限公司'}
           </div>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '6px' }}>會 議 記 錄</div>
         </div>
-      )}
 
-      {/* Deadlines */}
-      <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
-        <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>
-          <span>DEADLINES ({deadlines.length})</span>
-        </div>
-        <div style={{ padding: '2px', background: 'var(--bg-inset)', minHeight: '30px' }}>
-          {deadlines.length === 0 ? (
-            <div style={{ padding: '4px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>- NONE -</div>
-          ) : deadlines.map(d => (
-            <div
-              key={d.id}
-              className="eventlist-row"
-              onClick={() => onDeadlineToggle(d.id, d.status)}
-              style={{ padding: '2px 4px', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'center', borderBottom: '1px solid var(--table-border)' }}
-            >
-              <span style={{ fontSize: '10px', fontFamily: 'Courier New' }}>{d.status === 'completed' ? '[V]' : '[ ]'}</span>
-              <span style={{ flex: 1, textDecoration: d.status === 'completed' ? 'line-through' : 'none', color: d.status === 'completed' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                {d.description}
-              </span>
-              {d.is_urgent && <span style={{ color: 'var(--accent-red)', fontWeight: 'bold', fontSize: '9px' }}>URGENT</span>}
-              {d.deadline_date && <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>{d.deadline_date}</span>}
+        {/* Meeting Info Table */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', fontFamily: 'monospace' }}>
+          <tbody>
+            <tr>
+              <td style={labelStyle}>主　題</td>
+              <td colSpan={3} style={cellStyle}>{info.subject || meeting.title}</td>
+            </tr>
+            <tr>
+              <td style={labelStyle}>主　席</td>
+              <td style={{ ...cellStyle, width: '35%' }}>{info.chairperson || '-'}</td>
+              <td style={labelStyle}>記　錄</td>
+              <td style={cellStyle}>{info.recorder || '-'}</td>
+            </tr>
+            <tr>
+              <td style={labelStyle}>地　點</td>
+              <td style={cellStyle}>{info.location || '-'}</td>
+              <td style={labelStyle}>時　間</td>
+              <td style={cellStyle}>{info.date || meeting.meeting_date}</td>
+            </tr>
+            <tr>
+              <td style={labelStyle}>出席人員</td>
+              <td colSpan={3} style={cellStyle}>
+                {(info.attendees && info.attendees.length > 0) ? info.attendees.join('、') : '-'}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Separator */}
+        <div style={{ height: '2px', background: 'var(--border-mid-dark)' }} />
+
+        {/* Meeting Content Sections */}
+        <div style={{ padding: '8px 12px', background: 'var(--bg-inset)', minHeight: '80px' }}>
+          {/* AI Summary */}
+          {meeting.summary && (
+            <div style={{ marginBottom: '8px', padding: '4px 6px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', fontSize: '10px' }}>
+              <span style={{ fontWeight: 'bold', color: 'var(--accent-teal)', fontSize: '9px' }}>AI SUMMARY: </span>
+              {meeting.summary}
             </div>
-          ))}
+          )}
+
+          {/* Structured Content Sections */}
+          {sections.length > 0 ? (
+            sections.map((section: any, idx: number) => (
+              <div key={idx} style={{ marginBottom: '8px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '3px', borderBottom: '1px solid var(--border-mid-dark)', paddingBottom: '2px' }}>
+                  {idx + 1}. {section.title}
+                </div>
+                {(section.items || []).map((item: string, iIdx: number) => (
+                  <div key={iIdx} style={{ fontSize: '10px', paddingLeft: '12px', marginBottom: '2px', lineHeight: '1.4' }}>
+                    • {item}
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : meeting.raw_content && !meeting.raw_content.startsWith('[IMAGE') ? (
+            <div style={{ fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+              {meeting.raw_content}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '12px', fontSize: '10px' }}>
+              (尚無結構化內容)
+            </div>
+          )}
+
+          {/* Key Decisions */}
+          {analysis?.key_decisions?.length > 0 && (
+            <div style={{ marginTop: '8px', padding: '4px 6px', border: '1px solid var(--accent-blue)', background: 'var(--bg-window)' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '9px', color: 'var(--accent-blue)', marginBottom: '2px' }}>重要決議</div>
+              {analysis.key_decisions.map((d: string, i: number) => (
+                <div key={i} style={{ fontSize: '10px', marginBottom: '1px' }}>• {d}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Separator */}
+        <div style={{ height: '2px', background: 'var(--border-mid-dark)' }} />
+
+        {/* Action Items / 待辦事項 */}
+        <div style={{ padding: '6px 12px', background: 'var(--bg-inset)' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '4px', letterSpacing: '2px' }}>待辦事項</div>
+          {tasks.length === 0 && deadlines.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: '10px', padding: '4px 0' }}>- 無 -</div>
+          ) : (
+            <>
+              {tasks.map((t, idx) => (
+                <div
+                  key={t.id}
+                  className="eventlist-row"
+                  onClick={() => onTaskToggle(t.id, t.status)}
+                  style={{ padding: '2px 0', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'flex-start', borderBottom: '1px solid var(--table-border)', fontSize: '10px' }}
+                >
+                  <span style={{ fontFamily: 'Courier New', flexShrink: 0 }}>{t.status === 'completed' ? '[V]' : '[ ]'}</span>
+                  <span style={{ fontWeight: 'bold', color: 'var(--accent-blue)', minWidth: '50px', flexShrink: 0 }}>{t.assignee_name}</span>
+                  <span style={{ flex: 1, textDecoration: t.status === 'completed' ? 'line-through' : 'none', color: t.status === 'completed' ? 'var(--text-muted)' : 'var(--text-primary)', lineHeight: '1.4' }}>
+                    {t.task_description}
+                  </span>
+                  {t.due_date && <span style={{ color: 'var(--text-muted)', fontSize: '9px', flexShrink: 0 }}>{t.due_date}</span>}
+                </div>
+              ))}
+              {deadlines.map(d => (
+                <div
+                  key={d.id}
+                  className="eventlist-row"
+                  onClick={() => onDeadlineToggle(d.id, d.status)}
+                  style={{ padding: '2px 0', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'center', borderBottom: '1px solid var(--table-border)', fontSize: '10px' }}
+                >
+                  <span style={{ fontFamily: 'Courier New', flexShrink: 0 }}>{d.status === 'completed' ? '[V]' : '[ ]'}</span>
+                  {d.is_urgent && <span style={{ color: 'var(--accent-red)', fontWeight: 'bold', fontSize: '9px', flexShrink: 0 }}>URGENT</span>}
+                  <span style={{ flex: 1, textDecoration: d.status === 'completed' ? 'line-through' : 'none', color: d.status === 'completed' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                    {d.description}
+                  </span>
+                  {d.deadline_date && <span style={{ color: 'var(--text-muted)', fontSize: '9px', flexShrink: 0 }}>{d.deadline_date}</span>}
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Tasks */}
-      <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
-        <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>
-          <span>TASKS ({tasks.length})</span>
-        </div>
-        <div style={{ padding: '2px', background: 'var(--bg-inset)', minHeight: '30px' }}>
-          {tasks.length === 0 ? (
-            <div style={{ padding: '4px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>- NONE -</div>
-          ) : tasks.map(t => (
-            <div
-              key={t.id}
-              className="eventlist-row"
-              onClick={() => onTaskToggle(t.id, t.status)}
-              style={{ padding: '2px 4px', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'center', borderBottom: '1px solid var(--table-border)' }}
-            >
-              <span style={{ fontSize: '10px', fontFamily: 'Courier New' }}>{t.status === 'completed' ? '[V]' : '[ ]'}</span>
-              <span style={{ fontWeight: 'bold', fontSize: '9px', color: 'var(--accent-blue)', minWidth: '50px' }}>{t.assignee_name}</span>
-              <span style={{ flex: 1, textDecoration: t.status === 'completed' ? 'line-through' : 'none', color: t.status === 'completed' ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                {t.task_description}
-              </span>
-              {t.due_date && <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>{t.due_date}</span>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Raw Content Toggle */}
+      {/* Collapsible raw content / original image */}
       <div className="window" style={{ padding: 0 }}>
         <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px', cursor: 'pointer' }} onClick={() => setShowRaw(!showRaw)}>
-          <span>{showRaw ? '▼' : '▶'} RAW CONTENT</span>
+          <span>{showRaw ? '▼' : '▶'} 原始內容 / 原始檔案</span>
           {meeting.file_name && <span style={{ fontWeight: 'normal', fontSize: '8px' }}>{meeting.file_name}</span>}
         </div>
         {showRaw && (
-          <div style={{ padding: '4px 6px', background: 'var(--bg-inset)', maxHeight: '200px', overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: '9px', color: 'var(--text-secondary)' }}>
-            {meeting.raw_content || '(no content)'}
+          <div style={{ padding: '4px 6px', background: 'var(--bg-inset)', maxHeight: '300px', overflow: 'auto' }}>
+            {meeting.file_type === 'image' && meeting.file_url && (
+              <div style={{ marginBottom: '6px', textAlign: 'center' }}>
+                <img src={meeting.file_url} alt={meeting.file_name || ''} style={{ maxWidth: '100%', maxHeight: '250px', border: '1px solid var(--border-mid-dark)' }} />
+              </div>
+            )}
+            <div style={{ whiteSpace: 'pre-wrap', fontSize: '9px', color: 'var(--text-secondary)' }}>
+              {meeting.raw_content || '(no content)'}
+            </div>
           </div>
         )}
       </div>
