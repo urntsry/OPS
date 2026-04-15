@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[analyze] Error:', error)
     if (meetingId) {
-      await supabase.from('meetings').update({ status: 'analyzed' }).eq('id', meetingId).catch(() => {})
+      try { await supabase.from('meetings').update({ status: 'analyzed' }).eq('id', meetingId) } catch { /* ignore */ }
     }
     return NextResponse.json({ error: error.message || 'Analysis failed' }, { status: 500 })
   }
