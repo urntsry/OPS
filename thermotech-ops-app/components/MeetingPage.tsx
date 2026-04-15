@@ -319,68 +319,129 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
 }
 
 // ============================================
-// UPLOAD TAB
+// UPLOAD TAB — Batch Upload with Sequential AI Analysis
 // ============================================
+interface BatchFile {
+  id: string
+  file: File
+  title: string
+  date: string
+  status: 'queued' | 'uploading' | 'analyzing' | 'done' | 'error'
+  meetingId?: string
+  error?: string
+}
+
 function UploadTab({ userProfile }: { userProfile: any }) {
   const [dragOver, setDragOver] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadResult, setUploadResult] = useState<any>(null)
-  const [title, setTitle] = useState('')
-  const [meetingDate, setMeetingDate] = useState(new Date().toISOString().split('T')[0])
+  const [queue, setQueue] = useState<BatchFile[]>([])
+  const [processing, setProcessing] = useState(false)
+  const [defaultDate, setDefaultDate] = useState(new Date().toISOString().split('T')[0])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const processingRef = useRef(false)
 
-  const handleFile = async (file: File) => {
-    setUploading(true)
-    setUploadResult(null)
-
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('title', title || file.name)
-    formData.append('meeting_date', meetingDate)
-    formData.append('uploaded_by', userProfile?.id || '')
-
-    try {
-      const res = await fetch('/api/meetings/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (data.success) {
-        setUploadResult({ success: true, meeting: data.meeting })
-        setTitle('')
-      } else {
-        setUploadResult({ success: false, error: data.error })
-      }
-    } catch (e: any) {
-      setUploadResult({ success: false, error: e.message })
-    }
-    setUploading(false)
+  const addFiles = (files: FileList | File[]) => {
+    const newItems: BatchFile[] = Array.from(files).map(file => ({
+      id: Math.random().toString(36).slice(2),
+      file,
+      title: file.name.replace(/\.[^.]+$/, ''),
+      date: defaultDate,
+      status: 'queued' as const,
+    }))
+    setQueue(prev => [...prev, ...newItems])
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files)
+  }
+
+  const removeFromQueue = (id: string) => {
+    setQueue(prev => prev.filter(f => f.id !== id))
+  }
+
+  const updateQueueItem = (id: string, updates: Partial<BatchFile>) => {
+    setQueue(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f))
+  }
+
+  const processQueue = async () => {
+    if (processingRef.current) return
+    processingRef.current = true
+    setProcessing(true)
+
+    const items = queue.filter(f => f.status === 'queued')
+    for (const item of items) {
+      updateQueueItem(item.id, { status: 'uploading' })
+
+      try {
+        const formData = new FormData()
+        formData.append('file', item.file)
+        formData.append('title', item.title)
+        formData.append('meeting_date', item.date)
+        formData.append('uploaded_by', userProfile?.id || '')
+
+        const res = await fetch('/api/meetings/upload', { method: 'POST', body: formData })
+        const data = await res.json()
+
+        if (data.success) {
+          updateQueueItem(item.id, { status: 'analyzing', meetingId: data.meeting?.id })
+          // AI analysis runs async on the server; mark as done after upload
+          await new Promise(r => setTimeout(r, 500))
+          updateQueueItem(item.id, { status: 'done', meetingId: data.meeting?.id })
+        } else {
+          updateQueueItem(item.id, { status: 'error', error: data.error })
+        }
+      } catch (e: any) {
+        updateQueueItem(item.id, { status: 'error', error: e.message })
+      }
+    }
+
+    processingRef.current = false
+    setProcessing(false)
+  }
+
+  const queuedCount = queue.filter(f => f.status === 'queued').length
+  const doneCount = queue.filter(f => f.status === 'done').length
+  const errorCount = queue.filter(f => f.status === 'error').length
+
+  const statusLabel = (s: BatchFile['status']) => {
+    switch (s) {
+      case 'queued': return { text: 'QUEUED', color: 'var(--text-muted)' }
+      case 'uploading': return { text: 'UPLOADING...', color: 'var(--status-warning)' }
+      case 'analyzing': return { text: 'AI ANALYZING...', color: 'var(--accent-teal)' }
+      case 'done': return { text: 'DONE', color: 'var(--status-success)' }
+      case 'error': return { text: 'ERROR', color: 'var(--status-error)' }
+    }
   }
 
   return (
     <div>
-      {/* Input fields */}
+      {/* Default date + controls */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
-        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>TITLE:</span>
-        <input
-          className="inset"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="會議標題（選填）"
-          style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
-        />
-        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>DATE:</span>
+        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>DEFAULT DATE:</span>
         <input
           className="inset"
           type="date"
-          value={meetingDate}
-          onChange={e => setMeetingDate(e.target.value)}
+          value={defaultDate}
+          onChange={e => setDefaultDate(e.target.value)}
           style={{ fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         />
+        <div style={{ flex: 1 }} />
+        {queue.length > 0 && (
+          <>
+            <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+              Q:{queuedCount} OK:{doneCount} {errorCount > 0 && `ERR:${errorCount}`}
+            </span>
+            <button
+              className="btn"
+              onClick={processQueue}
+              disabled={processing || queuedCount === 0}
+              style={{ fontSize: '9px', padding: '2px 10px', fontWeight: 'bold' }}
+            >
+              {processing ? 'PROCESSING...' : `START (${queuedCount})`}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Drop Zone */}
@@ -391,11 +452,10 @@ function UploadTab({ userProfile }: { userProfile: any }) {
         onClick={() => fileInputRef.current?.click()}
         className="inset"
         style={{
-          padding: '30px 20px',
+          padding: '20px',
           textAlign: 'center',
           cursor: 'pointer',
           background: dragOver ? 'var(--hover-bg)' : 'var(--bg-inset)',
-          borderStyle: dragOver ? 'dashed' : undefined,
           marginBottom: '6px',
         }}
       >
@@ -403,42 +463,101 @@ function UploadTab({ userProfile }: { userProfile: any }) {
           ref={fileInputRef}
           type="file"
           accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+          multiple
           style={{ display: 'none' }}
           onChange={e => {
-            const file = e.target.files?.[0]
-            if (file) handleFile(file)
+            if (e.target.files && e.target.files.length > 0) {
+              addFiles(e.target.files)
+              e.target.value = ''
+            }
           }}
         />
-        {uploading ? (
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '4px', color: 'var(--status-warning)' }}>UPLOADING & ANALYZING...</div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>AI is processing the document</div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>DROP FILE HERE</div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>or click to browse — PDF / DOCX / TXT / IMAGE</div>
-          </div>
-        )}
+        <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '2px' }}>DROP FILES HERE (BATCH)</div>
+        <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>or click to browse — select multiple files — PDF / DOCX / TXT / IMAGE</div>
       </div>
 
-      {/* Result */}
-      {uploadResult && (
+      {/* Queue List */}
+      {queue.length > 0 && (
         <div className="window" style={{ padding: 0 }}>
           <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>
-            {uploadResult.success ? 'UPLOAD SUCCESS' : 'UPLOAD FAILED'}
-          </div>
-          <div style={{ padding: '6px', background: 'var(--bg-inset)', fontSize: '10px' }}>
-            {uploadResult.success ? (
-              <div>
-                <div style={{ color: 'var(--status-success)', marginBottom: '4px' }}>File uploaded successfully. AI analysis in progress...</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '9px' }}>Meeting ID: {uploadResult.meeting?.id}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '9px' }}>Switch to RECORDS tab to view results.</div>
-              </div>
-            ) : (
-              <div style={{ color: 'var(--status-error)' }}>Error: {uploadResult.error}</div>
+            <span>UPLOAD QUEUE ({queue.length})</span>
+            {!processing && doneCount === queue.length && queue.length > 0 && (
+              <button
+                onClick={() => setQueue([])}
+                style={{ background: 'none', border: 'none', color: '#FFF', fontSize: '9px', cursor: 'pointer', fontFamily: 'monospace' }}
+              >CLEAR</button>
             )}
           </div>
+          <div style={{ background: 'var(--bg-inset)', maxHeight: '300px', overflow: 'hidden auto', padding: '1px' }}>
+            {queue.map((item, idx) => {
+              const st = statusLabel(item.status)
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 6px',
+                    borderBottom: '1px solid var(--table-border)',
+                    fontSize: '10px',
+                  }}
+                >
+                  <span style={{ color: 'var(--text-muted)', fontSize: '9px', width: '16px', textAlign: 'right' }}>{idx + 1}</span>
+
+                  {/* Editable title (only when queued) */}
+                  {item.status === 'queued' ? (
+                    <input
+                      className="inset"
+                      value={item.title}
+                      onChange={e => updateQueueItem(item.id, { title: e.target.value })}
+                      style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '1px 3px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                    />
+                  ) : (
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                  )}
+
+                  {/* Editable date (only when queued) */}
+                  {item.status === 'queued' ? (
+                    <input
+                      className="inset"
+                      type="date"
+                      value={item.date}
+                      onChange={e => updateQueueItem(item.id, { date: e.target.value })}
+                      style={{ fontSize: '9px', fontFamily: 'monospace', padding: '1px 2px', background: 'var(--bg-input)', color: 'var(--text-primary)', width: '100px' }}
+                    />
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '9px', width: '70px' }}>{item.date}</span>
+                  )}
+
+                  {/* File type badge */}
+                  <span style={{ color: 'var(--text-muted)', fontSize: '8px', width: '30px', textAlign: 'center' }}>
+                    {item.file.name.split('.').pop()?.toUpperCase()}
+                  </span>
+
+                  {/* Status */}
+                  <span style={{ color: st.color, fontSize: '9px', fontWeight: 'bold', width: '75px', textAlign: 'right' }}>
+                    {st.text}
+                  </span>
+
+                  {/* Remove button (only when queued) */}
+                  {item.status === 'queued' && (
+                    <button
+                      onClick={() => removeFromQueue(item.id)}
+                      style={{ fontSize: '9px', width: '16px', height: '14px', padding: 0, border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 'bold', lineHeight: 1 }}
+                    >×</button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Error details */}
+          {queue.filter(f => f.error).map(f => (
+            <div key={f.id} style={{ padding: '2px 6px', fontSize: '9px', color: 'var(--status-error)', background: 'var(--bg-inset)' }}>
+              {f.title}: {f.error}
+            </div>
+          ))}
         </div>
       )}
     </div>
