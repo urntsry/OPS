@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
 
     if (fileType === 'pdf') {
       try {
-        const pdfParse = (await import('pdf-parse')).default
+        const pdfModule = await import('pdf-parse')
+        const pdfParse = (pdfModule as any).default || pdfModule
         const pdfData = await pdfParse(buffer)
         rawContent = pdfData.text
       } catch (e: any) {
@@ -54,7 +55,8 @@ export async function POST(request: NextRequest) {
       }
     } else if (fileType === 'docx') {
       try {
-        const mammoth = await import('mammoth')
+        const mammothModule = await import('mammoth')
+        const mammoth = (mammothModule as any).default || mammothModule
         const result = await mammoth.extractRawText({ buffer })
         rawContent = result.value
       } catch (e: any) {
