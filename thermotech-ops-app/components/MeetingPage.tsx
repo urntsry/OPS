@@ -17,6 +17,40 @@ interface MeetingPageProps {
 
 export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>('records')
+  const [aiStatus, setAiStatus] = useState<'checking' | 'connected' | 'no_key' | 'error'>('checking')
+  const [analyzingCount, setAnalyzingCount] = useState(0)
+  const [pendingCount, setPendingCount] = useState(0)
+
+  // Check AI API status + poll for analyzing meetings
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>
+
+    const checkStatus = async () => {
+      try {
+        // Check how many meetings are pending/analyzing
+        const meetings = await getMeetings()
+        const analyzing = meetings.filter(m => m.status === 'analyzing').length
+        const pending = meetings.filter(m => m.status === 'pending').length
+        setAnalyzingCount(analyzing)
+        setPendingCount(pending)
+
+        // API health check
+        const res = await fetch('/api/meetings/analyze')
+        const data = await res.json()
+        if (data.status === 'ok') {
+          setAiStatus(data.ai_available ? 'connected' : 'no_key')
+        } else {
+          setAiStatus('error')
+        }
+      } catch {
+        setAiStatus('error')
+      }
+    }
+
+    checkStatus()
+    interval = setInterval(checkStatus, 8000)
+    return () => clearInterval(interval)
+  }, [])
 
   const tabs: { id: TabType; label: string; show: boolean }[] = [
     { id: 'records', label: 'RECORDS', show: true },
@@ -25,6 +59,17 @@ export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) 
     { id: 'search', label: 'SEARCH', show: true },
     { id: 'create', label: 'CREATE', show: true },
   ]
+
+  const aiStatusLabel = () => {
+    switch (aiStatus) {
+      case 'checking': return { text: 'AI: CHECKING...', color: 'var(--text-muted)' }
+      case 'connected': return { text: 'AI: CONNECTED', color: 'var(--status-success)' }
+      case 'no_key': return { text: 'AI: NO API KEY', color: 'var(--status-warning)' }
+      case 'error': return { text: 'AI: OFFLINE', color: 'var(--status-error)' }
+    }
+  }
+
+  const statusInfo = aiStatusLabel()
 
   return (
     <div style={{ fontFamily: 'monospace', fontSize: '10px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -67,6 +112,44 @@ export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) 
         {activeTab === 'categories' && <CategoriesTab />}
         {activeTab === 'search' && <SearchTab />}
         {activeTab === 'create' && <CreateTab />}
+      </div>
+
+      {/* AI Status Bar */}
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '2px 6px',
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        background: 'var(--bg-window)',
+        borderTop: '1px solid var(--border-mid-dark)',
+        color: 'var(--text-muted)',
+      }}>
+        {/* AI Connection Status */}
+        <span style={{ color: statusInfo.color, fontWeight: 'bold' }}>
+          {statusInfo.text}
+        </span>
+
+        {/* Separator */}
+        <span style={{ color: 'var(--border-mid-dark)' }}>|</span>
+
+        {/* Active analysis indicator */}
+        {analyzingCount > 0 ? (
+          <span style={{ color: 'var(--status-warning)' }}>
+            ANALYZING: {analyzingCount} file{analyzingCount > 1 ? 's' : ''}...
+          </span>
+        ) : pendingCount > 0 ? (
+          <span style={{ color: 'var(--text-muted)' }}>
+            PENDING: {pendingCount} in queue
+          </span>
+        ) : (
+          <span>IDLE</span>
+        )}
+
+        {/* Gemini model */}
+        <span style={{ marginLeft: 'auto' }}>MODEL: gemini-2.0-flash</span>
       </div>
     </div>
   )
