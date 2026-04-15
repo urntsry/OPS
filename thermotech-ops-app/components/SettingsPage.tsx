@@ -5,6 +5,7 @@ import Button from './Button'
 import Card from './Card'
 import TaskEditor from './TaskEditor'
 import TaskClassificationPage from './TaskClassificationPage'
+import DevTrackerPage from './DevTrackerPage'
 import { 
   getAllProfiles, 
   getAllTaskDefinitions,
@@ -15,9 +16,13 @@ import {
   type TaskDefinition
 } from '@/lib/api'
 
-type SettingsTab = 'assignment' | 'classification'
+type SettingsTab = 'assignment' | 'classification' | 'devtracker'
 
-export default function SettingsPage() {
+interface SettingsPageProps {
+  isAdmin?: boolean
+}
+
+export default function SettingsPage({ isAdmin = false }: SettingsPageProps) {
   const [users, setUsers] = useState<Profile[]>([])
   const [taskDefs, setTaskDefs] = useState<TaskDefinition[]>([])
   const [loading, setLoading] = useState(true)
@@ -259,46 +264,83 @@ export default function SettingsPage() {
     )
   }
 
+  // 分頁渲染邏輯
+  const renderTabs = () => (
+    <div style={{ 
+      display: 'flex', 
+      gap: '2px', 
+      marginBottom: '0',
+      background: '#C0C0C0',
+      padding: '4px'
+    }}>
+      <button
+        onClick={() => setActiveTab('classification')}
+        style={{
+          padding: '4px 12px',
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          background: activeTab === 'classification' ? '#C0C0C0' : '#808080',
+          color: activeTab === 'classification' ? '#000' : '#C0C0C0',
+          border: activeTab === 'classification' ? '2px solid' : '2px solid #808080',
+          borderColor: activeTab === 'classification' ? '#FFFFFF #808080 #808080 #FFFFFF' : undefined,
+          fontWeight: activeTab === 'classification' ? 'bold' : 'normal',
+          cursor: 'pointer'
+        }}
+      >
+        TASK CLASS
+      </button>
+      <button
+        onClick={() => setActiveTab('assignment')}
+        style={{
+          padding: '4px 12px',
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          background: activeTab === 'assignment' ? '#C0C0C0' : '#808080',
+          color: activeTab === 'assignment' ? '#000' : '#C0C0C0',
+          border: activeTab === 'assignment' ? '2px solid' : '2px solid #808080',
+          borderColor: activeTab === 'assignment' ? '#FFFFFF #808080 #808080 #FFFFFF' : undefined,
+          fontWeight: activeTab === 'assignment' ? 'bold' : 'normal',
+          cursor: 'pointer'
+        }}
+      >
+        ASSIGNMENT
+      </button>
+      {isAdmin && (
+        <button
+          onClick={() => setActiveTab('devtracker')}
+          style={{
+            padding: '4px 12px',
+            fontSize: '10px',
+            fontFamily: 'monospace',
+            background: activeTab === 'devtracker' ? '#008080' : '#808080',
+            color: activeTab === 'devtracker' ? '#FFF' : '#C0C0C0',
+            border: activeTab === 'devtracker' ? '2px solid' : '2px solid #808080',
+            borderColor: activeTab === 'devtracker' ? '#00FFFF #005050 #005050 #00FFFF' : undefined,
+            fontWeight: activeTab === 'devtracker' ? 'bold' : 'normal',
+            cursor: 'pointer'
+          }}
+        >
+          DEV TRACKER
+        </button>
+      )}
+    </div>
+  )
+
+  // DEV TRACKER 頁面
+  if (activeTab === 'devtracker' && isAdmin) {
+    return (
+      <div>
+        {renderTabs()}
+        <DevTrackerPage />
+      </div>
+    )
+  }
+
   // 如果是分類頁面，直接顯示
   if (activeTab === 'classification') {
     return (
       <div>
-        {/* 分頁切換 */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '4px', 
-          marginBottom: '0',
-          background: '#C0C0C0',
-          padding: '4px'
-        }}>
-          <button
-            onClick={() => setActiveTab('classification')}
-            style={{
-              padding: '6px 16px',
-              fontSize: '11px',
-              background: '#C0C0C0',
-              border: '2px solid',
-              borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            任務分類管理
-          </button>
-          <button
-            onClick={() => setActiveTab('assignment')}
-            style={{
-              padding: '6px 16px',
-              fontSize: '11px',
-              background: '#808080',
-              color: '#C0C0C0',
-              border: '2px solid #808080',
-              cursor: 'pointer'
-            }}
-          >
-            人員指派管理
-          </button>
-        </div>
+        {renderTabs()}
         <TaskClassificationPage />
       </div>
     )
@@ -306,42 +348,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      {/* 分頁切換 */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '4px', 
-        marginBottom: '0',
-        background: '#C0C0C0',
-        padding: '4px'
-      }}>
-        <button
-          onClick={() => setActiveTab('classification')}
-          style={{
-            padding: '6px 16px',
-            fontSize: '11px',
-            background: '#808080',
-            color: '#C0C0C0',
-            border: '2px solid #808080',
-            cursor: 'pointer'
-          }}
-        >
-          任務分類管理
-        </button>
-        <button
-          onClick={() => setActiveTab('assignment')}
-          style={{
-            padding: '6px 16px',
-            fontSize: '11px',
-            background: '#C0C0C0',
-            border: '2px solid',
-            borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-        >
-          人員指派管理
-        </button>
-      </div>
+      {renderTabs()}
       
       <div className="window">
       <div className="titlebar">系統設定 - 人員指派管理</div>

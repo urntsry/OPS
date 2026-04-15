@@ -12,8 +12,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="zh-TW">
-      <body>{children}</body>
+    <html lang="zh-TW" suppressHydrationWarning>
+      <head>
+        <meta name="darkreader-lock" />
+      </head>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   )
 }

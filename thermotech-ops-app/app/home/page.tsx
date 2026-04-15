@@ -1,16 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Calendar from '@/components/Calendar'
 import EventList from '@/components/EventList'
 import Button from '@/components/Button'
 import AddEventModal from '@/components/AddEventModal'
 import CalendarInlineForm from '@/components/CalendarInlineForm'
 import Toast from '@/components/Toast'
-import AdminTabs from '@/components/AdminTabs'
-import HRNotificationPage from '@/components/HRNotificationPage'
+import Sidebar from '@/components/Sidebar'
+import MobileNav from '@/components/MobileNav'
+import HRPage from '@/components/HRPage'
 import SettingsPage from '@/components/SettingsPage'
+import PointsPage from '@/components/PointsPage'
 import AnnouncementDetailModal from '@/components/AnnouncementDetailModal'
+import Win95Window from '@/components/win95/Win95Window'
+import Taskbar from '@/components/Taskbar'
+import DevTrackerPage from '@/components/DevTrackerPage'
+import MeetingPage from '@/components/MeetingPage'
+import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
+import { useDevice } from '@/lib/useDevice'
 import { 
   getTaskDefinitionsByAssignee, 
   getPendingAssignments,
@@ -27,15 +36,37 @@ import {
 } from '@/lib/api'
 
 export default function HomePage() {
-  const [currentYear] = useState(2025)
-  const [currentMonth] = useState(10) // 11月 (0-indexed)
+  const device = useDevice()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { openWindow } = useWindowManager()
+  
+  // 從 URL 參數讀取當前分頁，預設為 'home'
+  const tabFromUrl = searchParams.get('tab') || 'home'
+  const [currentTab, setCurrentTabState] = useState(tabFromUrl)
+  
+  // 自訂 setCurrentTab 來同時更新 URL
+  const setCurrentTab = (tab: string) => {
+    setCurrentTabState(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'home') {
+      params.delete('tab') // home 是預設值，不需要顯示在 URL
+    } else {
+      params.set('tab', tab)
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : '/home'
+    router.replace(newUrl, { scroll: false })
+  }
+  
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
+  const [hideWeekend, setHideWeekend] = useState(false) // 隱藏週末
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isCalendarFormOpen, setIsCalendarFormOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<number | null>(null)
   const [preselectedDateString, setPreselectedDateString] = useState<string | null>(null)
   const [calendarFormPosition, setCalendarFormPosition] = useState({ x: 0, y: 0 })
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null)
-  const [currentTab, setCurrentTab] = useState('home')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   
   // 真實資料狀態
@@ -246,12 +277,19 @@ export default function HomePage() {
     return `${month}/${day}`
   }
   
+  // 公共事項資料（包含完整日期資訊以便顯示在行事曆上）
+  const publicEvents = [
+    { id: 1, title: '垃圾車收運', date: '11/22', year: 2025, month: 10, day: 22 },
+    { id: 2, title: '公司尾牙', date: '11/28', year: 2025, month: 10, day: 28 },
+    { id: 3, title: '員工體檢', date: '12/07', year: 2025, month: 11, day: 7 },
+    { id: 4, title: '國定假日', date: '12/25', year: 2025, month: 11, day: 25 },
+  ]
+
   // 從 assignments 生成日曆事件
-  const calendarEvents = assignments
-    .filter(a => a.rawDate) // 只處理有日期的任務
+  const assignmentEvents = assignments
+    .filter(a => a.rawDate)
     .map(a => {
       const date = new Date(a.rawDate)
-      // 檢查是否在當前月份
       if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
         return {
           date: date.getDate(),
@@ -262,15 +300,20 @@ export default function HomePage() {
       return null
     })
     .filter(e => e !== null) as Array<{date: number, title: string, type: 'routine' | 'assignment' | 'public'}>
+
+  // 從公共事項生成日曆事件
+  const publicCalendarEvents = publicEvents
+    .filter(p => p.year === currentYear && p.month === currentMonth)
+    .map(p => ({
+      date: p.day,
+      title: p.title,
+      type: 'public' as const
+    }))
+
+  // 合併所有日曆事件
+  const calendarEvents = [...assignmentEvents, ...publicCalendarEvents]
   
   console.log('[HomePage] 日曆事件:', calendarEvents)
-
-  const publicEvents = [
-    { id: 1, title: '垃圾車收運', date: '11/22' },
-    { id: 2, title: '公司尾牙', date: '11/28' },
-    { id: 3, title: '員工體檢', date: '12/07' },
-    { id: 4, title: '國定假日', date: '12/25' },
-  ]
 
   const announcements = [
     { 
@@ -491,310 +534,428 @@ export default function HomePage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-grey-200 p-2" style={{ overflowY: 'auto' }}>
-      <div className="container" style={{ maxWidth: '1400px' }}>
-        {/* Header */}
-        <div className="window mb-2">
-          <div className="titlebar">
-            THERMOTECH-OPS v2.8
+  const handleLogout = () => {
+    if (confirm('確定要登出？')) {
+      localStorage.removeItem('currentUser')
+      window.location.href = '/'
+    }
+  }
+
+  // ============================================
+  // MOBILE LAYOUT (< 768px)
+  // 設計理念：單欄、緊湊、專注核心任務
+  // ============================================
+  if (device === 'mobile') {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        background: '#C0C0C0',
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        paddingBottom: '46px'
+      }}>
+        {/* Mobile Header - 更緊湊 */}
+        <div style={{
+          background: '#000080',
+          color: '#FFF',
+          padding: '4px 8px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100
+        }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold' }}>OPS</div>
+            <div style={{ fontSize: '9px', color: '#AAA' }}>{userProfile?.full_name || '---'}</div>
           </div>
-          <div className="p-2 flex justify-between items-center bg-grey-200">
-            <div className="text-mono">
-              USER: {userProfile ? `${userProfile.full_name} (${userProfile.employee_id}) | ${userProfile.department}` : '載入中...'} {loading && <span className="text-xs">(載入中...)</span>}
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-mono text-bold">
-                POINTS: {userProfile?.points_balance || 0}
-              </div>
-              <Button onClick={() => {
-                if (confirm('確定要登出？')) {
-                  localStorage.removeItem('currentUser')
-                  window.location.href = '/'
-                }
-              }}>
-                登出
-              </Button>
-            </div>
+          <div style={{ fontSize: '9px', textAlign: 'right' }}>
+            <span style={{ marginRight: '8px' }}>PT:{userProfile?.points_balance || 0}</span>
+            <button 
+              onClick={handleLogout}
+              style={{ 
+                background: 'none', 
+                border: '1px solid #FFF', 
+                color: '#FFF', 
+                fontSize: '8px',
+                padding: '1px 4px',
+                cursor: 'pointer'
+              }}
+            >
+              OUT
+            </button>
           </div>
         </div>
 
-        {/* Toast 通知 */}
-        {toast && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={() => setToast(null)} 
-          />
-        )}
+        {/* Toast */}
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        {/* 管理者視圖切換器（僅 Admin）- 方案 C */}
-        {userRole === 'admin' && (
-          <div className="window p-2 mb-2">
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '8px',
-              fontSize: '11px'
-            }}>
-              {/* 當前檢視提示 */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                padding: '4px 8px',
-                background: viewingUserId && viewingUserId !== userId ? '#000080' : '#008080',
-                color: '#FFFFFF',
-                border: '2px outset #C0C0C0'
-              }}>
-                <span className="text-bold">
-                  當前檢視：
-                  {viewingUserProfile 
-                    ? `${viewingUserProfile.full_name} (${viewingUserProfile.employee_id})`
-                    : userProfile
-                    ? `${userProfile.full_name} (${userProfile.employee_id}) - 自己`
-                    : '載入中...'}
-                </span>
-                {viewingUserId && viewingUserId !== userId && (
-                  <Button 
-                    onClick={() => handleSwitchView(userId)}
-                    style={{ fontSize: '11px', padding: '2px 8px' }}
-                  >
-                    返回自己
-                  </Button>
-                )}
-              </div>
-
-              {/* 切換方式選項 */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {/* 下拉選單 */}
-                <div style={{ flex: 1 }}>
-                  <label style={{ marginRight: '4px' }}>選擇員工：</label>
-                  <select
-                    value={viewingUserId || userId}
-                    onChange={(e) => handleSwitchView(e.target.value)}
-                    className="inset"
-                    style={{
-                      fontSize: '11px',
-                      fontFamily: 'monospace',
-                      background: '#FFFFFF',
-                      padding: '2px 4px',
-                      minWidth: '200px'
-                    }}
-                  >
-                    <option value={userId}>
-                      {userProfile?.full_name} ({userProfile?.employee_id}) - 自己
-                    </option>
-                    <optgroup label="────── 其他員工 ──────">
-                      {allUsers
-                        .filter(u => u.id !== userId)
-                        .sort((a, b) => a.employee_id.localeCompare(b.employee_id))
-                        .map(user => (
-                          <option key={user.id} value={user.id}>
-                            {user.full_name} ({user.employee_id}) - {user.department}
-                          </option>
-                        ))}
-                    </optgroup>
-                  </select>
-                </div>
-
-                {/* 搜尋框 */}
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <label style={{ whiteSpace: 'nowrap' }}>搜尋：</label>
-                  <input
-                    type="text"
-                    placeholder="員工編號"
-                    value={searchEmployeeId}
-                    onChange={(e) => setSearchEmployeeId(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSearchByEmployeeId()
-                      }
-                    }}
-                    className="inset"
-                    style={{
-                      fontSize: '11px',
-                      fontFamily: 'monospace',
-                      background: '#FFFFFF',
-                      padding: '2px 4px',
-                      width: '100px'
-                    }}
-                  />
-                  <Button 
-                    onClick={handleSearchByEmployeeId}
-                    style={{ fontSize: '11px', padding: '2px 8px' }}
-                  >
-                    🔍
-                  </Button>
-                </div>
-              </div>
-
-              {/* 快速切換按鈕 */}
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <span style={{ marginRight: '4px' }}>快速切換：</span>
-                <Button 
-                  onClick={() => handleSwitchView(userId)}
-                  style={{ 
-                    fontSize: '11px', 
-                    padding: '2px 8px',
-                    background: viewingUserId === userId || !viewingUserId ? '#FFFFFF' : '#C0C0C0'
-                  }}
-                >
-                  自己
-                </Button>
-                <Button 
-                  onClick={loadAllUsers}
-                  style={{ fontSize: '11px', padding: '2px 8px' }}
-                >
-                  重新載入
-                </Button>
-                <span style={{ marginLeft: 'auto', color: '#808080' }}>
-                  共 {allUsers.length} 位員工
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Admin Tabs (only for admin) */}
-        {userRole === 'admin' && (
-          <AdminTabs currentTab={currentTab} onTabChange={setCurrentTab} />
-        )}
-
-        {/* Main Content */}
-        {currentTab === 'home' && (
-          <>
-            {/* Loading State */}
-            {loading && (
-              <div className="window p-4 text-center mb-2">
-                <div className="text-mono text-bold">正在載入資料...</div>
-              </div>
-            )}
-            
-            {!loading && (
-              <>
-                {/* Calendar - 緊湊版 */}
-                <div style={{ position: 'relative' }}>
-                  <Calendar 
-                    year={currentYear} 
-                    month={currentMonth}
-                    events={calendarEvents}
-                    onDateClick={handleDateClick}
-                  />
-                  
-                  {/* 日曆內嵌表單 */}
-                  {isCalendarFormOpen && preselectedDateString && (
-                    <CalendarInlineForm
-                      selectedDate={preselectedDateString}
-                      onSubmit={handleSubmitEvent}
-                      onClose={() => {
-                        setIsCalendarFormOpen(false)
-                        setPreselectedDateString(null)
-                      }}
-                      position={calendarFormPosition}
+        {/* Mobile Content */}
+        <div style={{ padding: '4px', overflowY: 'auto', flex: 1 }}>
+          {currentTab === 'home' && (
+            <>
+              {loading ? (
+                <div className="window p-2 text-center"><div style={{ fontSize: '10px' }}>LOADING...</div></div>
+              ) : (
+                <>
+                  {/* 行事曆 + 隱藏週末開關 */}
+                  <div style={{ marginBottom: '4px' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'flex-end', 
+                      alignItems: 'center',
+                      marginBottom: '2px',
+                      fontSize: '9px',
+                      fontFamily: 'monospace'
+                    }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={hideWeekend} 
+                          onChange={(e) => setHideWeekend(e.target.checked)}
+                          style={{ width: '12px', height: '12px' }}
+                        />
+                        隱藏週末
+                      </label>
+                    </div>
+                    <Calendar 
+                      year={currentYear} 
+                      month={currentMonth} 
+                      events={calendarEvents} 
+                      onDateClick={handleDateClick}
+                      hideWeekend={hideWeekend}
+                      compact={true}
+                      onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
                     />
-                  )}
-                </div>
+                  </div>
 
-                {/* Four Blocks - 緊湊排列 */}
-                <div className="grid-2" style={{ marginTop: '8px', marginBottom: '8px' }}>
-              <EventList
-                title="例行公事"
-                events={routineTasks}
-                onAdd={handleAddEvent}
-                onDelete={handleDeleteRoutineTask}
-                showAddButton={true}
-                showDeleteButton={true}
-              />
-              <EventList
-                title="交辦事項"
-                events={assignments}
-                onToggle={handleToggleTask}
-                onAdd={handleAddEvent}
-                onDelete={handleDeleteAssignment}
-                showAddButton={true}
-                showDeleteButton={true}
-              />
-            </div>
+                  {/* 任務區 - 兩欄 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '4px' }}>
+                    {/* 任務列表 */}
+                    <div className="window">
+                      <div className="titlebar" style={{ padding: '2px 4px', fontSize: '9px' }}>
+                        TASKS ({assignments.length})
+                      </div>
+                      <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                        {assignments.length === 0 ? (
+                          <div style={{ padding: '6px', textAlign: 'center', color: '#808080', fontSize: '8px' }}>NO TASKS</div>
+                        ) : (
+                          assignments.map((task) => (
+                            <div 
+                              key={task.id}
+                              onClick={() => handleToggleTask(task.id)}
+                              style={{
+                                padding: '4px',
+                                borderBottom: '1px solid #E0E0E0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '9px',
+                                cursor: 'pointer',
+                                background: task.done ? '#E0E0E0' : '#FFF'
+                              }}
+                            >
+                              <span style={{ fontSize: '10px' }}>{task.done ? '[V]' : '[ ]'}</span>
+                              <span style={{ flex: 1, textDecoration: task.done ? 'line-through' : 'none', color: task.done ? '#808080' : '#000', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {task.title}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
 
-            <div className="grid-2" style={{ marginTop: '8px', marginBottom: '8px' }}>
-              <EventList
-                title="公共事項"
-                events={publicEvents}
-                showAddButton={false}
-              />
-              <EventList
-                title="公告欄"
-                events={announcements}
-                onItemClick={handleAnnouncementClick}
-                showAddButton={false}
-              />
-            </div>
-          </>
-            )}
-          </>
-        )}
+                    {/* 例行公事 */}
+                    <div className="window">
+                      <div className="titlebar" style={{ padding: '2px 4px', fontSize: '9px' }}>
+                        ROUTINE ({routineTasks.length})
+                      </div>
+                      <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                        {routineTasks.length === 0 ? (
+                          <div style={{ padding: '6px', textAlign: 'center', color: '#808080', fontSize: '8px' }}>NO DATA</div>
+                        ) : (
+                          routineTasks.map((task) => (
+                            <div key={task.id} style={{ padding: '4px', borderBottom: '1px solid #E0E0E0', fontSize: '9px', background: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {task.title}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-        {currentTab === 'hr' && (
-          <HRNotificationPage />
-        )}
+                  {/* 公告 */}
+                  <div className="window">
+                    <div className="titlebar" style={{ padding: '2px 4px', fontSize: '9px' }}>NOTICE</div>
+                    <div style={{ maxHeight: '80px', overflowY: 'auto' }}>
+                      {announcements.map((ann) => (
+                        <div 
+                          key={ann.id}
+                          onClick={() => handleAnnouncementClick(ann.id)}
+                          style={{ padding: '4px', borderBottom: '1px solid #E0E0E0', fontSize: '9px', background: '#FFF', cursor: 'pointer' }}
+                        >
+                          {ann.title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
 
-        {currentTab === 'operations' && (
-          <div className="window p-4">
-            <div className="text-bold text-center">廠務管理頁面（建構中）</div>
-          </div>
-        )}
-
-        {currentTab === 'sales' && (
-          <div className="window p-4">
-            <div className="text-bold text-center">業務管理頁面（建構中）</div>
-          </div>
-        )}
-
-        {currentTab === 'reports' && (
-          <div className="window p-4">
-            <div className="text-bold text-center">報表頁面（建構中）</div>
-          </div>
-        )}
-
-        {currentTab === 'settings' && (
-          <SettingsPage />
-        )}
-
-        {/* Status Bar */}
-        <div className="statusbar">
-          <span className="text-mono">DATE: 2025/11/25</span>
-          <span className="text-mono">TIME: {new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
-          <span className="text-mono status-ok">ONLINE</span>
+          {currentTab === 'hr' && <HRPage isAdmin={userRole === 'admin'} />}
+          {currentTab === 'operations' && <div className="window p-2"><div style={{ textAlign: 'center', fontSize: '10px' }}>OPS (建構中)</div></div>}
+          {currentTab === 'settings' && <SettingsPage isAdmin={userRole === 'admin'} />}
+          {currentTab === 'points' && <PointsPage userProfile={userProfile} />}
         </div>
 
-        {/* Add Event Modal */}
-        <AddEventModal
-          isOpen={isAddModalOpen}
-          onClose={() => {
-            console.log('[HomePage] 關閉新增事項視窗')
-            setIsAddModalOpen(false)
-            setSelectedDate(null)
-            setPreselectedDateString(null)
-          }}
-          onSubmit={handleSubmitEvent}
-          preselectedDate={preselectedDateString}
-          zIndex={addModalZIndex}
-          position={getModalPosition(0)}
+        {/* Mobile Bottom Navigation - 更緊湊 */}
+        <MobileNav currentTab={currentTab} onTabChange={setCurrentTab} />
+
+        {/* Modals */}
+        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />
+        <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
+      </div>
+    )
+  }
+
+  // ============================================
+  // TABLET LAYOUT (768px - 1399px)
+  // 設計理念：行事曆全寬優先，任務列表在下方
+  // ============================================
+  if (device === 'tablet') {
+    return (
+      <div style={{ 
+        display: 'flex',
+        minHeight: '100vh',
+        fontFamily: 'monospace'
+      }}>
+        {/* 使用標準側邊欄組件 */}
+        <Sidebar 
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          userProfile={userProfile}
+          onLogout={handleLogout}
         />
 
-        {/* Announcement Detail Modal */}
-        <AnnouncementDetailModal
-          isOpen={!!selectedAnnouncement}
-          onClose={() => {
-            console.log('[HomePage] 關閉公告詳情視窗')
-            setSelectedAnnouncement(null)
-          }}
-          announcement={selectedAnnouncement}
-          zIndex={announcementModalZIndex}
-          position={getModalPosition(1)}
-        />
+        {/* Main Content - 全寬延伸到右側 */}
+        <div style={{ 
+          flex: 1, 
+          padding: '8px', 
+          background: '#C0C0C0', 
+          overflowY: 'auto',
+          fontFamily: 'monospace',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Top Header Bar */}
+          <div className="window" style={{ marginBottom: '6px' }}>
+            <div className="titlebar" style={{ padding: '2px 6px', fontSize: '10px' }}>
+              <span style={{ fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                {currentTab === 'home' && 'HOME > CALENDAR & TASKS'}
+                {currentTab === 'hr' && 'HOME > HR > PERSONNEL'}
+                {currentTab === 'operations' && 'HOME > OPS > FACTORY'}
+                {currentTab === 'settings' && 'HOME > CONFIG > SETTINGS'}
+                {currentTab === 'points' && 'HOME > POINTS > 積分中心'}
+              </span>
+              <span style={{ fontSize: '9px', fontFamily: 'monospace', color: 'rgba(255,255,255,0.8)' }}>
+                {new Date().toLocaleDateString('zh-TW')} {new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          </div>
+
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+          {currentTab === 'home' && (
+            <div style={{ flex: 1 }}>
+              {loading ? (
+                <div className="window p-4 text-center" style={{ marginBottom: '8px' }}>LOADING...</div>
+              ) : (
+                <>
+                  {/* Calendar - 全寬 */}
+                  <div style={{ position: 'relative', marginBottom: '6px', width: '100%' }}>
+                    <Calendar 
+                      year={currentYear} 
+                      month={currentMonth} 
+                      events={calendarEvents} 
+                      onDateClick={handleDateClick}
+                      onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
+                    />
+                    {isCalendarFormOpen && preselectedDateString && (
+                      <CalendarInlineForm
+                        selectedDate={preselectedDateString}
+                        onSubmit={handleSubmitEvent}
+                        onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }}
+                        position={calendarFormPosition}
+                      />
+                    )}
+                  </div>
+
+                  {/* 下方四欄：任務區 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', width: '100%' }}>
+                    <EventList title="ROUTINE" events={routineTasks} onAdd={handleAddEvent} showAddButton={true} />
+                    <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onAdd={handleAddEvent} showAddButton={true} />
+                    <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
+                    <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {currentTab === 'hr' && <HRPage isAdmin={userRole === 'admin'} />}
+          {currentTab === 'operations' && <div className="window p-4"><div className="text-center">OPS (建構中)</div></div>}
+          {currentTab === 'settings' && <SettingsPage isAdmin={userRole === 'admin'} />}
+          {currentTab === 'points' && <PointsPage userProfile={userProfile} />}
+        </div>
+
+        {/* Modals */}
+        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />
+        <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
       </div>
+    )
+  }
+
+  // ============================================
+  // DESKTOP LAYOUT (>= 1024px)
+  // 設計理念：Windows 95 桌面作業系統體驗
+  // 日曆 = 桌面背景，各部門 = 獨立視窗
+  // ============================================
+  const isAdmin = userRole === 'admin'
+
+  const handleOpenPoints = () => {
+    openWindow('points')
+  }
+
+  return (
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      overflow: 'hidden',
+      fontFamily: 'monospace',
+      backgroundColor: 'var(--bg-primary)',
+      position: 'relative',
+    }}>
+      {/* Desktop Area — Calendar as background */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: TASKBAR_HEIGHT,
+        overflow: 'auto',
+        padding: '6px',
+        zIndex: 1,
+      }}>
+        {/* Toast */}
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+        {/* Admin View Switcher */}
+        {isAdmin && (
+          <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
+            <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>
+              <span>VIEW: {viewingUserProfile ? viewingUserProfile.full_name : 'SELF'}</span>
+            </div>
+            <div className="inset" style={{ padding: '3px 4px', background: 'var(--bg-inset)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontFamily: 'monospace', flexWrap: 'wrap' }}>
+              {viewingUserId && viewingUserId !== userId && (
+                <Button onClick={() => handleSwitchView(userId)} style={{ fontSize: '9px', padding: '1px 5px', fontFamily: 'monospace' }}>RESET</Button>
+              )}
+              <select value={viewingUserId || userId} onChange={(e) => handleSwitchView(e.target.value)} className="inset" style={{ fontSize: '10px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)', padding: '1px 3px' }}>
+                <option value={userId}>{userProfile?.full_name} [SELF]</option>
+                {allUsers.filter(u => u.id !== userId).sort((a, b) => a.employee_id.localeCompare(b.employee_id)).map(user => (
+                  <option key={user.id} value={user.id}>{user.full_name} ({user.employee_id})</option>
+                ))}
+              </select>
+              <input type="text" placeholder="EMP ID" value={searchEmployeeId} onChange={(e) => setSearchEmployeeId(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSearchByEmployeeId() }} className="inset" style={{ fontSize: '10px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)', padding: '1px 3px', width: '55px' }} />
+              <Button onClick={handleSearchByEmployeeId} style={{ fontSize: '9px', padding: '1px 4px', fontFamily: 'monospace' }}>GO</Button>
+              <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '9px' }}>N={allUsers.length}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Calendar — Desktop Background */}
+        {loading ? (
+          <div className="window p-4 text-center"><div style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>LOADING...</div></div>
+        ) : (
+          <>
+            <div style={{ position: 'relative', marginBottom: '6px' }}>
+              <Calendar
+                year={currentYear}
+                month={currentMonth}
+                events={calendarEvents}
+                onDateClick={handleDateClick}
+                onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
+              />
+              {isCalendarFormOpen && preselectedDateString && (
+                <CalendarInlineForm selectedDate={preselectedDateString} onSubmit={handleSubmitEvent} onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }} position={calendarFormPosition} />
+              )}
+            </div>
+
+            {/* Bottom panels */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+              <EventList title="ROUTINE" events={routineTasks} onAdd={handleAddEvent} onDelete={handleDeleteRoutineTask} showAddButton={true} showDeleteButton={true} />
+              <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onAdd={handleAddEvent} onDelete={handleDeleteAssignment} showAddButton={true} showDeleteButton={true} />
+              <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
+              <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Application Windows Layer */}
+      <Win95Window windowId="hr">
+        <HRPage isAdmin={isAdmin} />
+      </Win95Window>
+
+      <Win95Window windowId="meeting">
+        <MeetingPage isAdmin={isAdmin} userProfile={userProfile} />
+      </Win95Window>
+
+      <Win95Window windowId="operations">
+        <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace' }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>OPS - FACTORY</div>
+          <div style={{ color: 'var(--text-muted)' }}>建構中...</div>
+        </div>
+      </Win95Window>
+
+      <Win95Window windowId="sales">
+        <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace' }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>SALES - BUSINESS</div>
+          <div style={{ color: 'var(--text-muted)' }}>建構中...</div>
+        </div>
+      </Win95Window>
+
+      <Win95Window windowId="reports">
+        <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace' }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>REPORT - ANALYTICS</div>
+          <div style={{ color: 'var(--text-muted)' }}>建構中...</div>
+        </div>
+      </Win95Window>
+
+      <Win95Window windowId="settings">
+        <SettingsPage isAdmin={isAdmin} />
+      </Win95Window>
+
+      <Win95Window windowId="points">
+        <PointsPage userProfile={userProfile} />
+      </Win95Window>
+
+      <Win95Window windowId="devtracker">
+        <DevTrackerPage />
+      </Win95Window>
+
+      {/* Modals */}
+      <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />
+      <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
+
+      {/* Taskbar */}
+      <Taskbar
+        userProfile={userProfile}
+        onLogout={handleLogout}
+        onOpenPoints={handleOpenPoints}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

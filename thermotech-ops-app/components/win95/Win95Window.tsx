@@ -1,71 +1,259 @@
 'use client'
 
-import React, { useState } from 'react'
-import { X, Minus, Square } from 'lucide-react'
+import React, { useRef } from 'react'
+import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 
 interface Win95WindowProps {
-  title: string
+  windowId: string
   children: React.ReactNode
-  onClose?: () => void
-  width?: number
-  height?: number
-  className?: string
 }
 
-export default function Win95Window({ 
-  title, 
-  children, 
-  onClose,
-  width = 400,
-  height = 300,
-  className = ''
-}: Win95WindowProps) {
-  const [isMinimized, setIsMinimized] = useState(false)
+export default function Win95Window({ windowId, children }: Win95WindowProps) {
+  const {
+    windows, activeWindowId,
+    focusWindow, closeWindow, minimizeWindow,
+    toggleMaximize, moveWindow, resizeWindow,
+  } = useWindowManager()
 
-  if (isMinimized) {
-    return (
-      <div className="win95-button cursor-pointer p-2" onClick={() => setIsMinimized(false)}>
-        {title}
-      </div>
-    )
+  const win = windows[windowId]
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
+  const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null)
+  const windowRef = useRef<HTMLDivElement>(null)
+
+  if (!win || !win.isOpen || win.isMinimized) return null
+
+  const isActive = activeWindowId === windowId
+  const isMax = win.isMaximized
+
+  const style: React.CSSProperties = isMax
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: TASKBAR_HEIGHT,
+        width: 'auto',
+        height: 'auto',
+        zIndex: win.zIndex,
+      }
+    : {
+        position: 'absolute',
+        left: win.x,
+        top: win.y,
+        width: win.width,
+        height: win.height,
+        zIndex: win.zIndex,
+      }
+
+  const titlebarBg = isActive
+    ? 'linear-gradient(90deg, var(--titlebar-start) 0%, var(--titlebar-end) 100%)'
+    : 'linear-gradient(90deg, var(--titlebar-inactive-start) 0%, var(--titlebar-inactive-end) 100%)'
+
+  const handleMouseDownTitlebar = (e: React.MouseEvent) => {
+    if (isMax) return
+    e.preventDefault()
+    focusWindow(windowId)
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: win.x,
+      origY: win.y,
+    }
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return
+      const dx = ev.clientX - dragRef.current.startX
+      const dy = ev.clientY - dragRef.current.startY
+      moveWindow(windowId, dragRef.current.origX + dx, Math.max(0, dragRef.current.origY + dy))
+    }
+
+    const onMouseUp = () => {
+      dragRef.current = null
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
+
+  const handleResizeStart = (e: React.MouseEvent, edge: string) => {
+    if (isMax) return
+    e.preventDefault()
+    e.stopPropagation()
+    focusWindow(windowId)
+    resizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origW: win.width,
+      origH: win.height,
+      origX: win.x,
+      origY: win.y,
+      edge,
+    }
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return
+      const r = resizeRef.current
+      const dx = ev.clientX - r.startX
+      const dy = ev.clientY - r.startY
+
+      let newW = r.origW
+      let newH = r.origH
+      let newX = r.origX
+      let newY = r.origY
+
+      if (r.edge.includes('e')) newW = r.origW + dx
+      if (r.edge.includes('s')) newH = r.origH + dy
+      if (r.edge.includes('w')) {
+        newW = r.origW - dx
+        newX = r.origX + dx
+      }
+      if (r.edge.includes('n')) {
+        newH = r.origH - dy
+        newY = r.origY + dy
+      }
+
+      if (newW >= 280 && newH >= 200) {
+        resizeWindow(windowId, newW, newH)
+        if (r.edge.includes('w') || r.edge.includes('n')) {
+          moveWindow(windowId, newX, newY)
+        }
+      }
+    }
+
+    const onMouseUp = () => {
+      resizeRef.current = null
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
+
+  const edgeSize = 4
+
+  const resizeEdges = isMax ? null : (
+    <>
+      {/* Top */}
+      <div style={{ position: 'absolute', top: -edgeSize, left: edgeSize, right: edgeSize, height: edgeSize, cursor: 'n-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'n')} />
+      {/* Bottom */}
+      <div style={{ position: 'absolute', bottom: -edgeSize, left: edgeSize, right: edgeSize, height: edgeSize, cursor: 's-resize' }}
+        onMouseDown={e => handleResizeStart(e, 's')} />
+      {/* Left */}
+      <div style={{ position: 'absolute', top: edgeSize, bottom: edgeSize, left: -edgeSize, width: edgeSize, cursor: 'w-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'w')} />
+      {/* Right */}
+      <div style={{ position: 'absolute', top: edgeSize, bottom: edgeSize, right: -edgeSize, width: edgeSize, cursor: 'e-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'e')} />
+      {/* Corners */}
+      <div style={{ position: 'absolute', top: -edgeSize, left: -edgeSize, width: edgeSize * 2, height: edgeSize * 2, cursor: 'nw-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'nw')} />
+      <div style={{ position: 'absolute', top: -edgeSize, right: -edgeSize, width: edgeSize * 2, height: edgeSize * 2, cursor: 'ne-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'ne')} />
+      <div style={{ position: 'absolute', bottom: -edgeSize, left: -edgeSize, width: edgeSize * 2, height: edgeSize * 2, cursor: 'sw-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'sw')} />
+      <div style={{ position: 'absolute', bottom: -edgeSize, right: -edgeSize, width: edgeSize * 2, height: edgeSize * 2, cursor: 'se-resize' }}
+        onMouseDown={e => handleResizeStart(e, 'se')} />
+    </>
+  )
+
+  const ctrlBtnStyle: React.CSSProperties = {
+    width: '16px',
+    height: '14px',
+    fontSize: '9px',
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    padding: 0,
+    backgroundColor: 'var(--bg-window)',
+    color: 'var(--text-primary)',
+    borderTop: '1px solid var(--border-light)',
+    borderLeft: '1px solid var(--border-light)',
+    borderRight: '1px solid var(--border-dark)',
+    borderBottom: '1px solid var(--border-dark)',
+    lineHeight: 1,
+    outline: 'none',
   }
 
   return (
-    <div 
-      className={`win95-window ${className}`}
-      style={{ width, height }}
+    <div
+      ref={windowRef}
+      className="window"
+      style={{
+        ...style,
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'monospace',
+        userSelect: 'none',
+      }}
+      onMouseDown={() => { if (!isActive) focusWindow(windowId) }}
     >
+      {resizeEdges}
+
       {/* Title Bar */}
-      <div className="win95-titlebar">
-        <span>{title}</span>
-        <div className="flex gap-0.5">
-          {/* Minimize */}
-          <button 
-            className="win95-control-btn"
-            onClick={() => setIsMinimized(true)}
-          >
-            <Minus size={8} />
-          </button>
-          {/* Maximize (Placeholder) */}
-          <button className="win95-control-btn">
-            <Square size={8} />
-          </button>
-          {/* Close */}
-          <button 
-            className="win95-control-btn"
-            onClick={onClose}
-          >
-            <X size={10} />
-          </button>
+      <div
+        style={{
+          background: titlebarBg,
+          color: '#FFF',
+          padding: '2px 3px',
+          fontSize: '10px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: isMax ? 'default' : 'move',
+          flexShrink: 0,
+          gap: '4px',
+          letterSpacing: '0.3px',
+        }}
+        onMouseDown={handleMouseDownTitlebar}
+        onDoubleClick={() => toggleMaximize(windowId)}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {win.title}
+        </span>
+        <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+          <button style={ctrlBtnStyle} onClick={(e) => { e.stopPropagation(); minimizeWindow(windowId) }} title="最小化">_</button>
+          <button style={ctrlBtnStyle} onClick={(e) => { e.stopPropagation(); toggleMaximize(windowId) }} title={isMax ? '還原' : '最大化'}>{isMax ? '❐' : '□'}</button>
+          <button style={{...ctrlBtnStyle, color: 'var(--accent-red)'}} onClick={(e) => { e.stopPropagation(); closeWindow(windowId) }} title="關閉">×</button>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 bg-white p-2 overflow-auto">
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        backgroundColor: 'var(--bg-window)',
+        userSelect: 'text',
+      }}>
         {children}
       </div>
+
+      {/* Bottom resize grip indicator (visual only, actual resize handled by edge divs) */}
+      {!isMax && (
+        <div style={{
+          position: 'absolute',
+          bottom: 1,
+          right: 1,
+          width: '12px',
+          height: '12px',
+          cursor: 'se-resize',
+          opacity: 0.4,
+          fontSize: '10px',
+          lineHeight: '10px',
+          textAlign: 'right',
+          color: 'var(--text-muted)',
+          pointerEvents: 'none',
+        }}>
+          ◢
+        </div>
+      )}
     </div>
   )
 }
-
-

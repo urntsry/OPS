@@ -28,43 +28,26 @@ export default function EventList({
   showAddButton = true,
   showDeleteButton = false 
 }: EventListProps) {
-  // 詳細日誌
-  console.log(`[EventList] 渲染組件:`, {
-    title,
-    eventsCount: events.length,
-    showAddButton,
-    showDeleteButton,
-    hasOnToggle: !!onToggle,
-    hasOnAdd: !!onAdd,
-    hasOnItemClick: !!onItemClick,
-    hasOnDelete: !!onDelete
-  })
-
   return (
-    <div className="outset" style={{ padding: '2px' }}>
+    <div className="window" style={{ padding: 0 }}>
       <div 
+        className="titlebar"
         style={{ 
-          minHeight: '18px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'linear-gradient(90deg, #000080 0%, #1084D0 100%)',
-          color: 'white',
-          padding: '2px 4px',
-          marginBottom: '2px'
+          padding: '2px 6px',
+          minHeight: '16px'
         }}
       >
-        <div className="text-bold">{title}</div>
+        <div style={{ fontWeight: 'bold', fontSize: '10px', letterSpacing: '0.3px' }}>{title}</div>
         {showAddButton && onAdd && (
           <button 
-            onClick={() => {
-              console.log(`[EventList] 點擊新增按鈕 - ${title}`)
-              onAdd()
-            }}
+            onClick={() => onAdd()}
             style={{ 
-              fontSize: '11px', 
-              width: '20px', 
-              height: '18px', 
+              fontSize: '12px', 
+              width: '16px', 
+              height: '16px', 
               padding: '0',
               margin: '0',
               border: 'none', 
@@ -72,7 +55,8 @@ export default function EventList({
               color: 'white', 
               cursor: 'pointer', 
               fontWeight: 'bold',
-              flexShrink: 0
+              flexShrink: 0,
+              lineHeight: 1
             }}
           >
             +
@@ -80,87 +64,76 @@ export default function EventList({
         )}
       </div>
 
-      <div className="inset bg-white" style={{ minHeight: '180px', maxHeight: '240px', overflowY: 'auto', padding: '0' }}>
+      <div className="inset" style={{ minHeight: '160px', maxHeight: '220px', overflow: 'hidden auto', padding: '1px', background: 'var(--bg-inset)' }}>
         {events.length === 0 ? (
-          <div className="text-mono text-grey-600 text-center p-4">無資料</div>
+          <div style={{ padding: '8px', textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+            - EMPTY -
+          </div>
         ) : (
-          <table className="w-full text-11" style={{ borderCollapse: 'collapse' }}>
+          <table className="eventlist-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
             <tbody>
               {events.map((event) => (
                 <tr 
-                  key={event.id} 
-                  className="border-b border-grey-300 hover:bg-grey-100"
+                  key={event.id}
+                  className="eventlist-row"
                   onClick={() => onItemClick && onItemClick(event.id)}
-                  style={{ cursor: onItemClick ? 'pointer' : 'default' }}
+                  style={{ 
+                    cursor: onItemClick ? 'pointer' : 'default',
+                    borderBottom: '1px solid var(--table-border)',
+                  }}
                 >
-                  {/* 只在有 onToggle 時顯示勾選框欄位 */}
                   {onToggle && (
-                    <td style={{ width: '28px', padding: '2px 0 2px 4px', whiteSpace: 'nowrap' }}>
+                    <td style={{ width: '24px', padding: '1px 0 1px 3px', whiteSpace: 'nowrap' }}>
                       <span 
                         onClick={(e) => {
-                          console.log(`[EventList] 點擊勾選框:`, { 
-                            title, 
-                            eventId: event.id, 
-                            eventTitle: event.title,
-                            currentDone: event.done 
-                          })
                           e.stopPropagation()
-                          if (onToggle) {
-                            onToggle(event.id)
-                          }
+                          if (onToggle) onToggle(event.id)
                         }}
                         style={{ 
                           fontFamily: 'Courier New, monospace',
+                          fontSize: '10px',
                           cursor: 'pointer',
                           userSelect: 'none',
-                          display: 'inline-block'
+                          display: 'inline-block',
+                          color: 'var(--text-primary)'
                         }}
                       >
                         {event.done ? '[V]' : '[ ]'}
                       </span>
                     </td>
                   )}
-                  {/* 標題欄 */}
-                  <td style={{ padding: onToggle ? '2px 4px' : '2px 4px 2px 4px' }}>
-                    <span className={event.done ? 'line-through text-grey-600' : ''}>
-                      {event.title}
-                    </span>
+                  <td style={{ padding: '1px 4px', color: event.done ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: event.done ? 'line-through' : 'none' }}>
+                    {event.title}
                   </td>
-                  {/* 日期欄 */}
                   {event.date && (
-                    <td className="text-mono text-right text-grey-600" style={{ width: '60px', padding: '2px 4px 2px 0', fontSize: '10px' }}>
+                    <td style={{ width: '44px', padding: '1px 3px 1px 0', fontSize: '9px', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {event.date}
                     </td>
                   )}
-                  {/* 刪除按鈕欄（測試用） */}
                   {showDeleteButton && onDelete && (
-                    <td style={{ width: '24px', padding: '2px 4px 2px 0', textAlign: 'center' }}>
+                    <td style={{ width: '20px', padding: '1px 3px 1px 0', textAlign: 'center' }}>
                       <button
                         onClick={(e) => {
-                          console.log(`[EventList] 點擊刪除:`, { 
-                            title, 
-                            eventId: event.id, 
-                            eventTitle: event.title 
-                          })
                           e.stopPropagation()
                           if (confirm(`確定要刪除「${event.title}」嗎？`)) {
                             onDelete(event.id)
                           }
                         }}
                         style={{ 
-                          fontSize: '11px',
-                          width: '18px',
-                          height: '18px',
+                          fontSize: '9px',
+                          width: '16px',
+                          height: '14px',
                           padding: '0',
                           margin: '0',
-                          border: '1px solid #808080',
-                          background: '#C0C0C0',
-                          color: '#000',
+                          border: '1px solid var(--border-mid-dark)',
+                          background: 'var(--bg-window)',
+                          color: 'var(--text-primary)',
                           cursor: 'pointer',
-                          fontWeight: 'bold'
+                          fontWeight: 'bold',
+                          lineHeight: 1
                         }}
                       >
-                        X
+                        ×
                       </button>
                     </td>
                   )}
