@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Calendar from '@/components/Calendar'
 import EventList from '@/components/EventList'
@@ -18,7 +18,8 @@ import Win95Window from '@/components/win95/Win95Window'
 import Taskbar from '@/components/Taskbar'
 import DevTrackerPage from '@/components/DevTrackerPage'
 import MeetingPage from '@/components/MeetingPage'
-import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
+import ExternalAppFrame from '@/components/ExternalAppFrame'
+import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { useDevice } from '@/lib/useDevice'
 import { 
   getTaskDefinitionsByAssignee, 
@@ -911,7 +912,7 @@ function HomePageInner() {
         )}
       </div>
 
-      {/* Application Windows Layer */}
+      {/* Application Windows Layer — Internal modules */}
       <Win95Window windowId="hr">
         <HRPage isAdmin={isAdmin} />
       </Win95Window>
@@ -952,6 +953,16 @@ function HomePageInner() {
       <Win95Window windowId="devtracker">
         <DevTrackerPage />
       </Win95Window>
+
+      {/* External App Windows — dynamically rendered from WINDOW_CONFIGS */}
+      {WINDOW_CONFIGS.filter(c => c.type === 'external' && c.externalUrl).map(config => (
+        <React.Fragment key={config.id}>
+          <Win95Window windowId={config.id}>
+            <ExternalAppFrame windowId={config.id} url={config.externalUrl!} title={config.title} />
+          </Win95Window>
+          <ExternalAppFrame windowId={config.id} url={config.externalUrl!} title={config.title} />
+        </React.Fragment>
+      ))}
 
       {/* Modals */}
       <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />

@@ -8,6 +8,7 @@ export interface WindowState {
   isOpen: boolean
   isMinimized: boolean
   isMaximized: boolean
+  isFullscreen: boolean
   x: number
   y: number
   width: number
@@ -20,18 +21,29 @@ export interface WindowConfig {
   title: string
   defaultWidth: number
   defaultHeight: number
+  type: 'internal' | 'external'
+  externalUrl?: string
+  fullscreenDefault?: boolean
 }
 
 export const WINDOW_CONFIGS: WindowConfig[] = [
-  { id: 'hr', title: 'HR - PERSONNEL', defaultWidth: 700, defaultHeight: 500 },
-  { id: 'meeting', title: 'MEETING - 會議紀錄', defaultWidth: 800, defaultHeight: 550 },
-  { id: 'operations', title: 'OPS - FACTORY', defaultWidth: 600, defaultHeight: 400 },
-  { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 600, defaultHeight: 400 },
-  { id: 'reports', title: 'REPORT - ANALYTICS', defaultWidth: 600, defaultHeight: 400 },
-  { id: 'settings', title: 'CONFIG - SETTINGS', defaultWidth: 750, defaultHeight: 500 },
-  { id: 'points', title: 'POINTS - 積分中心', defaultWidth: 500, defaultHeight: 400 },
-  { id: 'devtracker', title: 'DEV TRACKER', defaultWidth: 800, defaultHeight: 500 },
+  // Internal modules
+  { id: 'hr', title: 'HR - PERSONNEL', defaultWidth: 700, defaultHeight: 500, type: 'internal' },
+  { id: 'meeting', title: 'MEETING - 會議紀錄', defaultWidth: 800, defaultHeight: 550, type: 'internal' },
+  { id: 'operations', title: 'OPS - FACTORY', defaultWidth: 600, defaultHeight: 400, type: 'internal' },
+  { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 600, defaultHeight: 400, type: 'internal' },
+  { id: 'reports', title: 'REPORT - ANALYTICS', defaultWidth: 600, defaultHeight: 400, type: 'internal' },
+  { id: 'settings', title: 'CONFIG - SETTINGS', defaultWidth: 750, defaultHeight: 500, type: 'internal' },
+  { id: 'points', title: 'POINTS - 積分中心', defaultWidth: 500, defaultHeight: 400, type: 'internal' },
+  { id: 'devtracker', title: 'DEV TRACKER', defaultWidth: 800, defaultHeight: 500, type: 'internal' },
+
+  // External Apps (examples — update URLs to your actual deployments)
+  // { id: 'capacity', title: 'CAPACITY - 產能系統', defaultWidth: 900, defaultHeight: 600, type: 'external', externalUrl: 'https://capacity.vercel.app', fullscreenDefault: true },
 ]
+
+export function getWindowConfig(id: string): WindowConfig | undefined {
+  return WINDOW_CONFIGS.find(c => c.id === id)
+}
 
 const TASKBAR_HEIGHT = 28
 
@@ -58,6 +70,7 @@ interface WindowManagerStore {
   maximizeWindow: (id: string) => void
   restoreWindow: (id: string) => void
   toggleMaximize: (id: string) => void
+  toggleFullscreen: (id: string) => void
   focusWindow: (id: string) => void
   moveWindow: (id: string, x: number, y: number) => void
   resizeWindow: (id: string, w: number, h: number) => void
@@ -94,6 +107,7 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
           isOpen: true,
           isMinimized: false,
           isMaximized: false,
+          isFullscreen: config.fullscreenDefault || false,
           x: pos.x,
           y: pos.y,
           width: config.defaultWidth,
@@ -110,7 +124,7 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
     if (!windows[id]) return
 
     const updated = { ...windows }
-    updated[id] = { ...updated[id], isOpen: false, isMinimized: false, isMaximized: false }
+    updated[id] = { ...updated[id], isOpen: false, isMinimized: false, isMaximized: false, isFullscreen: false }
 
     const newActive = activeWindowId === id
       ? Object.values(updated)
@@ -126,7 +140,7 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
     if (!windows[id]) return
 
     const updated = { ...windows }
-    updated[id] = { ...updated[id], isMinimized: true }
+    updated[id] = { ...updated[id], isMinimized: true, isFullscreen: false }
 
     const newActive = activeWindowId === id
       ? Object.values(updated)
@@ -143,7 +157,7 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
 
     globalZCounter++
     const updated = { ...windows }
-    updated[id] = { ...updated[id], isMaximized: true, isMinimized: false, zIndex: globalZCounter }
+    updated[id] = { ...updated[id], isMaximized: true, isMinimized: false, isFullscreen: false, zIndex: globalZCounter }
 
     set({ windows: updated, activeWindowId: id })
   },
@@ -154,7 +168,7 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
 
     globalZCounter++
     const updated = { ...windows }
-    updated[id] = { ...updated[id], isMaximized: false, isMinimized: false, zIndex: globalZCounter }
+    updated[id] = { ...updated[id], isMaximized: false, isMinimized: false, isFullscreen: false, zIndex: globalZCounter }
 
     set({ windows: updated, activeWindowId: id })
   },
@@ -167,6 +181,24 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
     } else {
       get().maximizeWindow(id)
     }
+  },
+
+  toggleFullscreen: (id: string) => {
+    const { windows } = get()
+    if (!windows[id]) return
+
+    globalZCounter++
+    const updated = { ...windows }
+    const isFs = updated[id].isFullscreen
+    updated[id] = {
+      ...updated[id],
+      isFullscreen: !isFs,
+      isMaximized: false,
+      isMinimized: false,
+      zIndex: globalZCounter,
+    }
+
+    set({ windows: updated, activeWindowId: id })
   },
 
   focusWindow: (id: string) => {

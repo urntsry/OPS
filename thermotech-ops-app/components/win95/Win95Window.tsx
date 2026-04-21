@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef } from 'react'
-import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
+import { useWindowManager, getWindowConfig, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 
 interface Win95WindowProps {
   windowId: string
@@ -12,15 +12,18 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
   const {
     windows, activeWindowId,
     focusWindow, closeWindow, minimizeWindow,
-    toggleMaximize, moveWindow, resizeWindow,
+    toggleMaximize, toggleFullscreen, moveWindow, resizeWindow,
   } = useWindowManager()
 
   const win = windows[windowId]
+  const config = getWindowConfig(windowId)
+  const isExternal = config?.type === 'external'
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null)
   const windowRef = useRef<HTMLDivElement>(null)
 
-  if (!win || !win.isOpen || win.isMinimized) return null
+  // Don't render Win95 chrome when in fullscreen — ExternalAppFrame handles it
+  if (!win || !win.isOpen || win.isMinimized || win.isFullscreen) return null
 
   const isActive = activeWindowId === windowId
   const isMax = win.isMaximized
@@ -221,6 +224,9 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
         <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
           <button style={ctrlBtnStyle} onClick={(e) => { e.stopPropagation(); minimizeWindow(windowId) }} title="最小化">_</button>
           <button style={ctrlBtnStyle} onClick={(e) => { e.stopPropagation(); toggleMaximize(windowId) }} title={isMax ? '還原' : '最大化'}>{isMax ? '❐' : '□'}</button>
+          {isExternal && (
+            <button style={{...ctrlBtnStyle, fontSize: '8px'}} onClick={(e) => { e.stopPropagation(); toggleFullscreen(windowId) }} title="全螢幕">⛶</button>
+          )}
           <button style={{...ctrlBtnStyle, color: 'var(--accent-red)'}} onClick={(e) => { e.stopPropagation(); closeWindow(windowId) }} title="關閉">×</button>
         </div>
       </div>

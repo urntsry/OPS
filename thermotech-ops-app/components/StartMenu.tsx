@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { WINDOW_CONFIGS } from '@/lib/useWindowManager'
 
 interface StartMenuProps {
   userProfile: {
@@ -37,18 +38,14 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
     }
   }, [onClose])
 
-  const mainItems = [
-    { id: 'hr', label: 'HR - Personnel' },
-    { id: 'meeting', label: 'MEETING - 會議紀錄' },
-    { id: 'operations', label: 'OPS - Factory' },
-    { id: 'sales', label: 'SALES - Business' },
-    { id: 'reports', label: 'REPORT - Analytics' },
-    { id: 'settings', label: 'CONFIG - Settings' },
-  ]
-
-  const extraItems = [
-    { id: 'points', label: 'POINTS - 積分中心' },
-    ...(isAdmin ? [{ id: 'devtracker', label: 'DEV TRACKER' }] : []),
+  // Build menu sections from WINDOW_CONFIGS
+  const internalApps = WINDOW_CONFIGS.filter(c =>
+    c.type === 'internal' && !['points', 'devtracker'].includes(c.id)
+  )
+  const externalApps = WINDOW_CONFIGS.filter(c => c.type === 'external')
+  const utilItems = [
+    ...WINDOW_CONFIGS.filter(c => c.id === 'points'),
+    ...(isAdmin ? WINDOW_CONFIGS.filter(c => c.id === 'devtracker') : []),
   ]
 
   const itemStyle: React.CSSProperties = {
@@ -67,6 +64,18 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
     outline: 'none',
   }
 
+  const renderItem = (item: { id: string; title: string; type?: string }) => (
+    <button
+      key={item.id}
+      className="startmenu-item"
+      onClick={() => onOpenWindow(item.id)}
+      style={itemStyle}
+    >
+      <span style={{ fontSize: '11px' }}>{item.type === 'external' ? '◆' : '■'}</span>
+      {item.title}
+    </button>
+  )
+
   return (
     <div
       ref={menuRef}
@@ -75,7 +84,7 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
         bottom: 28,
         left: 0,
         zIndex: 10000,
-        minWidth: '200px',
+        minWidth: '210px',
         display: 'flex',
         fontFamily: 'monospace',
         backgroundColor: 'var(--bg-window)',
@@ -110,36 +119,23 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
 
       {/* Menu Items */}
       <div style={{ flex: 1, padding: '2px 0' }}>
-        {/* Main apps */}
-        {mainItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onOpenWindow(item.id)}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--active-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--active-text)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' }}
-            style={itemStyle}
-          >
-            <span style={{ fontSize: '11px' }}>■</span>
-            {item.label}
-          </button>
-        ))}
+        {/* Internal Apps */}
+        {internalApps.map(renderItem)}
+
+        {/* External Apps section */}
+        {externalApps.length > 0 && (
+          <>
+            <div style={{ height: '1px', background: 'var(--border-mid-dark)', margin: '3px 4px' }} />
+            <div style={{ padding: '1px 8px', fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>APPS</div>
+            {externalApps.map(renderItem)}
+          </>
+        )}
 
         {/* Separator */}
         <div style={{ height: '1px', background: 'var(--border-mid-dark)', margin: '3px 4px' }} />
 
-        {/* Extra items */}
-        {extraItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onOpenWindow(item.id)}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--active-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--active-text)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' }}
-            style={itemStyle}
-          >
-            <span style={{ fontSize: '11px' }}>■</span>
-            {item.label}
-          </button>
-        ))}
+        {/* Utility items */}
+        {utilItems.map(renderItem)}
 
         {/* Separator */}
         <div style={{ height: '1px', background: 'var(--border-mid-dark)', margin: '3px 4px' }} />
@@ -151,9 +147,8 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
 
         {/* Logout */}
         <button
+          className="startmenu-item"
           onClick={onLogout}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--active-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--active-text)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)' }}
           style={itemStyle}
         >
           <span style={{ fontSize: '11px' }}>⏻</span>

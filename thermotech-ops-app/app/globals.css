@@ -374,6 +374,15 @@ body {
   background-color: var(--hover-bg) !important;
 }
 
+/* Start Menu item hover */
+.startmenu-item {
+  transition: background-color 0.06s, color 0.06s;
+}
+.startmenu-item:hover {
+  background-color: var(--active-bg) !important;
+  color: var(--active-text) !important;
+}
+
 /* Status Bar */
 .statusbar {
   background-color: var(--bg-window);
