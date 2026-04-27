@@ -220,92 +220,35 @@ export default function Calendar({
                             ))}
                           </div>
 
-                          {/* Inline add form — overlays from cell on double-click */}
+                          {/* Inline add — directly in the cell */}
                           {isEditing && (
-                            <div
-                              onClick={e => e.stopPropagation()}
-                              onDoubleClick={e => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                zIndex: 50,
-                                backgroundColor: 'var(--bg-window)',
-                                borderTop: '2px solid var(--border-light)',
-                                borderLeft: '2px solid var(--border-light)',
-                                borderRight: '2px solid var(--border-dark)',
-                                borderBottom: '2px solid var(--border-dark)',
-                                boxShadow: '2px 2px 6px rgba(0,0,0,0.3)',
-                                padding: '4px',
-                                fontFamily: 'monospace',
-                                fontSize: '9px',
-                              }}
-                            >
-                              {/* Header */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                <span style={{ fontWeight: 'bold', fontSize: '10px' }}>
-                                  {day}日 新增事項
-                                </span>
-                                <button
-                                  onClick={() => setEditingDay(null)}
-                                  style={{ background: 'none', border: '1px solid var(--border-mid-dark)', color: 'var(--accent-red)', fontSize: '9px', cursor: 'pointer', padding: '0 3px', lineHeight: 1, outline: 'none', fontWeight: 'bold' }}
-                                >×</button>
-                              </div>
-
-                              {/* Title */}
-                              <input
-                                type="text"
-                                className="inset"
-                                value={newTitle}
-                                onChange={e => setNewTitle(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') handleAddSubmit(day)
-                                  if (e.key === 'Escape') setEditingDay(null)
-                                }}
-                                placeholder="事項標題"
-                                autoFocus
-                                style={{ width: '100%', padding: '2px 3px', fontSize: '9px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)', marginBottom: '3px' }}
-                              />
-
-                              {/* Type selector */}
-                              <select
-                                className="inset"
-                                value={newType}
-                                onChange={e => setNewType(e.target.value)}
-                                style={{ width: '100%', padding: '1px 3px', fontSize: '9px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)', marginBottom: '3px' }}
-                              >
-                                {availableTypes.map((t: EventType) => (
-                                  <option key={t.id} value={t.id}>{t.label}</option>
-                                ))}
-                              </select>
-
-                              {/* Extra dates */}
-                              {extraDates.length > 0 && (
-                                <div style={{ marginBottom: '3px', padding: '2px', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)' }}>
-                                  {extraDates.map(d => (
-                                    <div key={d} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', padding: '1px 2px' }}>
-                                      <span>+ {d}</span>
-                                      <span onClick={() => setExtraDates(extraDates.filter(x => x !== d))} style={{ color: 'var(--accent-red)', cursor: 'pointer' }}>×</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              <div style={{ display: 'flex', gap: '2px', marginBottom: '3px' }}>
+                            <div onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()} style={{ marginTop: '2px', borderTop: '1px solid var(--border-mid-dark)', paddingTop: '2px' }}>
+                              <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
                                 <input
-                                  type="date"
-                                  className="inset"
-                                  value={newExtraDate}
-                                  onChange={e => setNewExtraDate(e.target.value)}
-                                  style={{ flex: 1, fontSize: '8px', fontFamily: 'monospace', padding: '1px 2px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                                  type="text"
+                                  value={newTitle}
+                                  onChange={e => setNewTitle(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') handleAddSubmit(day)
+                                    if (e.key === 'Escape') setEditingDay(null)
+                                  }}
+                                  placeholder="+ new"
+                                  autoFocus
+                                  style={{ flex: 1, minWidth: 0, padding: '1px 3px', fontSize: '9px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }}
                                 />
-                                <button className="btn" onClick={addExtraDate} style={{ fontSize: '8px', padding: '0 4px' }}>+日</button>
                               </div>
-
-                              {/* Submit */}
-                              <button className="btn" onClick={() => handleAddSubmit(day)} style={{ width: '100%', fontSize: '9px', padding: '2px' }}>
-                                確定 ({1 + extraDates.length} 日)
-                              </button>
+                              <div style={{ display: 'flex', gap: '2px' }}>
+                                <select
+                                  value={newType}
+                                  onChange={e => setNewType(e.target.value)}
+                                  style={{ flex: 1, minWidth: 0, padding: '0 2px', fontSize: '8px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }}
+                                >
+                                  {availableTypes.map((t: EventType) => (
+                                    <option key={t.id} value={t.id}>{t.label}</option>
+                                  ))}
+                                </select>
+                                <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '8px', fontFamily: 'monospace', padding: '0 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold' }}>OK</button>
+                              </div>
                             </div>
                           )}
                         </>
