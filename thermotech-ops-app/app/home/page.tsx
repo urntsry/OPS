@@ -6,7 +6,6 @@ import Calendar from '@/components/Calendar'
 import EventList from '@/components/EventList'
 import Button from '@/components/Button'
 import AddEventModal from '@/components/AddEventModal'
-import CalendarInlineForm from '@/components/CalendarInlineForm'
 import Toast from '@/components/Toast'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
@@ -71,10 +70,6 @@ function HomePageInner() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [hideWeekend, setHideWeekend] = useState(false) // 隱藏週末
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isCalendarFormOpen, setIsCalendarFormOpen] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<number | null>(null)
-  const [preselectedDateString, setPreselectedDateString] = useState<string | null>(null)
-  const [calendarFormPosition, setCalendarFormPosition] = useState({ x: 0, y: 0 })
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   
@@ -403,33 +398,7 @@ function HomePageInner() {
   }
 
   const handleAddEvent = () => {
-    console.log('[HomePage] handleAddEvent 被調用 - 開啟新增視窗（中央）')
     setIsAddModalOpen(true)
-    setIsCalendarFormOpen(false)
-    console.log('[HomePage] isAddModalOpen 設為 true')
-  }
-
-  const handleDateClick = (date: number, event: React.MouseEvent) => {
-    console.log('[HomePage] handleDateClick 被調用:', { date, currentYear, currentMonth })
-    const year = currentYear
-    const month = String(currentMonth + 1).padStart(2, '0')
-    const day = String(date).padStart(2, '0')
-    const dateString = `${year}-${month}-${day}`
-    
-    // 計算點擊位置附近的表單位置
-    const clickX = event.clientX
-    const clickY = event.clientY
-    
-    console.log('[HomePage] 格式化日期:', dateString, '點擊位置:', { clickX, clickY })
-    setSelectedDate(date)
-    setPreselectedDateString(dateString)
-    setCalendarFormPosition({ 
-      x: Math.min(clickX - 100, window.innerWidth - 400), 
-      y: Math.max(clickY - 50, 100) 
-    })
-    setIsCalendarFormOpen(true)
-    setIsAddModalOpen(false)
-    console.log('[HomePage] CalendarInlineForm 已開啟，預選日期:', dateString)
   }
 
   const handleAnnouncementClick = (id: number) => {
@@ -453,9 +422,7 @@ function HomePageInner() {
     console.log('[HomePage] 事項類型:', data.type)
     console.log('[HomePage] 選擇日期:', data.dates)
     
-    // 關閉所有表單
     setIsAddModalOpen(false)
-    setIsCalendarFormOpen(false)
     
     try {
       if (data.type === 'routine') {
@@ -538,8 +505,7 @@ function HomePageInner() {
       console.error('[HomePage] 新增任務失敗:', error)
       setToast({ message: '新增失敗，請稍後再試', type: 'error' })
     } finally {
-      setSelectedDate(null)
-      setPreselectedDateString(null)
+      // cleanup done
     }
   }
 
@@ -632,10 +598,13 @@ function HomePageInner() {
                       year={currentYear} 
                       month={currentMonth} 
                       events={calendarEvents} 
-                      onDateClick={handleDateClick}
                       hideWeekend={hideWeekend}
                       compact={true}
                       onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
+                      onToggleEvent={handleToggleTask}
+                      onDeleteEvent={handleDeleteAssignment}
+                      onAddEvent={handleSubmitEvent}
+                      userRole={userRole}
                     />
                   </div>
 
@@ -724,7 +693,7 @@ function HomePageInner() {
         <MobileNav currentTab={currentTab} onTabChange={setCurrentTab} />
 
         {/* Modals */}
-        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
+        <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
         <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
       </div>
     )
@@ -789,24 +758,18 @@ function HomePageInner() {
                       year={currentYear} 
                       month={currentMonth} 
                       events={calendarEvents} 
-                      onDateClick={handleDateClick}
                       onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
+                      onToggleEvent={handleToggleTask}
+                      onDeleteEvent={handleDeleteAssignment}
+                      onAddEvent={handleSubmitEvent}
+                      userRole={userRole}
                     />
-                    {isCalendarFormOpen && preselectedDateString && (
-                      <CalendarInlineForm
-                        selectedDate={preselectedDateString}
-                        onSubmit={handleSubmitEvent}
-                        onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }}
-                        position={calendarFormPosition}
-                        userRole={userRole}
-                      />
-                    )}
                   </div>
 
                   {/* 下方四欄：任務區 */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', width: '100%' }}>
-                    <EventList title="ROUTINE" events={routineTasks} onAdd={handleAddEvent} showAddButton={true} />
-                    <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onAdd={handleAddEvent} showAddButton={true} />
+                    <EventList title="ROUTINE" events={routineTasks} showAddButton={false} />
+                    <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} showAddButton={false} />
                     <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
                     <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
                   </div>
@@ -821,7 +784,7 @@ function HomePageInner() {
         </div>
 
         {/* Modals */}
-        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
+        <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
         <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
       </div>
     )
@@ -894,18 +857,18 @@ function HomePageInner() {
                 year={currentYear}
                 month={currentMonth}
                 events={calendarEvents}
-                onDateClick={handleDateClick}
                 onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
+                onToggleEvent={handleToggleTask}
+                onDeleteEvent={handleDeleteAssignment}
+                onAddEvent={handleSubmitEvent}
+                userRole={userRole}
               />
-              {isCalendarFormOpen && preselectedDateString && (
-                <CalendarInlineForm selectedDate={preselectedDateString} onSubmit={handleSubmitEvent} onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }} position={calendarFormPosition} userRole={userRole} />
-              )}
             </div>
 
             {/* Bottom panels */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-              <EventList title="ROUTINE" events={routineTasks} onAdd={handleAddEvent} onDelete={handleDeleteRoutineTask} showAddButton={true} showDeleteButton={true} />
-              <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onAdd={handleAddEvent} onDelete={handleDeleteAssignment} showAddButton={true} showDeleteButton={true} />
+              <EventList title="ROUTINE" events={routineTasks} showAddButton={false} />
+              <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} showAddButton={false} />
               <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
               <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
             </div>
@@ -966,7 +929,7 @@ function HomePageInner() {
       ))}
 
       {/* Modals */}
-      <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
+      <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
       <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
 
       {/* Taskbar */}
