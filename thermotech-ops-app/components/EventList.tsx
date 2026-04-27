@@ -37,17 +37,17 @@ export default function EventList({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '2px 6px',
-          minHeight: '16px'
+          height: '18px',
         }}
       >
         <div style={{ fontWeight: 'bold', fontSize: '10px', letterSpacing: '0.3px' }}>{title}</div>
-        {showAddButton && onAdd && (
+        {showAddButton && onAdd ? (
           <button 
             onClick={() => onAdd()}
             style={{ 
               fontSize: '12px', 
               width: '16px', 
-              height: '16px', 
+              height: '14px', 
               padding: '0',
               margin: '0',
               border: 'none', 
@@ -61,6 +61,8 @@ export default function EventList({
           >
             +
           </button>
+        ) : (
+          <div style={{ width: '16px', height: '14px', flexShrink: 0 }} />
         )}
       </div>
 

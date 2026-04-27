@@ -2,38 +2,35 @@
 
 import { useState, useEffect } from 'react'
 import Button from './Button'
+import { getTypesForRole, type EventType } from '@/lib/eventTypes'
 
 interface AddEventModalProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (data: {
     title: string
-    type: 'routine' | 'assignment' | 'public'
+    type: string
     dates: string[]
   }) => void
   preselectedDate?: string | null
   zIndex?: number
   position?: { x: number; y: number }
+  userRole?: string
 }
 
-export default function AddEventModal({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  preselectedDate,
-  zIndex = 1000,
-  position = { x: 100, y: 100 }
+export default function AddEventModal({
+  isOpen, onClose, onSubmit, preselectedDate,
+  zIndex = 1000, position = { x: 100, y: 100 },
+  userRole = 'user'
 }: AddEventModalProps) {
+  const availableTypes = getTypesForRole(userRole)
   const [title, setTitle] = useState('')
-  const [type, setType] = useState<'routine' | 'assignment' | 'public'>('routine')
+  const [type, setType] = useState(availableTypes[0]?.id || 'routine')
   const [selectedDates, setSelectedDates] = useState<string[]>([])
   const [customDate, setCustomDate] = useState('')
 
-  // 當有預選日期時，自動加入
   useEffect(() => {
-    console.log('[AddEventModal] useEffect 觸發:', { preselectedDate, isOpen })
     if (preselectedDate && isOpen) {
-      console.log('[AddEventModal] 自動加入預選日期:', preselectedDate)
       setSelectedDates([preselectedDate])
     }
   }, [preselectedDate, isOpen])
@@ -41,37 +38,22 @@ export default function AddEventModal({
   if (!isOpen) return null
 
   const handleAddDate = () => {
-    console.log('[AddEventModal] handleAddDate:', { customDate, selectedDates })
     if (customDate && !selectedDates.includes(customDate)) {
-      const newDates = [...selectedDates, customDate]
-      console.log('[AddEventModal] 新增日期，更新為:', newDates)
-      setSelectedDates(newDates)
+      setSelectedDates([...selectedDates, customDate])
       setCustomDate('')
-    } else if (!customDate) {
-      console.warn('[AddEventModal] 未選擇日期')
-    } else {
-      console.warn('[AddEventModal] 日期已存在:', customDate)
     }
   }
 
   const handleRemoveDate = (date: string) => {
-    console.log('[AddEventModal] handleRemoveDate:', date)
-    const newDates = selectedDates.filter(d => d !== date)
-    console.log('[AddEventModal] 移除後剩餘日期:', newDates)
-    setSelectedDates(newDates)
+    setSelectedDates(selectedDates.filter(d => d !== date))
   }
 
   const handleSubmit = () => {
-    console.log('[AddEventModal] handleSubmit:', { title, type, selectedDates })
     if (!title || selectedDates.length === 0) {
-      const msg = !title ? '請填寫標題' : '請選擇日期'
-      console.error('[AddEventModal] 驗證失敗:', msg)
-      alert(msg)
+      alert(!title ? '請填寫標題' : '請選擇日期')
       return
     }
-    console.log('[AddEventModal] 驗證通過，提交資料')
     onSubmit({ title, type, dates: selectedDates })
-    console.log('[AddEventModal] 清空表單')
     setTitle('')
     setSelectedDates([])
     setCustomDate('')
@@ -79,7 +61,6 @@ export default function AddEventModal({
   }
 
   const handleClose = () => {
-    console.log('[AddEventModal] handleClose - 清空狀態並關閉')
     setTitle('')
     setSelectedDates([])
     setCustomDate('')
@@ -88,126 +69,80 @@ export default function AddEventModal({
 
   return (
     <>
-      {/* 半透明背景 */}
-      <div 
-        className="fixed inset-0"
-        style={{ 
-          backgroundColor: 'rgba(0,0,0,0.4)',
-          zIndex: 1400
-        }}
-        onClick={handleClose}
-      />
-      
-      {/* 視窗 - 正中央 */}
-      <div 
-        className="window fixed"
-        style={{ 
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '500px',
-          zIndex: 1500
-        }}
-      >
-        <div className="titlebar">
-          新增事項
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1400 }} onClick={handleClose} />
+
+      <div className="window" style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: '420px', zIndex: 1500 }}>
+        <div className="titlebar" style={{ padding: '2px 6px', fontSize: '10px' }}>
+          <span style={{ fontWeight: 'bold' }}>新增事項</span>
+          <button onClick={handleClose} style={{ background: 'var(--bg-window)', border: '1px solid var(--border-dark)', color: 'var(--accent-red)', fontSize: '10px', cursor: 'pointer', padding: '0 4px', fontWeight: 'bold', outline: 'none' }}>×</button>
         </div>
 
-        <div className="p-4 bg-grey-200">
-          {/* 標題 */}
-          <div className="mb-4">
-            <label className="block mb-2 text-bold">標題</label>
-            <input
-              type="text"
-              className="input w-full"
-              placeholder="請輸入事項標題"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+        <div style={{ padding: '8px', background: 'var(--bg-window)', fontSize: '10px', fontFamily: 'monospace' }}>
+          {/* Title */}
+          <div style={{ marginBottom: '6px' }}>
+            <label style={{ display: 'block', marginBottom: '2px', fontWeight: 'bold', fontSize: '9px' }}>TITLE</label>
+            <input className="inset" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="輸入事項標題" autoFocus style={{ width: '100%', padding: '3px 4px', fontSize: '10px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
           </div>
 
-          {/* 類型 */}
-          <div className="mb-4">
-            <label className="block mb-2 text-bold">類型</label>
-            <div className="flex gap-2">
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="type"
-                  checked={type === 'routine'}
-                  onChange={() => setType('routine')}
-                />
-                <span className="text-11">例行公事</span>
-              </label>
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="type"
-                  checked={type === 'assignment'}
-                  onChange={() => setType('assignment')}
-                />
-                <span className="text-11">交辦事項</span>
-              </label>
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="type"
-                  checked={type === 'public'}
-                  onChange={() => setType('public')}
-                />
-                <span className="text-11">公共事項</span>
-              </label>
+          {/* Type — dynamic from registry */}
+          <div style={{ marginBottom: '6px' }}>
+            <label style={{ display: 'block', marginBottom: '2px', fontWeight: 'bold', fontSize: '9px' }}>TYPE</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
+              {availableTypes.map((t: EventType) => (
+                <button
+                  key={t.id}
+                  onClick={() => setType(t.id)}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '9px',
+                    fontFamily: 'monospace',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    backgroundColor: type === t.id ? t.color : 'var(--bg-window)',
+                    color: type === t.id ? '#FFF' : 'var(--text-primary)',
+                    borderTop: type === t.id ? '1px solid var(--border-dark)' : '1px solid var(--border-light)',
+                    borderLeft: type === t.id ? '1px solid var(--border-dark)' : '1px solid var(--border-light)',
+                    borderRight: type === t.id ? '1px solid var(--border-light)' : '1px solid var(--border-dark)',
+                    borderBottom: type === t.id ? '1px solid var(--border-light)' : '1px solid var(--border-dark)',
+                  }}
+                >
+                  <span style={{ width: '6px', height: '6px', backgroundColor: t.color, display: 'inline-block', border: '1px solid rgba(0,0,0,0.2)' }} />
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* 日期選擇 */}
-          <div className="mb-4">
-            <label className="block mb-2 text-bold">日期（可複選）</label>
-            
-            {/* 已選日期 */}
+          {/* Date selection */}
+          <div style={{ marginBottom: '6px' }}>
+            <label style={{ display: 'block', marginBottom: '2px', fontWeight: 'bold', fontSize: '9px' }}>DATES ({selectedDates.length})</label>
             {selectedDates.length > 0 && (
-              <div className="inset p-2 bg-white mb-2">
-                <div className="text-mono text-xs mb-1">已選擇的日期：</div>
-                {selectedDates.map((date) => (
-                  <div key={date} className="flex justify-between items-center mb-1">
-                    <span className="text-mono text-11">{date}</span>
-                    <button
-                      onClick={() => handleRemoveDate(date)}
-                      className="text-bold text-red-600 text-xs"
-                    >
-                      X
-                    </button>
+              <div className="inset" style={{ padding: '3px', marginBottom: '4px', background: 'var(--bg-inset)', maxHeight: '80px', overflow: 'hidden auto' }}>
+                {selectedDates.map(date => (
+                  <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1px 4px', fontSize: '10px' }}>
+                    <span>{date}</span>
+                    <button onClick={() => handleRemoveDate(date)} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', fontWeight: 'bold', fontSize: '10px', outline: 'none' }}>×</button>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* 新增日期 */}
-            <div className="flex gap-2">
-              <input
-                type="date"
-                className="input flex-1"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-              />
-              <Button onClick={handleAddDate} className="text-xs">
-                新增
-              </Button>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input className="inset" type="date" value={customDate} onChange={e => setCustomDate(e.target.value)} style={{ flex: 1, padding: '2px 4px', fontSize: '10px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
+              <Button onClick={handleAddDate} style={{ padding: '2px 8px', fontSize: '9px' }}>+</Button>
             </div>
           </div>
 
-          {/* 按鈕 */}
-          <div className="flex gap-2">
-            <Button onClick={handleSubmit} className="flex-1">
-              確定
-            </Button>
-            <Button onClick={handleClose} className="flex-1">
-              取消
-            </Button>
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+            <Button onClick={handleClose} style={{ padding: '3px 12px', fontSize: '9px' }}>取消</Button>
+            <Button onClick={handleSubmit} style={{ padding: '3px 12px', fontSize: '9px' }}>確定</Button>
           </div>
         </div>
       </div>
     </>
   )
 }
-

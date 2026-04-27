@@ -308,7 +308,7 @@ function HomePageInner() {
       }
       return null
     })
-    .filter(e => e !== null) as Array<{date: number, title: string, type: 'routine' | 'assignment' | 'public'}>
+    .filter(e => e !== null) as Array<{date: number, title: string, type: string}>
 
   // 從公共事項生成日曆事件
   const publicCalendarEvents = publicEvents
@@ -445,7 +445,7 @@ function HomePageInner() {
 
   const handleSubmitEvent = async (data: {
     title: string
-    type: 'routine' | 'assignment' | 'public'
+    type: string
     dates: string[]
   }) => {
     console.log('[HomePage] handleSubmitEvent 被調用:', data)
@@ -724,7 +724,7 @@ function HomePageInner() {
         <MobileNav currentTab={currentTab} onTabChange={setCurrentTab} />
 
         {/* Modals */}
-        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />
+        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
         <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
       </div>
     )
@@ -798,6 +798,7 @@ function HomePageInner() {
                         onSubmit={handleSubmitEvent}
                         onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }}
                         position={calendarFormPosition}
+                        userRole={userRole}
                       />
                     )}
                   </div>
@@ -820,7 +821,7 @@ function HomePageInner() {
         </div>
 
         {/* Modals */}
-        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />
+        <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
         <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
       </div>
     )
@@ -897,7 +898,7 @@ function HomePageInner() {
                 onMonthChange={(y, m) => { setCurrentYear(y); setCurrentMonth(m) }}
               />
               {isCalendarFormOpen && preselectedDateString && (
-                <CalendarInlineForm selectedDate={preselectedDateString} onSubmit={handleSubmitEvent} onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }} position={calendarFormPosition} />
+                <CalendarInlineForm selectedDate={preselectedDateString} onSubmit={handleSubmitEvent} onClose={() => { setIsCalendarFormOpen(false); setPreselectedDateString(null) }} position={calendarFormPosition} userRole={userRole} />
               )}
             </div>
 
@@ -965,7 +966,7 @@ function HomePageInner() {
       ))}
 
       {/* Modals */}
-      <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} />
+      <AddEventModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setSelectedDate(null); setPreselectedDateString(null) }} onSubmit={handleSubmitEvent} preselectedDate={preselectedDateString} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
       <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
 
       {/* Taskbar */}
