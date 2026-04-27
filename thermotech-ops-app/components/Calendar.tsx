@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { getEventColor, getTypesForRole, getEventLabel, type EventType } from '@/lib/eventTypes'
 
 interface CalendarEvent {
@@ -30,6 +30,8 @@ export default function Calendar({
   hideWeekend = false, compact = false, userRole = 'user'
 }: CalendarProps) {
   const [expandedDay, setExpandedDay] = useState<number | null>(null)
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 })
+  const calendarRef = useRef<HTMLDivElement>(null)
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfWeek = new Date(year, month, 1).getDay()
@@ -78,12 +80,46 @@ export default function Calendar({
     setExpandedDay(null)
   }
 
+  const handleCellClick = (day: number, e: React.MouseEvent) => {
+    if (expandedDay === day) {
+      setExpandedDay(null)
+      return
+    }
+
+    const cellEl = e.currentTarget as HTMLElement
+    const calEl = calendarRef.current
+    if (calEl) {
+      const cellRect = cellEl.getBoundingClientRect()
+      const calRect = calEl.getBoundingClientRect()
+      const panelWidth = 320
+      const panelHeight = 260
+
+      let px = cellRect.right - calRect.left
+      let py = cellRect.top - calRect.top
+
+      if (px + panelWidth > calRect.width) {
+        px = cellRect.left - calRect.left - panelWidth
+      }
+      if (px < 0) px = (calRect.width - panelWidth) / 2
+
+      if (py + panelHeight > calRect.height) {
+        py = calRect.height - panelHeight
+      }
+      if (py < 0) py = 0
+
+      setPanelPos({ x: px, y: py })
+    }
+
+    setExpandedDay(day)
+  }
+
   const fontSize = compact ? '10px' : '11px'
   const eventFontSize = compact ? '8px' : '9px'
-  const cellMinHeight = compact ? '48px' : '74px'
+  const cellHeight = compact ? '60px' : '120px'
+  const eventAreaHeight = compact ? '42px' : '100px'
 
   return (
-    <div className="window" style={{ padding: 0, width: '100%', position: 'relative' }}>
+    <div ref={calendarRef} className="window" style={{ padding: 0, width: '100%', position: 'relative' }}>
       {/* Header */}
       <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: compact ? '3px 6px' : '3px 8px' }}>
         <button onClick={handlePrevMonth} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.5)', color: '#FFF', padding: '1px 6px', fontSize: '11px', cursor: 'pointer', lineHeight: 1, outline: 'none' }}>◀</button>
@@ -95,7 +131,7 @@ export default function Calendar({
 
       {/* Calendar Grid */}
       <div className="inset" style={{ background: 'var(--bg-inset)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize, tableLayout: 'fixed' }}>
           <thead>
             <tr>
               {weekDays.map((day, idx) => {
@@ -125,26 +161,30 @@ export default function Calendar({
                         backgroundColor: isExpanded ? 'var(--hover-bg)' : isToday ? 'var(--hover-bg)' : 'var(--bg-inset)',
                         verticalAlign: 'top',
                         cursor: day ? 'pointer' : 'default',
-                        minHeight: cellMinHeight,
+                        height: cellHeight,
                         padding: compact ? '2px' : '3px',
                         fontSize,
                         color: isWeekend ? 'var(--text-muted)' : 'var(--text-primary)',
-                        position: 'relative',
+                        overflow: 'hidden',
                       }}
-                      onClick={() => day && setExpandedDay(isExpanded ? null : day)}
+                      onClick={(e) => day && handleCellClick(day, e)}
                     >
                       {day && (
                         <>
-                          <div style={{ fontWeight: 'bold', marginBottom: '1px', fontSize, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          {/* Day number */}
+                          <div style={{ fontWeight: 'bold', marginBottom: '1px', fontSize, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                             <span>{day}</span>
                             {isToday && <span style={{ fontSize: '7px', color: 'var(--accent-teal)', fontWeight: 'bold' }}>TODAY</span>}
                           </div>
-                          {dayEvents.map((event, idx) => (
-                            <div key={idx} style={{ fontFamily: 'monospace', fontSize: eventFontSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '1px', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: '2px' }} title={event.title}>
-                              <span style={{ width: '3px', height: '10px', backgroundColor: getEventColor(event.type), flexShrink: 0, display: 'inline-block' }} />
-                              <span style={{ color: getEventColor(event.type), overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: event.done ? 'line-through' : 'none', opacity: event.done ? 0.5 : 1 }}>{event.title}</span>
-                            </div>
-                          ))}
+                          {/* Events — scrollable within cell */}
+                          <div style={{ overflow: 'hidden auto', maxHeight: eventAreaHeight }}>
+                            {dayEvents.map((event, idx) => (
+                              <div key={idx} style={{ fontFamily: 'monospace', fontSize: eventFontSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '1px', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: '2px' }} title={event.title}>
+                                <span style={{ width: '3px', height: '10px', backgroundColor: getEventColor(event.type), flexShrink: 0, display: 'inline-block' }} />
+                                <span style={{ color: getEventColor(event.type), overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: event.done ? 'line-through' : 'none', opacity: event.done ? 0.5 : 1 }}>{event.title}</span>
+                              </div>
+                            ))}
+                          </div>
                         </>
                       )}
                     </td>
@@ -156,7 +196,7 @@ export default function Calendar({
         </table>
       </div>
 
-      {/* Merged Day Panel */}
+      {/* Day Panel — positioned near clicked cell */}
       {expandedDay && (
         <DayPanel
           day={expandedDay}
@@ -164,6 +204,7 @@ export default function Calendar({
           month={month}
           dayOfWeek={dayNames[new Date(year, month, expandedDay).getDay()]}
           events={getEventsForDay(expandedDay)}
+          position={panelPos}
           onClose={() => setExpandedDay(null)}
           onToggle={onToggleEvent}
           onDelete={onDeleteEvent}
@@ -176,11 +217,12 @@ export default function Calendar({
 }
 
 // ============================================
-// Merged Day Panel — view events + add new
+// Day Panel — positioned near the clicked cell
 // ============================================
-function DayPanel({ day, year, month, dayOfWeek, events, onClose, onToggle, onDelete, onAdd, userRole }: {
+function DayPanel({ day, year, month, dayOfWeek, events, position, onClose, onToggle, onDelete, onAdd, userRole }: {
   day: number; year: number; month: number; dayOfWeek: string
   events: CalendarEvent[]
+  position: { x: number; y: number }
   onClose: () => void
   onToggle?: (id: number) => void
   onDelete?: (id: number) => void
@@ -206,9 +248,8 @@ function DayPanel({ day, year, month, dayOfWeek, events, onClose, onToggle, onDe
     <div
       style={{
         position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
+        left: position.x,
+        top: position.y,
         zIndex: 100,
         width: '320px',
         fontFamily: 'monospace',
@@ -250,36 +291,20 @@ function DayPanel({ day, year, month, dayOfWeek, events, onClose, onToggle, onDe
             className="eventlist-row"
             style={{ padding: '3px 6px', display: 'flex', alignItems: 'center', gap: '4px', borderBottom: '1px solid var(--table-border)' }}
           >
-            {/* Color bar */}
             <span style={{ width: '4px', height: '14px', backgroundColor: getEventColor(event.type), flexShrink: 0 }} />
-
-            {/* Toggle checkbox */}
             {onToggle && event.id ? (
-              <span
-                onClick={() => onToggle(event.id!)}
-                style={{ fontFamily: 'Courier New', cursor: 'pointer', fontSize: '10px', flexShrink: 0, userSelect: 'none' }}
-              >
+              <span onClick={() => onToggle(event.id!)} style={{ fontFamily: 'Courier New', cursor: 'pointer', fontSize: '10px', flexShrink: 0, userSelect: 'none' }}>
                 {event.done ? '[V]' : '[ ]'}
               </span>
             ) : (
               <span style={{ width: '20px', flexShrink: 0 }} />
             )}
-
-            {/* Type label */}
             <span style={{ color: getEventColor(event.type), fontWeight: 'bold', fontSize: '8px', minWidth: '32px', flexShrink: 0 }}>
               {getEventLabel(event.type).slice(0, 4)}
             </span>
-
-            {/* Title */}
-            <span style={{
-              flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              textDecoration: event.done ? 'line-through' : 'none',
-              color: event.done ? 'var(--text-muted)' : 'var(--text-primary)',
-            }}>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: event.done ? 'line-through' : 'none', color: event.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>
               {event.title}
             </span>
-
-            {/* Delete */}
             {onDelete && event.id && (
               <button
                 onClick={() => { if (confirm(`刪除「${event.title}」？`)) onDelete(event.id!) }}
@@ -290,7 +315,7 @@ function DayPanel({ day, year, month, dayOfWeek, events, onClose, onToggle, onDe
         ))}
       </div>
 
-      {/* Inline Add Form (toggled by + button) */}
+      {/* Inline Add Form */}
       {showAddForm && (
         <div style={{ padding: '6px', borderTop: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)' }}>
           <div style={{ marginBottom: '4px' }}>
@@ -316,11 +341,7 @@ function DayPanel({ day, year, month, dayOfWeek, events, onClose, onToggle, onDe
                 <option key={t.id} value={t.id}>{t.label}</option>
               ))}
             </select>
-            <button
-              className="btn"
-              onClick={handleSubmitAdd}
-              style={{ fontSize: '9px', padding: '2px 10px' }}
-            >確定</button>
+            <button className="btn" onClick={handleSubmitAdd} style={{ fontSize: '9px', padding: '2px 10px' }}>確定</button>
           </div>
         </div>
       )}
