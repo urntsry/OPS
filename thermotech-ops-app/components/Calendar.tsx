@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { getEventColor, getTypesForRole, getEventLabel, type EventType } from '@/lib/eventTypes'
 
 interface CalendarEvent {
@@ -29,9 +29,10 @@ export default function Calendar({
   onToggleEvent, onDeleteEvent, onAddEvent,
   hideWeekend = false, compact = false, userRole = 'user'
 }: CalendarProps) {
-  const [expandedDay, setExpandedDay] = useState<number | null>(null)
-  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 })
-  const calendarRef = useRef<HTMLDivElement>(null)
+  const [editingDay, setEditingDay] = useState<number | null>(null)
+  const [newTitle, setNewTitle] = useState('')
+  const availableTypes = getTypesForRole(userRole)
+  const [newType, setNewType] = useState(availableTypes[0]?.id || 'routine')
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfWeek = new Date(year, month, 1).getDay()
@@ -61,56 +62,39 @@ export default function Calendar({
     weeks.push(currentWeek)
   }
 
-  const getEventsForDay = (day: number) => events.filter(e => e.date === day)
+  const getEventsForDay = (day: number) => {
+    const dayEvents = events.filter(e => e.date === day)
+    // Sort: undone first, done last
+    return dayEvents.sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0))
+  }
 
   const allWeekDays = ['六', '一', '二', '三', '四', '五', '日']
   const weekDays = hideWeekend ? allWeekDays.slice(1, 6) : allWeekDays
   const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
-  const dayNames = ['日', '一', '二', '三', '四', '五', '六']
 
   const handlePrevMonth = () => {
     if (!onMonthChange) return
     onMonthChange(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1)
-    setExpandedDay(null)
+    setEditingDay(null)
   }
 
   const handleNextMonth = () => {
     if (!onMonthChange) return
     onMonthChange(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1)
-    setExpandedDay(null)
+    setEditingDay(null)
   }
 
-  const handleCellClick = (day: number, e: React.MouseEvent) => {
-    if (expandedDay === day) {
-      setExpandedDay(null)
-      return
-    }
+  const handleDoubleClick = (day: number) => {
+    setEditingDay(editingDay === day ? null : day)
+    setNewTitle('')
+    setNewType(availableTypes[0]?.id || 'routine')
+  }
 
-    const cellEl = e.currentTarget as HTMLElement
-    const calEl = calendarRef.current
-    if (calEl) {
-      const cellRect = cellEl.getBoundingClientRect()
-      const calRect = calEl.getBoundingClientRect()
-      const panelWidth = 320
-      const panelHeight = 260
-
-      let px = cellRect.right - calRect.left
-      let py = cellRect.top - calRect.top
-
-      if (px + panelWidth > calRect.width) {
-        px = cellRect.left - calRect.left - panelWidth
-      }
-      if (px < 0) px = (calRect.width - panelWidth) / 2
-
-      if (py + panelHeight > calRect.height) {
-        py = calRect.height - panelHeight
-      }
-      if (py < 0) py = 0
-
-      setPanelPos({ x: px, y: py })
-    }
-
-    setExpandedDay(day)
+  const handleAddSubmit = (day: number) => {
+    if (!newTitle.trim() || !onAddEvent) return
+    const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    onAddEvent({ title: newTitle.trim(), type: newType, dates: [isoDate] })
+    setNewTitle('')
   }
 
   const fontSize = compact ? '10px' : '11px'
@@ -119,7 +103,7 @@ export default function Calendar({
   const eventAreaHeight = compact ? '42px' : '100px'
 
   return (
-    <div ref={calendarRef} className="window" style={{ padding: 0, width: '100%', position: 'relative' }}>
+    <div className="window" style={{ padding: 0, width: '100%' }}>
       {/* Header */}
       <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: compact ? '3px 6px' : '3px 8px' }}>
         <button onClick={handlePrevMonth} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.5)', color: '#FFF', padding: '1px 6px', fontSize: '11px', cursor: 'pointer', lineHeight: 1, outline: 'none' }}>◀</button>
@@ -151,40 +135,103 @@ export default function Calendar({
                   const dayEvents = day ? getEventsForDay(day) : []
                   const isWeekend = !hideWeekend && (dayIdx === 0 || dayIdx === 6)
                   const isToday = day === todayDate
-                  const isExpanded = day === expandedDay
+                  const isEditing = day === editingDay
                   return (
                     <td
                       key={dayIdx}
                       className={day ? 'cal-cell' : ''}
                       style={{
                         border: isToday ? '2px solid var(--accent-teal)' : '1px solid var(--border-mid-dark)',
-                        backgroundColor: isExpanded ? 'var(--hover-bg)' : isToday ? 'var(--hover-bg)' : 'var(--bg-inset)',
+                        backgroundColor: isToday ? 'var(--hover-bg)' : 'var(--bg-inset)',
                         verticalAlign: 'top',
-                        cursor: day ? 'pointer' : 'default',
+                        cursor: day ? 'default' : 'default',
                         height: cellHeight,
                         padding: compact ? '2px' : '3px',
                         fontSize,
                         color: isWeekend ? 'var(--text-muted)' : 'var(--text-primary)',
                         overflow: 'hidden',
                       }}
-                      onClick={(e) => day && handleCellClick(day, e)}
+                      onDoubleClick={() => day && handleDoubleClick(day)}
                     >
                       {day && (
                         <>
-                          {/* Day number */}
+                          {/* Day number row */}
                           <div style={{ fontWeight: 'bold', marginBottom: '1px', fontSize, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                             <span>{day}</span>
-                            {isToday && <span style={{ fontSize: '7px', color: 'var(--accent-teal)', fontWeight: 'bold' }}>TODAY</span>}
+                            <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                              {isToday && <span style={{ fontSize: '7px', color: 'var(--accent-teal)', fontWeight: 'bold' }}>TODAY</span>}
+                              {dayEvents.length > 0 && <span style={{ fontSize: '7px', color: 'var(--text-muted)' }}>{dayEvents.length}</span>}
+                            </div>
                           </div>
-                          {/* Events — scrollable within cell */}
-                          <div style={{ overflow: 'hidden auto', maxHeight: eventAreaHeight }}>
+
+                          {/* Events — scrollable, click to toggle */}
+                          <div style={{ overflow: 'hidden auto', maxHeight: isEditing ? `calc(${eventAreaHeight} - 26px)` : eventAreaHeight }}>
                             {dayEvents.map((event, idx) => (
-                              <div key={idx} style={{ fontFamily: 'monospace', fontSize: eventFontSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '1px', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: '2px' }} title={event.title}>
+                              <div
+                                key={event.id || idx}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleEvent && event.id) onToggleEvent(event.id)
+                                }}
+                                style={{
+                                  fontFamily: 'monospace',
+                                  fontSize: eventFontSize,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  marginBottom: '1px',
+                                  lineHeight: 1.2,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  cursor: onToggleEvent && event.id ? 'pointer' : 'default',
+                                  opacity: event.done ? 0.45 : 1,
+                                }}
+                                title={`${event.done ? '✓ ' : ''}${getEventLabel(event.type)}: ${event.title} (click to toggle)`}
+                              >
                                 <span style={{ width: '3px', height: '10px', backgroundColor: getEventColor(event.type), flexShrink: 0, display: 'inline-block' }} />
-                                <span style={{ color: getEventColor(event.type), overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: event.done ? 'line-through' : 'none', opacity: event.done ? 0.5 : 1 }}>{event.title}</span>
+                                <span style={{
+                                  color: event.done ? 'var(--text-muted)' : getEventColor(event.type),
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  textDecoration: event.done ? 'line-through' : 'none',
+                                }}>
+                                  {event.title}
+                                </span>
                               </div>
                             ))}
                           </div>
+
+                          {/* Inline add form — shown on double-click */}
+                          {isEditing && (
+                            <div
+                              style={{ marginTop: '2px', display: 'flex', gap: '2px' }}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <input
+                                type="text"
+                                value={newTitle}
+                                onChange={e => setNewTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleAddSubmit(day)
+                                  if (e.key === 'Escape') setEditingDay(null)
+                                }}
+                                placeholder="+ new"
+                                autoFocus
+                                style={{
+                                  flex: 1,
+                                  minWidth: 0,
+                                  padding: '1px 3px',
+                                  fontSize: '9px',
+                                  fontFamily: 'monospace',
+                                  border: '1px solid var(--border-mid-dark)',
+                                  background: 'var(--bg-input)',
+                                  color: 'var(--text-primary)',
+                                  outline: 'none',
+                                }}
+                              />
+                            </div>
+                          )}
                         </>
                       )}
                     </td>
@@ -195,156 +242,6 @@ export default function Calendar({
           </tbody>
         </table>
       </div>
-
-      {/* Day Panel — positioned near clicked cell */}
-      {expandedDay && (
-        <DayPanel
-          day={expandedDay}
-          year={year}
-          month={month}
-          dayOfWeek={dayNames[new Date(year, month, expandedDay).getDay()]}
-          events={getEventsForDay(expandedDay)}
-          position={panelPos}
-          onClose={() => setExpandedDay(null)}
-          onToggle={onToggleEvent}
-          onDelete={onDeleteEvent}
-          onAdd={onAddEvent}
-          userRole={userRole}
-        />
-      )}
-    </div>
-  )
-}
-
-// ============================================
-// Day Panel — positioned near the clicked cell
-// ============================================
-function DayPanel({ day, year, month, dayOfWeek, events, position, onClose, onToggle, onDelete, onAdd, userRole }: {
-  day: number; year: number; month: number; dayOfWeek: string
-  events: CalendarEvent[]
-  position: { x: number; y: number }
-  onClose: () => void
-  onToggle?: (id: number) => void
-  onDelete?: (id: number) => void
-  onAdd?: (data: { title: string; type: string; dates: string[] }) => void
-  userRole: string
-}) {
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const availableTypes = getTypesForRole(userRole)
-  const [newType, setNewType] = useState(availableTypes[0]?.id || 'routine')
-
-  const dateStr = `${year}/${String(month + 1).padStart(2, '0')}/${String(day).padStart(2, '0')}`
-  const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-
-  const handleSubmitAdd = () => {
-    if (!newTitle.trim()) return
-    if (onAdd) onAdd({ title: newTitle.trim(), type: newType, dates: [isoDate] })
-    setNewTitle('')
-    setShowAddForm(false)
-  }
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: position.x,
-        top: position.y,
-        zIndex: 100,
-        width: '320px',
-        fontFamily: 'monospace',
-        fontSize: '10px',
-        backgroundColor: 'var(--bg-window)',
-        borderTop: '2px solid var(--border-light)',
-        borderLeft: '2px solid var(--border-light)',
-        borderRight: '2px solid var(--border-dark)',
-        borderBottom: '2px solid var(--border-dark)',
-        boxShadow: '3px 3px 8px rgba(0,0,0,0.35)',
-      }}
-      onClick={e => e.stopPropagation()}
-    >
-      {/* Title bar */}
-      <div style={{
-        background: 'linear-gradient(90deg, var(--titlebar-start) 0%, var(--titlebar-end) 100%)',
-        color: '#FFF', padding: '2px 6px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontSize: '10px', fontWeight: 'bold',
-      }}>
-        <span>{dateStr} ({dayOfWeek})</span>
-        <div style={{ display: 'flex', gap: '3px' }}>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            style={{ background: showAddForm ? 'var(--accent-teal)' : 'var(--bg-window)', border: '1px solid var(--border-dark)', color: showAddForm ? '#FFF' : 'var(--text-primary)', fontSize: '10px', cursor: 'pointer', padding: '0 5px', lineHeight: 1, outline: 'none', fontWeight: 'bold' }}
-            title="新增事項"
-          >+</button>
-          <button onClick={onClose} style={{ background: 'var(--bg-window)', border: '1px solid var(--border-dark)', color: 'var(--accent-red)', fontSize: '10px', cursor: 'pointer', padding: '0 5px', lineHeight: 1, outline: 'none', fontWeight: 'bold' }}>×</button>
-        </div>
-      </div>
-
-      {/* Event list */}
-      <div style={{ background: 'var(--bg-inset)', maxHeight: '220px', overflow: 'hidden auto' }}>
-        {events.length === 0 ? (
-          <div style={{ padding: '10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>- NO EVENTS -</div>
-        ) : events.map((event, idx) => (
-          <div
-            key={event.id || idx}
-            className="eventlist-row"
-            style={{ padding: '3px 6px', display: 'flex', alignItems: 'center', gap: '4px', borderBottom: '1px solid var(--table-border)' }}
-          >
-            <span style={{ width: '4px', height: '14px', backgroundColor: getEventColor(event.type), flexShrink: 0 }} />
-            {onToggle && event.id ? (
-              <span onClick={() => onToggle(event.id!)} style={{ fontFamily: 'Courier New', cursor: 'pointer', fontSize: '10px', flexShrink: 0, userSelect: 'none' }}>
-                {event.done ? '[V]' : '[ ]'}
-              </span>
-            ) : (
-              <span style={{ width: '20px', flexShrink: 0 }} />
-            )}
-            <span style={{ color: getEventColor(event.type), fontWeight: 'bold', fontSize: '8px', minWidth: '32px', flexShrink: 0 }}>
-              {getEventLabel(event.type).slice(0, 4)}
-            </span>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: event.done ? 'line-through' : 'none', color: event.done ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-              {event.title}
-            </span>
-            {onDelete && event.id && (
-              <button
-                onClick={() => { if (confirm(`刪除「${event.title}」？`)) onDelete(event.id!) }}
-                style={{ fontSize: '9px', width: '16px', height: '14px', padding: 0, border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 'bold', lineHeight: 1, outline: 'none', flexShrink: 0 }}
-              >×</button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Inline Add Form */}
-      {showAddForm && (
-        <div style={{ padding: '6px', borderTop: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)' }}>
-          <div style={{ marginBottom: '4px' }}>
-            <input
-              className="inset"
-              type="text"
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSubmitAdd()}
-              placeholder="事項標題"
-              autoFocus
-              style={{ width: '100%', padding: '3px 4px', fontSize: '10px', fontFamily: 'monospace', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <select
-              className="inset"
-              value={newType}
-              onChange={e => setNewType(e.target.value)}
-              style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
-            >
-              {availableTypes.map((t: EventType) => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
-            <button className="btn" onClick={handleSubmitAdd} style={{ fontSize: '9px', padding: '2px 10px' }}>確定</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
