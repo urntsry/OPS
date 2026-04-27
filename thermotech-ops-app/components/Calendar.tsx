@@ -182,15 +182,11 @@ export default function Calendar({
                             </div>
                           </div>
 
-                          {/* Events — scrollable, click to toggle */}
+                          {/* Events — scrollable */}
                           <div style={{ overflow: 'hidden auto', maxHeight: isEditing ? `calc(${eventAreaHeight} - 26px)` : eventAreaHeight }}>
                             {dayEvents.map((event, idx) => (
                               <div
                                 key={event.id || idx}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (onToggleEvent && event.id) onToggleEvent(event.id)
-                                }}
                                 style={{
                                   fontFamily: 'monospace',
                                   fontSize: eventFontSize,
@@ -198,14 +194,13 @@ export default function Calendar({
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   marginBottom: '1px',
-                                  lineHeight: 1.2,
+                                  lineHeight: 1.3,
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '2px',
-                                  cursor: onToggleEvent && event.id ? 'pointer' : 'default',
                                   opacity: event.done ? 0.45 : 1,
                                 }}
-                                title={`${event.done ? '✓ ' : ''}${getEventLabel(event.type)}: ${event.title} (click to toggle)`}
+                                title={`${getEventLabel(event.type)}: ${event.title}`}
                               >
                                 <span style={{ width: '3px', height: '10px', backgroundColor: getEventColor(event.type), flexShrink: 0, display: 'inline-block' }} />
                                 <span style={{
@@ -213,9 +208,25 @@ export default function Calendar({
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   textDecoration: event.done ? 'line-through' : 'none',
+                                  flex: 1,
                                 }}>
                                   {event.title}
                                 </span>
+                                {/* Edit controls — only visible in edit mode */}
+                                {isEditing && event.id && (
+                                  <span style={{ display: 'flex', gap: '1px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => onToggleEvent && onToggleEvent(event.id!)}
+                                      title={event.done ? '標記未完成' : '標記完成'}
+                                      style={{ width: '14px', height: '12px', fontSize: '8px', fontFamily: 'Courier New', padding: 0, border: '1px solid var(--border-mid-dark)', background: event.done ? 'var(--status-success)' : 'var(--bg-window)', color: event.done ? '#FFF' : 'var(--text-primary)', cursor: 'pointer', outline: 'none', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >{event.done ? 'V' : ' '}</button>
+                                    <button
+                                      onClick={() => { if (onDeleteEvent && confirm(`刪除「${event.title}」？`)) onDeleteEvent(event.id!) }}
+                                      title="刪除"
+                                      style={{ width: '14px', height: '12px', fontSize: '8px', padding: 0, border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', outline: 'none', lineHeight: 1, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >×</button>
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
