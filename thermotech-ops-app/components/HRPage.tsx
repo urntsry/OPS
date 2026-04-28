@@ -1,9 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import DepartmentShell, { type DepartmentTab } from './DepartmentShell'
 import AnnouncementManagementPage from './AnnouncementManagementPage'
 import AnnouncementReviewPage from './AnnouncementReviewPage'
 import HRNotificationPage from './HRNotificationPage'
+import { getPendingBulletins } from '@/lib/bulletinApi'
 
 interface HRPageProps {
   isAdmin?: boolean
@@ -128,13 +130,21 @@ function HRTools() {
 // HR Page — main component using DepartmentShell
 // ============================================
 export default function HRPage({ isAdmin = false, userProfile }: HRPageProps) {
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    if (isAdmin) {
+      getPendingBulletins().then(data => setPendingCount(data.length)).catch(() => {})
+    }
+  }, [isAdmin])
+
   const tabs: DepartmentTab[] = [
     { id: 'dashboard', label: 'DASHBOARD', show: true,    component: <HRDashboard /> },
     { id: 'records',   label: 'RECORDS',   show: true,    component: <HRRecords /> },
     { id: 'bulletin',  label: 'BULLETIN',  show: true,    component: <AnnouncementManagementPage isAdmin={isAdmin} /> },
     { id: 'line',      label: 'LINE PUSH', show: true,    component: <HRNotificationPage /> },
     { id: 'tools',     label: 'TOOLS',     show: isAdmin, component: <HRTools /> },
-    { id: 'review',    label: 'REVIEW',    show: isAdmin, badge: 0, component: <AnnouncementReviewPage /> },
+    { id: 'review',    label: 'REVIEW',    show: isAdmin, badge: pendingCount, component: <AnnouncementReviewPage /> },
   ]
 
   return (

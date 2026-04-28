@@ -23,20 +23,46 @@ export interface Bulletin {
   created_by?: string
   attachments: Attachment[]
   is_active: boolean
+  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'published'
   created_at: string
 }
 
-export async function getBulletins(type?: 'public' | 'notice'): Promise<Bulletin[]> {
+export async function getBulletins(type?: 'public' | 'notice', statusFilter?: string): Promise<Bulletin[]> {
   let query = supabase
     .from('bulletins')
     .select('*')
     .eq('is_active', true)
-    .order('priority', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (type) query = query.eq('bulletin_type', type)
+  if (statusFilter) {
+    query = query.eq('status', statusFilter)
+  } else {
+    query = query.eq('status', 'published')
+  }
 
   const { data, error } = await query
+  if (error) throw error
+  return (data || []) as Bulletin[]
+}
+
+export async function getAllBulletins(): Promise<Bulletin[]> {
+  const { data, error } = await supabase
+    .from('bulletins')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as Bulletin[]
+}
+
+export async function getPendingBulletins(): Promise<Bulletin[]> {
+  const { data, error } = await supabase
+    .from('bulletins')
+    .select('*')
+    .eq('is_active', true)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
   if (error) throw error
   return (data || []) as Bulletin[]
 }
