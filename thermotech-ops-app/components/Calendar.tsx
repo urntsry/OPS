@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getEventColor, getTypesForRole, getEventLabel, type EventType } from '@/lib/eventTypes'
 
 interface CalendarEvent {
@@ -35,6 +35,19 @@ export default function Calendar({
   const [newType, setNewType] = useState(availableTypes[0]?.id || 'routine')
   const [extraDates, setExtraDates] = useState<string[]>([])
   const [newExtraDate, setNewExtraDate] = useState('')
+  const calendarRef = useRef<HTMLDivElement>(null)
+
+  // Click outside calendar → close editing mode
+  useEffect(() => {
+    if (editingDay === null) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setEditingDay(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [editingDay])
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfWeek = new Date(year, month, 1).getDay()
@@ -121,7 +134,7 @@ export default function Calendar({
   const eventAreaHeight = compact ? '42px' : '100px'
 
   return (
-    <div className="window" style={{ padding: 0, width: '100%' }}>
+    <div ref={calendarRef} className="window" style={{ padding: 0, width: '100%' }}>
       {/* Header */}
       <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: compact ? '3px 6px' : '3px 8px' }}>
         <button onClick={handlePrevMonth} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.5)', color: '#FFF', padding: '1px 6px', fontSize: '11px', cursor: 'pointer', lineHeight: 1, outline: 'none' }}>◀</button>
