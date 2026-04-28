@@ -239,14 +239,26 @@ function HomePageInner() {
         const pendingTasks = await getPendingAssignments(userId)
         console.log('[HomePage] 待辦任務:', pendingTasks.length)
         
-        // 轉換為顯示格式
-        const assignmentsData = pendingTasks.map((assignment: any) => ({
-          id: assignment.id,
-          title: assignment.task_def?.title || '未命名任務',
-          date: formatDate(assignment.assigned_date),
-          done: assignment.status === 'completed',
-          rawDate: assignment.assigned_date // 保留原始日期用於日曆顯示
-        }))
+        // 轉換為顯示格式 — 解析事件類型
+        const assignmentsData = pendingTasks.map((assignment: any) => {
+          const taskDef = assignment.task_def
+          let eventType = 'assignment'
+          if (taskDef?.task_category) {
+            eventType = taskDef.task_category
+          } else if (taskDef?.description?.startsWith('type:')) {
+            eventType = taskDef.description.replace('type:', '')
+          } else if (taskDef?.is_active) {
+            eventType = 'routine'
+          }
+          return {
+            id: assignment.id,
+            title: taskDef?.title || '未命名任務',
+            date: formatDate(assignment.assigned_date),
+            done: assignment.status === 'completed',
+            rawDate: assignment.assigned_date,
+            type: eventType,
+          }
+        })
         
         setAssignments(assignmentsData)
         
