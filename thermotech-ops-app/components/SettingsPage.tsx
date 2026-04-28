@@ -7,6 +7,10 @@ import {
   getAllProfiles, getAllTaskDefinitions, updateTaskDefinitionAssignee,
   type Profile, type TaskDefinition
 } from '@/lib/api'
+import {
+  getDepartments, addDepartment as apiAddDepartment, removeDepartment as apiRemoveDepartment,
+  type Department
+} from '@/lib/departmentApi'
 
 interface SettingsPageProps {
   isAdmin?: boolean
@@ -17,12 +21,15 @@ interface SettingsPageProps {
 // ============================================
 function PermissionsTab() {
   const [users, setUsers] = useState<Profile[]>([])
-  const [departments, setDepartments] = useState<string[]>([])
+  const [departments, setDepartments] = useState<{ name: string; id?: string; source: 'profiles' | 'custom' }[]>([])
   const [viewMode, setViewMode] = useState<'department' | 'person'>('department')
   const [deptPermissions, setDeptPermissions] = useState<Record<string, string[]>>({})
   const [personOverrides, setPersonOverrides] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
+  const [newDeptName, setNewDeptName] = useState('')
+  const [showAddDept, setShowAddDept] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const eventTypes = [
     { id: 'event', label: '事件' },
@@ -38,12 +45,27 @@ function PermissionsTab() {
     async function load() {
       setLoading(true)
       try {
-        const profiles = await getAllProfiles()
+        const [profiles, dbDepts] = await Promise.all([getAllProfiles(), getDepartments()])
         setUsers(profiles)
-        const depts = [...new Set(profiles.map(p => p.department).filter(Boolean))] as string[]
-        setDepartments(depts)
 
-        // Load saved permissions from localStorage (will migrate to DB later)
+        const profileDeptNames = [...new Set(profiles.map(p => p.department).filter(Boolean))] as string[]
+        const dbDeptNames = dbDepts.map(d => d.name)
+
+        const merged: { name: string; id?: string; source: 'profiles' | 'custom' }[] = []
+        const seen = new Set<string>()
+
+        for (const d of dbDepts) {
+          merged.push({ name: d.name, id: d.id, source: 'custom' })
+          seen.add(d.name)
+        }
+        for (const name of profileDeptNames) {
+          if (!seen.has(name)) {
+            merged.push({ name, source: 'profiles' })
+            seen.add(name)
+          }
+        }
+        setDepartments(merged)
+
         const savedDept = localStorage.getItem('ops_dept_permissions')
         const savedPerson = localStorage.getItem('ops_person_permissions')
         if (savedDept) setDeptPermissions(JSON.parse(savedDept))
@@ -62,6 +84,52 @@ function PermissionsTab() {
     setToast('Permissions saved')
     setTimeout(() => setToast(null), 2000)
   }
+
+  const handleAddDepartment = async () => {
+    const name = newDeptName.trim()
+    if (!name) return
+    if (departments.some(d => d.name === name)) {
+      setToast('Department already exists')
+      setTimeout(() => setToast(null), 2000)
+      return
+    }
+    setSaving(true)
+    try {
+      const created = await apiAddDepartment(name)
+      setDepartments(prev => [...prev, { name: created.name, id: created.id, source: 'custom' }])
+      setNewDeptName('')
+      setShowAddDept(false)
+      setToast(`Added: ${name}`)
+    } catch (e: any) {
+      setToast(`Failed: ${e.message || 'Unknown error'}`)
+    }
+    setSaving(false)
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const handleRemoveDepartment = async (dept: { name: string; id?: string; source: 'profiles' | 'custom' }) => {
+    if (dept.source === 'profiles') {
+      setToast('Cannot remove — exists in profiles DB')
+      setTimeout(() => setToast(null), 2000)
+      return
+    }
+    if (!dept.id) return
+    setSaving(true)
+    try {
+      await apiRemoveDepartment(dept.id)
+      setDepartments(prev => prev.filter(d => d.id !== dept.id))
+      const updatedPerms = { ...deptPermissions }
+      delete updatedPerms[dept.name]
+      setDeptPermissions(updatedPerms)
+      setToast(`Removed: ${dept.name}`)
+    } catch (e: any) {
+      setToast(`Failed: ${e.message || 'Unknown error'}`)
+    }
+    setSaving(false)
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const isCustomDept = (dept: { source: string }) => dept.source === 'custom'
 
   const toggleDeptPermission = (dept: string, eventTypeId: string) => {
     const current = deptPermissions[dept] || eventTypes.map(e => e.id)
@@ -106,38 +174,79 @@ function PermissionsTab() {
 
       {/* Department view */}
       {viewMode === 'department' && (
-        <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '400px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-window)' }}>
-                <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '80px' }}>DEPT</th>
-                {eventTypes.map(et => (
-                  <th key={et.id} style={{ padding: '3px 2px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px' }}>{et.label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {departments.map(dept => {
-                const perms = deptPermissions[dept] || eventTypes.map(e => e.id)
-                return (
-                  <tr key={dept} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
-                    <td style={{ padding: '3px 4px', fontWeight: 'bold' }}>{dept}</td>
-                    {eventTypes.map(et => (
-                      <td key={et.id} style={{ padding: '2px', textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={perms.includes(et.id)}
-                          onChange={() => toggleDeptPermission(dept, et.id)}
-                          style={{ width: '12px', height: '12px', cursor: 'pointer' }}
-                        />
+        <>
+          <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '360px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-window)' }}>
+                  <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '100px' }}>DEPT</th>
+                  {eventTypes.map(et => (
+                    <th key={et.id} style={{ padding: '3px 2px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px' }}>{et.label}</th>
+                  ))}
+                  <th style={{ padding: '3px 2px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '24px', fontSize: '8px' }}>DEL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {departments.map(dept => {
+                  const perms = deptPermissions[dept.name] || eventTypes.map(e => e.id)
+                  const custom = isCustomDept(dept)
+                  return (
+                    <tr key={dept.id || dept.name} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
+                      <td style={{ padding: '3px 4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        {dept.name}
+                        {custom && <span style={{ fontSize: '7px', color: 'var(--accent-teal)', fontWeight: 'normal' }}>DB</span>}
                       </td>
-                    ))}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                      {eventTypes.map(et => (
+                        <td key={et.id} style={{ padding: '2px', textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={perms.includes(et.id)}
+                            onChange={() => toggleDeptPermission(dept.name, et.id)}
+                            style={{ width: '12px', height: '12px', cursor: 'pointer' }}
+                          />
+                        </td>
+                      ))}
+                      <td style={{ padding: '2px', textAlign: 'center' }}>
+                        {custom && (
+                          <button
+                            onClick={() => handleRemoveDepartment(dept)}
+                            disabled={saving}
+                            style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', padding: '0 3px', outline: 'none', lineHeight: '14px' }}
+                            title={`Remove ${dept.name}`}
+                          >×</button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Add department */}
+          <div style={{ marginTop: '4px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {showAddDept ? (
+              <>
+                <input
+                  type="text"
+                  value={newDeptName}
+                  onChange={e => setNewDeptName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddDepartment(); if (e.key === 'Escape') { setShowAddDept(false); setNewDeptName('') } }}
+                  placeholder="部門名稱..."
+                  autoFocus
+                  disabled={saving}
+                  className="inset"
+                  style={{ fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', width: '120px' }}
+                />
+                <button onClick={handleAddDepartment} className="btn" disabled={saving} style={{ fontSize: '9px', padding: '2px 6px' }}>{saving ? '...' : 'ADD'}</button>
+                <button onClick={() => { setShowAddDept(false); setNewDeptName('') }} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }}>ESC</button>
+              </>
+            ) : (
+              <button onClick={() => setShowAddDept(true)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>+ ADD DEPT</button>
+            )}
+            <span style={{ fontSize: '7px', color: 'var(--text-muted)', marginLeft: '4px' }}>DB = Supabase (synced)</span>
+          </div>
+        </>
       )}
 
       {/* Person view */}

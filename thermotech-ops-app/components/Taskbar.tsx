@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { useTheme } from '@/lib/useTheme'
+import { subscribeFaxUpdates, getFaxes } from '@/lib/faxApi'
 import StartMenu from './StartMenu'
 
 interface TaskbarProps {
@@ -23,6 +24,8 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
   const { toggleTheme, isDark, mounted } = useTheme()
   const [startMenuOpen, setStartMenuOpen] = useState(false)
   const [clock, setClock] = useState('')
+  const [faxPending, setFaxPending] = useState(0)
+  const [faxFlash, setFaxFlash] = useState(false)
 
   useEffect(() => {
     const update = () => {
@@ -33,6 +36,24 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
     const interval = setInterval(update, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  const checkFaxes = useCallback(async () => {
+    try {
+      const faxes = await getFaxes(50)
+      const pending = faxes.filter(f => f.status === 'pending' || f.status === 'analyzing').length
+      if (pending > faxPending && faxPending >= 0) {
+        setFaxFlash(true)
+        setTimeout(() => setFaxFlash(false), 5000)
+      }
+      setFaxPending(pending)
+    } catch { /* ignore */ }
+  }, [faxPending])
+
+  useEffect(() => {
+    checkFaxes()
+    const unsub = subscribeFaxUpdates(() => checkFaxes())
+    return unsub
+  }, [checkFaxes])
 
   const openWindows = Object.values(windows).filter(w => w.isOpen)
 
@@ -178,6 +199,25 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
           >
             {mounted ? (isDark ? '☀' : '☾') : ''}
           </button>
+
+          {/* Fax indicator */}
+          {faxPending > 0 && (
+            <span
+              onClick={() => openWindow('fax')}
+              style={{
+                cursor: 'pointer',
+                color: '#FFF',
+                backgroundColor: faxFlash ? 'var(--accent-red)' : '#FF8C00',
+                padding: '0 3px',
+                fontSize: '8px',
+                fontWeight: 'bold',
+                animation: faxFlash ? 'fax-flash 0.5s ease-in-out infinite' : undefined,
+              }}
+              title={`${faxPending} fax(es) pending`}
+            >
+              FAX:{faxPending}
+            </span>
+          )}
 
           {/* Points */}
           <span

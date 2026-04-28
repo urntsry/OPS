@@ -586,3 +586,9 @@ body {
 .titlebar-inactive {
   background: linear-gradient(90deg, var(--titlebar-inactive-start) 0%, var(--titlebar-inactive-end) 100%);
 }
+
+/* FAX notification flash */
+@keyframes fax-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

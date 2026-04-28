@@ -31,6 +31,7 @@ export const WINDOW_CONFIGS: WindowConfig[] = [
   // Active modules
   { id: 'hr', title: 'HR - PERSONNEL', defaultWidth: 700, defaultHeight: 500, type: 'internal' },
   { id: 'meeting', title: 'MEETING - 會議紀錄', defaultWidth: 800, defaultHeight: 550, type: 'internal' },
+  { id: 'fax', title: 'FAX - 傳真中心', defaultWidth: 780, defaultHeight: 520, type: 'internal' },
   { id: 'settings', title: 'CONFIG - SETTINGS', defaultWidth: 750, defaultHeight: 500, type: 'internal' },
 
   // Hidden — under construction

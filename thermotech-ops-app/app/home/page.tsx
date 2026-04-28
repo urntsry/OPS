@@ -17,13 +17,14 @@ import Win95Window from '@/components/win95/Win95Window'
 import Taskbar from '@/components/Taskbar'
 import DevTrackerPage from '@/components/DevTrackerPage'
 import MeetingPage from '@/components/MeetingPage'
+import FaxPage from '@/components/FaxPage'
 import OPSPage from '@/components/OPSPage'
 import SalesPage from '@/components/SalesPage'
 import ReportPage from '@/components/ReportPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { useDevice } from '@/lib/useDevice'
-import { getBulletins, getBulletinCalendarEvents, deleteBulletin, type Bulletin } from '@/lib/bulletinApi'
+import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
 import { 
   getTaskDefinitionsByAssignee, 
   getPendingAssignments,
@@ -38,6 +39,36 @@ import {
   type DailyAssignment,
   type Profile
 } from '@/lib/api'
+
+function BulletinEditModal({ bulletin, onSave, onClose }: { bulletin: Bulletin; onSave: (u: { title: string; content: string }) => void; onClose: () => void }) {
+  const [title, setTitle] = useState(bulletin.title)
+  const [content, setContent] = useState(bulletin.content || '')
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99990, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }} onClick={onClose}>
+      <div className="window" style={{ width: '360px', fontFamily: 'monospace' }} onClick={e => e.stopPropagation()}>
+        <div className="titlebar" style={{ padding: '2px 6px', fontSize: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 'bold' }}>EDIT BULLETIN</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', outline: 'none' }}>×</button>
+        </div>
+        <div style={{ padding: '8px' }}>
+          <div style={{ marginBottom: '4px' }}>
+            <label style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>TITLE</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="inset" style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', background: 'var(--bg-input)', color: 'var(--text-primary)', boxSizing: 'border-box' }} />
+          </div>
+          <div style={{ marginBottom: '6px' }}>
+            <label style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>CONTENT</label>
+            <textarea value={content} onChange={e => setContent(e.target.value)} className="inset" rows={4} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', background: 'var(--bg-input)', color: 'var(--text-primary)', resize: 'vertical', boxSizing: 'border-box' }} />
+          </div>
+          <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+            <button onClick={onClose} className="btn" style={{ fontSize: '9px', padding: '3px 10px' }}>CANCEL</button>
+            <button onClick={() => onSave({ title, content })} className="btn" style={{ fontSize: '9px', padding: '3px 10px', fontWeight: 'bold' }}>SAVE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function HomePage() {
   return (
@@ -90,6 +121,7 @@ function HomePageInner() {
   // 佈告系統
   const [publicBulletins, setPublicBulletins] = useState<Bulletin[]>([])
   const [noticeBulletins, setNoticeBulletins] = useState<Bulletin[]>([])
+  const [editingBulletin, setEditingBulletin] = useState<Bulletin | null>(null)
 
   // 管理者視圖功能
   const [allUsers, setAllUsers] = useState<Profile[]>([])
@@ -183,6 +215,32 @@ function HomePageInner() {
       console.error('[HomePage] 刪除佈告失敗:', e)
     }
   }
+
+  const handleEditBulletin = async (id: number | string) => {
+    try {
+      const b = await getBulletinById(String(id))
+      if (b) setEditingBulletin(b)
+    } catch (e) {
+      console.error('[HomePage] 載入佈告失敗:', e)
+    }
+  }
+
+  const handleSaveBulletin = async (updates: { title: string; content: string }) => {
+    if (!editingBulletin) return
+    try {
+      await updateBulletin(editingBulletin.id, updates)
+      setEditingBulletin(null)
+      loadBulletins()
+      setToast({ message: 'Bulletin updated', type: 'success' })
+      setTimeout(() => setToast(null), 2000)
+    } catch (e) {
+      console.error('[HomePage] 更新佈告失敗:', e)
+      setToast({ message: 'Update failed', type: 'error' })
+      setTimeout(() => setToast(null), 2000)
+    }
+  }
+
+  const canEditBulletins = userRole === 'admin' || userRole === 'supervisor'
 
   const loadAllUsers = async () => {
     try {
@@ -870,8 +928,8 @@ function HomePageInner() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', width: '100%' }}>
                     <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
                     <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
-                    <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
-                    <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
+                    <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
+                    <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
                   </div>
                 </>
               )}
@@ -971,8 +1029,8 @@ function HomePageInner() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
               <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
               <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
-              <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
-              <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
+              <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
+              <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
             </div>
           </>
         )}
@@ -985,6 +1043,10 @@ function HomePageInner() {
 
       <Win95Window windowId="meeting">
         <MeetingPage isAdmin={isAdmin} userProfile={userProfile} />
+      </Win95Window>
+
+      <Win95Window windowId="fax">
+        <FaxPage isAdmin={isAdmin} userProfile={userProfile} />
       </Win95Window>
 
       <Win95Window windowId="operations">
@@ -1024,6 +1086,15 @@ function HomePageInner() {
       {/* Modals */}
       <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
       <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
+
+      {/* Bulletin Edit Modal */}
+      {editingBulletin && (
+        <BulletinEditModal
+          bulletin={editingBulletin}
+          onSave={handleSaveBulletin}
+          onClose={() => setEditingBulletin(null)}
+        />
+      )}
 
       {/* Taskbar */}
       <Taskbar

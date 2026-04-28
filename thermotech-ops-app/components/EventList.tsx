@@ -14,8 +14,10 @@ interface EventListProps {
   onAdd?: () => void
   onItemClick?: (id: number | string) => void
   onDelete?: (id: number | string) => void
+  onEdit?: (id: number | string) => void
   showAddButton?: boolean
   showDeleteButton?: boolean
+  showEditButton?: boolean
 }
 
 export default function EventList({ 
@@ -25,8 +27,10 @@ export default function EventList({
   onAdd, 
   onItemClick, 
   onDelete,
+  onEdit,
   showAddButton = true,
-  showDeleteButton = false 
+  showDeleteButton = false,
+  showEditButton = false,
 }: EventListProps) {
   return (
     <div className="window" style={{ padding: 0 }}>
@@ -110,6 +114,15 @@ export default function EventList({
                   {event.date && (
                     <td style={{ width: '44px', padding: '1px 3px 1px 0', fontSize: '9px', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {event.date}
+                    </td>
+                  )}
+                  {showEditButton && onEdit && (
+                    <td style={{ width: '20px', padding: '1px 2px 1px 0', textAlign: 'center' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(event.id) }}
+                        style={{ fontSize: '8px', width: '16px', height: '14px', padding: '0', margin: '0', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 'bold', lineHeight: 1, outline: 'none' }}
+                        title="Edit"
+                      >E</button>
                     </td>
                   )}
                   {showDeleteButton && onDelete && (
