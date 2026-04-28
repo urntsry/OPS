@@ -261,7 +261,7 @@ export default function Calendar({
                                   style={{ flex: 1, minWidth: 0, padding: '1px 3px', fontSize: '9px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }}
                                 />
                               </div>
-                              <div style={{ display: 'flex', gap: '2px' }}>
+                              <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
                                 <select
                                   value={newType}
                                   onChange={e => setNewType(e.target.value)}
@@ -272,6 +272,21 @@ export default function Calendar({
                                   ))}
                                 </select>
                                 <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '8px', fontFamily: 'monospace', padding: '0 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold' }}>OK</button>
+                              </div>
+                              {/* Extra dates */}
+                              {extraDates.length > 0 && (
+                                <div style={{ marginBottom: '2px' }}>
+                                  {extraDates.map(d => (
+                                    <div key={d} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', color: 'var(--text-muted)', padding: '0 2px' }}>
+                                      <span>+{d}</span>
+                                      <span onClick={() => setExtraDates(extraDates.filter(x => x !== d))} style={{ color: 'var(--accent-red)', cursor: 'pointer' }}>×</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', gap: '2px' }}>
+                                <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '7px', fontFamily: 'monospace', padding: '0 2px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }} />
+                                <button onClick={addExtraDate} style={{ fontSize: '7px', fontFamily: 'monospace', padding: '0 3px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none' }}>+日</button>
                               </div>
                             </div>
                           )}

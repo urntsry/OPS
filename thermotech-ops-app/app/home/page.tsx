@@ -440,27 +440,46 @@ function HomePageInner() {
     
     try {
       if (data.type === 'routine') {
-        // 【例行公事】→ 只新增到 task_definitions（工作定義）
-        console.log('[HomePage] 新增例行公事定義')
         const newTask = await createTaskDefinition({
           title: data.title,
-          frequency: 'daily', // 預設每日
+          frequency: 'daily',
           base_points: 10,
           default_assignee_id: userId,
           site_location: 'ALL',
           is_active: true
         })
-        console.log('[HomePage] 例行公事新增成功:', newTask.id)
-        
-        // 樂觀更新前端
+
         setRoutineTasks(prev => [...prev, {
           id: newTask.id,
           title: newTask.title,
           date: '每日',
           done: false
         }])
-        
-        setToast({ message: `✓ 例行公事「${data.title}」新增成功`, type: 'success' })
+
+        // Also create daily_assignments for each selected date so it shows on calendar
+        const newAssignments: any[] = []
+        for (const dateStr of data.dates) {
+          const assignment = await createDailyAssignment({
+            task_def_id: newTask.id,
+            user_id: userId,
+            status: 'pending',
+            assigned_date: dateStr,
+            earned_points: 10
+          })
+          newAssignments.push({
+            id: assignment.id,
+            title: data.title,
+            date: formatDate(dateStr),
+            done: false,
+            rawDate: dateStr,
+            type: 'routine',
+          })
+        }
+        if (newAssignments.length > 0) {
+          setAssignments(prev => [...prev, ...newAssignments].sort((a, b) => a.rawDate.localeCompare(b.rawDate)))
+        }
+
+        setToast({ message: `✓ 例行公事「${data.title}」新增成功 (${data.dates.length} 日)`, type: 'success' })
         
       } else if (data.type === 'assignment') {
         // 【交辦事項】→ 建立任務定義 + 建立每日任務
