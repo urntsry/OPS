@@ -140,9 +140,11 @@ function HomePageInner() {
     }
   }, [userRole, userId])
   
-  // 載入佈告資料
+  // 載入佈告資料 — 初始載入 + 每 10 秒輪詢確保即時同步
   useEffect(() => {
     loadBulletins()
+    const interval = setInterval(loadBulletins, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   const loadBulletins = async () => {
