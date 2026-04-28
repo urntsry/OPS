@@ -17,6 +17,9 @@ import Win95Window from '@/components/win95/Win95Window'
 import Taskbar from '@/components/Taskbar'
 import DevTrackerPage from '@/components/DevTrackerPage'
 import MeetingPage from '@/components/MeetingPage'
+import OPSPage from '@/components/OPSPage'
+import SalesPage from '@/components/SalesPage'
+import ReportPage from '@/components/ReportPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { useDevice } from '@/lib/useDevice'
@@ -963,24 +966,15 @@ function HomePageInner() {
       </Win95Window>
 
       <Win95Window windowId="operations">
-        <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>OPS - FACTORY</div>
-          <div style={{ color: 'var(--text-muted)' }}>建構中...</div>
-        </div>
+        <OPSPage isAdmin={isAdmin} />
       </Win95Window>
 
       <Win95Window windowId="sales">
-        <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>SALES - BUSINESS</div>
-          <div style={{ color: 'var(--text-muted)' }}>建構中...</div>
-        </div>
+        <SalesPage isAdmin={isAdmin} />
       </Win95Window>
 
       <Win95Window windowId="reports">
-        <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>REPORT - ANALYTICS</div>
-          <div style={{ color: 'var(--text-muted)' }}>建構中...</div>
-        </div>
+        <ReportPage isAdmin={isAdmin} />
       </Win95Window>
 
       <Win95Window windowId="settings">
