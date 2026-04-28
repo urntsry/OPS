@@ -20,6 +20,7 @@ import MeetingPage from '@/components/MeetingPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { useDevice } from '@/lib/useDevice'
+import { getBulletins, getBulletinCalendarEvents, deleteBulletin, type Bulletin } from '@/lib/bulletinApi'
 import { 
   getTaskDefinitionsByAssignee, 
   getPendingAssignments,
@@ -83,9 +84,13 @@ function HomePageInner() {
   const [userId, setUserId] = useState<string>('')
   const [userRole, setUserRole] = useState<string>('user')
   
+  // 佈告系統
+  const [publicBulletins, setPublicBulletins] = useState<Bulletin[]>([])
+  const [noticeBulletins, setNoticeBulletins] = useState<Bulletin[]>([])
+
   // 管理者視圖功能
   const [allUsers, setAllUsers] = useState<Profile[]>([])
-  const [viewingUserId, setViewingUserId] = useState<string>('') // 當前查看的用戶
+  const [viewingUserId, setViewingUserId] = useState<string>('')
   const [viewingUserProfile, setViewingUserProfile] = useState<Profile | null>(null)
   const [searchEmployeeId, setSearchEmployeeId] = useState('')
   
@@ -132,6 +137,34 @@ function HomePageInner() {
     }
   }, [userRole, userId])
   
+  // 載入佈告資料
+  useEffect(() => {
+    loadBulletins()
+  }, [])
+
+  const loadBulletins = async () => {
+    try {
+      const [pub, notice] = await Promise.all([
+        getBulletins('public'),
+        getBulletins('notice'),
+      ])
+      setPublicBulletins(pub)
+      setNoticeBulletins(notice)
+    } catch (e) {
+      console.error('[HomePage] 載入佈告失敗:', e)
+    }
+  }
+
+  const handleDeleteBulletin = async (id: number | string) => {
+    if (!confirm('確定要刪除此公告？')) return
+    try {
+      await deleteBulletin(String(id))
+      loadBulletins()
+    } catch (e) {
+      console.error('[HomePage] 刪除佈告失敗:', e)
+    }
+  }
+
   const loadAllUsers = async () => {
     try {
       console.log('[HomePage] 載入所有用戶...')
@@ -293,15 +326,24 @@ function HomePageInner() {
     return `${month}/${day}`
   }
   
-  // 公共事項資料（包含完整日期資訊以便顯示在行事曆上）
-  const publicEvents = [
-    { id: 1, title: '垃圾車收運', date: '11/22', year: 2025, month: 10, day: 22 },
-    { id: 2, title: '公司尾牙', date: '11/28', year: 2025, month: 10, day: 28 },
-    { id: 3, title: '員工體檢', date: '12/07', year: 2025, month: 11, day: 7 },
-    { id: 4, title: '國定假日', date: '12/25', year: 2025, month: 11, day: 25 },
-  ]
+  // PUBLIC 面板資料（從 DB 載入）
+  const publicEvents = publicBulletins.map(b => ({
+    id: b.id as any,
+    title: b.title,
+    date: b.event_date ? formatDate(b.event_date) : (b.is_recurring && b.recurring_days ? `每月${b.recurring_days.join(',')}日` : ''),
+  }))
 
-  // 從 assignments 生成日曆事件（保留 id 和 done 狀態）
+  // NOTICE 面板資料（從 DB 載入）
+  const announcements = noticeBulletins.map(b => ({
+    id: b.id as any,
+    title: b.priority === 'urgent' ? `[!] ${b.title}` : b.priority === 'important' ? `[*] ${b.title}` : b.title,
+    content: b.content || '',
+    postedBy: b.department || '',
+    postedAt: b.created_at?.slice(0, 10) || '',
+    attachments: b.attachments || [],
+  }))
+
+  // 從 assignments 生成日曆事件
   const assignmentEvents = assignments
     .filter(a => a.rawDate)
     .map(a => {
@@ -319,44 +361,15 @@ function HomePageInner() {
     })
     .filter(e => e !== null) as Array<{id: number, date: number, title: string, type: string, done: boolean}>
 
-  // 從公共事項生成日曆事件
-  const publicCalendarEvents = publicEvents
-    .filter(p => p.year === currentYear && p.month === currentMonth)
-    .map(p => ({
-      date: p.day,
-      title: p.title,
-      type: 'public' as const
-    }))
+  // 從佈告系統生成日曆事件
+  const bulletinCalendarEvents = getBulletinCalendarEvents(
+    [...publicBulletins, ...noticeBulletins],
+    currentYear,
+    currentMonth
+  ).map(e => ({ date: e.date, title: e.title, type: e.type }))
 
   // 合併所有日曆事件
-  const calendarEvents = [...assignmentEvents, ...publicCalendarEvents]
-  
-  console.log('[HomePage] 日曆事件:', calendarEvents)
-
-  const announcements = [
-    { 
-      id: 1, 
-      title: '[NEW] 本週五消防演練通知',
-      content: '各位同仁您好，\n\n本週五（11/29）下午3點將進行全廠消防演練。\n\n請各位同仁配合演練流程，確保安全。',
-      postedBy: '管理部',
-      postedAt: '2025/11/25 14:30',
-      links: ['https://example.com/fire-drill.pdf']
-    },
-    { 
-      id: 2, 
-      title: '上週完成率 85%',
-      content: '上週任務完成統計：\n總任務數：200\n已完成：170\n完成率：85%',
-      postedBy: '系統',
-      postedAt: '2025/11/24'
-    },
-    { 
-      id: 3, 
-      title: '12月排班表已公告',
-      content: '12月份排班表已經公告，請至人事系統查看。',
-      postedBy: '人事部',
-      postedAt: '2025/11/23'
-    },
-  ]
+  const calendarEvents = [...assignmentEvents, ...bulletinCalendarEvents]
 
   const handleToggleTask = async (id: number) => {
     console.log('[HomePage] handleToggleTask 被調用:', { id })
@@ -834,8 +847,8 @@ function HomePageInner() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', width: '100%' }}>
                     <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
                     <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
-                    <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
-                    <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
+                    <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
+                    <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
                   </div>
                 </>
               )}
@@ -933,8 +946,8 @@ function HomePageInner() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
               <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
               <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
-              <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
-              <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
+              <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
+              <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} showAddButton={false} showDeleteButton={true} />
             </div>
           </>
         )}

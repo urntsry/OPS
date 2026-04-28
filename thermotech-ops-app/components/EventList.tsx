@@ -5,17 +5,17 @@ import Button from './Button'
 interface EventListProps {
   title: string
   events: Array<{
-    id: number
+    id: number | string
     title: string
     date?: string
     done?: boolean
   }>
-  onToggle?: (id: number) => void
+  onToggle?: (id: number | string) => void
   onAdd?: () => void
-  onItemClick?: (id: number) => void
-  onDelete?: (id: number) => void // 測試用刪除按鈕
+  onItemClick?: (id: number | string) => void
+  onDelete?: (id: number | string) => void
   showAddButton?: boolean
-  showDeleteButton?: boolean // 測試用
+  showDeleteButton?: boolean
 }
 
 export default function EventList({ 
