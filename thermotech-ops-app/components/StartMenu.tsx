@@ -38,14 +38,14 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
     }
   }, [onClose])
 
-  // Build menu sections from WINDOW_CONFIGS
+  // Build menu sections from WINDOW_CONFIGS (filter out hidden)
   const internalApps = WINDOW_CONFIGS.filter(c =>
-    c.type === 'internal' && !['points', 'devtracker'].includes(c.id)
+    c.type === 'internal' && !c.hidden && !['points', 'devtracker'].includes(c.id)
   )
-  const externalApps = WINDOW_CONFIGS.filter(c => c.type === 'external')
+  const externalApps = WINDOW_CONFIGS.filter(c => c.type === 'external' && !c.hidden)
   const utilItems = [
-    ...WINDOW_CONFIGS.filter(c => c.id === 'points'),
-    ...(isAdmin ? WINDOW_CONFIGS.filter(c => c.id === 'devtracker') : []),
+    ...WINDOW_CONFIGS.filter(c => c.id === 'points' && !c.hidden),
+    ...(isAdmin ? WINDOW_CONFIGS.filter(c => c.id === 'devtracker' && !c.hidden) : []),
   ]
 
   const itemStyle: React.CSSProperties = {
