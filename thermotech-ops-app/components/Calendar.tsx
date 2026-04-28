@@ -219,7 +219,7 @@ export default function Calendar({
                                       onClick={() => onToggleEvent && onToggleEvent(event.id!)}
                                       title={event.done ? '標記未完成' : '標記完成'}
                                       style={{ width: '14px', height: '12px', fontSize: '8px', fontFamily: 'Courier New', padding: 0, border: '1px solid var(--border-mid-dark)', background: event.done ? 'var(--status-success)' : 'var(--bg-window)', color: event.done ? '#FFF' : 'var(--text-primary)', cursor: 'pointer', outline: 'none', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    >{event.done ? 'V' : ' '}</button>
+                                    >{event.done ? '✓' : '○'}</button>
                                     <button
                                       onClick={() => { if (onDeleteEvent && confirm(`刪除「${event.title}」？`)) onDeleteEvent(event.id!) }}
                                       title="刪除"
