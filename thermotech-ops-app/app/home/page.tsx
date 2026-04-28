@@ -374,12 +374,12 @@ function HomePageInner() {
   // 合併所有日曆事件
   const calendarEvents = [...assignmentEvents, ...bulletinCalendarEvents]
 
-  const handleToggleTask = async (id: number) => {
+  const handleToggleTask = async (id: number | string) => {
     console.log('[HomePage] handleToggleTask 被調用:', { id })
     
     try {
       // 更新資料庫
-      await updateAssignmentStatus(id, 'completed')
+      await updateAssignmentStatus(Number(id), 'completed')
       
       // 更新本地狀態（樂觀 UI）
       setAssignments(prev => prev.map(task => 
@@ -394,11 +394,11 @@ function HomePageInner() {
   }
 
   // 刪除例行公事（測試用）
-  const handleDeleteRoutineTask = async (id: number) => {
+  const handleDeleteRoutineTask = async (id: number | string) => {
     console.log('[HomePage] handleDeleteRoutineTask 被調用:', { id })
     
     try {
-      await deleteTaskDefinition(id)
+      await deleteTaskDefinition(Number(id))
       
       // 更新本地狀態
       setRoutineTasks(prev => prev.filter(task => task.id !== id))
@@ -411,11 +411,11 @@ function HomePageInner() {
   }
 
   // 刪除交辦事項（測試用）
-  const handleDeleteAssignment = async (id: number) => {
+  const handleDeleteAssignment = async (id: number | string) => {
     console.log('[HomePage] handleDeleteAssignment 被調用:', { id })
     
     try {
-      await deleteDailyAssignment(id)
+      await deleteDailyAssignment(Number(id))
       
       // 更新本地狀態
       setAssignments(prev => prev.filter(task => task.id !== id))
