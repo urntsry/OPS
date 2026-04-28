@@ -832,8 +832,8 @@ function HomePageInner() {
 
                   {/* 下方四欄：任務區 */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', width: '100%' }}>
-                    <EventList title="ROUTINE" events={routineTasks} showAddButton={false} />
-                    <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} showAddButton={false} />
+                    <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
+                    <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
                     <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
                     <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
                   </div>
@@ -931,8 +931,8 @@ function HomePageInner() {
 
             {/* Bottom panels */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-              <EventList title="ROUTINE" events={routineTasks} showAddButton={false} />
-              <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} showAddButton={false} />
+              <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
+              <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
               <EventList title="PUBLIC" events={publicEvents} showAddButton={false} />
               <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} showAddButton={false} />
             </div>
