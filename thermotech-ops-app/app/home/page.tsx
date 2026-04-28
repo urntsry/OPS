@@ -140,11 +140,25 @@ function HomePageInner() {
     }
   }, [userRole, userId])
   
-  // 載入佈告資料 — 初始載入 + 每 10 秒輪詢確保即時同步
+  // 載入佈告資料 — 初始載入 + Supabase Realtime 即時訂閱
   useEffect(() => {
     loadBulletins()
-    const interval = setInterval(loadBulletins, 10000)
-    return () => clearInterval(interval)
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    if (!supabaseUrl || !supabaseKey) return
+
+    const { createClient } = require('@supabase/supabase-js')
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const channel = supabase
+      .channel('bulletins-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bulletins' }, () => {
+        loadBulletins()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   const loadBulletins = async () => {
