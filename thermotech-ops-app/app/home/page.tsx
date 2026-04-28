@@ -497,16 +497,14 @@ function HomePageInner() {
         
       } else {
         // All other types (public, event, meeting, visit, training)
-        // Store as daily_assignments with task_category for type identification
         const taskDef = await createTaskDefinition({
-          title: data.title,
+          title: `[${data.type}] ${data.title}`,
           frequency: 'event_triggered',
           base_points: 5,
           default_assignee_id: userId,
           site_location: 'ALL',
           is_active: false,
-          task_category: data.type,
-        } as any)
+        })
 
         const newAssignments: any[] = []
         for (const dateStr of data.dates) {
