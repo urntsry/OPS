@@ -289,21 +289,23 @@ function HomePageInner() {
     { id: 4, title: '國定假日', date: '12/25', year: 2025, month: 11, day: 25 },
   ]
 
-  // 從 assignments 生成日曆事件
+  // 從 assignments 生成日曆事件（保留 id 和 done 狀態）
   const assignmentEvents = assignments
     .filter(a => a.rawDate)
     .map(a => {
       const date = new Date(a.rawDate)
       if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
         return {
+          id: a.id,
           date: date.getDate(),
           title: a.title,
-          type: 'assignment' as const
+          type: a.type || 'assignment',
+          done: a.done || false,
         }
       }
       return null
     })
-    .filter(e => e !== null) as Array<{date: number, title: string, type: string}>
+    .filter(e => e !== null) as Array<{id: number, date: number, title: string, type: string, done: boolean}>
 
   // 從公共事項生成日曆事件
   const publicCalendarEvents = publicEvents
@@ -478,10 +480,9 @@ function HomePageInner() {
             title: data.title,
             date: formatDate(dateStr),
             done: false,
-            rawDate: dateStr
+            rawDate: dateStr,
+            type: 'assignment',
           })
-          
-          console.log('[HomePage] 交辦事項新增成功:', dateStr)
         }
         
         // 樂觀更新前端
@@ -495,10 +496,43 @@ function HomePageInner() {
         })
         
       } else {
-        // 公共事項 → TODO: 需要另外的表格
-        console.log('[HomePage] 公共事項功能待實作')
-        setToast({ message: '公共事項功能開發中', type: 'info' })
-        return
+        // All other types (public, event, meeting, visit, training)
+        // Store as daily_assignments with task_category for type identification
+        const taskDef = await createTaskDefinition({
+          title: data.title,
+          frequency: 'event_triggered',
+          base_points: 5,
+          default_assignee_id: userId,
+          site_location: 'ALL',
+          is_active: false,
+          task_category: data.type,
+        } as any)
+
+        const newAssignments: any[] = []
+        for (const dateStr of data.dates) {
+          const assignment = await createDailyAssignment({
+            task_def_id: taskDef.id,
+            user_id: userId,
+            status: 'pending',
+            assigned_date: dateStr,
+            earned_points: 5
+          })
+
+          newAssignments.push({
+            id: assignment.id,
+            title: data.title,
+            date: formatDate(dateStr),
+            done: false,
+            rawDate: dateStr,
+            type: data.type,
+          })
+        }
+
+        setAssignments(prev => [...prev, ...newAssignments].sort((a, b) =>
+          a.rawDate.localeCompare(b.rawDate)
+        ))
+
+        setToast({ message: `✓「${data.title}」新增成功 (${data.dates.length} 個日期)`, type: 'success' })
       }
       
     } catch (error) {
