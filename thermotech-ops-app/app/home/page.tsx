@@ -504,8 +504,8 @@ function HomePageInner() {
           default_assignee_id: userId,
           site_location: 'ALL',
           is_active: false,
-          task_category: data.type,
-        } as any)
+          description: `type:${data.type}`,
+        })
 
         const newAssignments: any[] = []
         for (const dateStr of data.dates) {
