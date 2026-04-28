@@ -1,738 +1,317 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import Button from './Button'
-import Card from './Card'
-import TaskEditor from './TaskEditor'
-import TaskClassificationPage from './TaskClassificationPage'
+import { useState, useEffect, useCallback } from 'react'
+import DepartmentShell, { type DepartmentTab } from './DepartmentShell'
 import DevTrackerPage from './DevTrackerPage'
-import { 
-  getAllProfiles, 
-  getAllTaskDefinitions,
-  updateTaskDefinitionAssignee,
-  deleteTaskDefinition,
-  updateTaskDefinitionFull,
-  type Profile,
-  type TaskDefinition
+import {
+  getAllProfiles, getAllTaskDefinitions, updateTaskDefinitionAssignee,
+  type Profile, type TaskDefinition
 } from '@/lib/api'
-
-type SettingsTab = 'assignment' | 'classification' | 'devtracker'
 
 interface SettingsPageProps {
   isAdmin?: boolean
 }
 
-export default function SettingsPage({ isAdmin = false }: SettingsPageProps) {
+// ============================================
+// PERMISSIONS TAB — Event type permission management
+// ============================================
+function PermissionsTab() {
+  const [users, setUsers] = useState<Profile[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [viewMode, setViewMode] = useState<'department' | 'person'>('department')
+  const [deptPermissions, setDeptPermissions] = useState<Record<string, string[]>>({})
+  const [personOverrides, setPersonOverrides] = useState<Record<string, string[]>>({})
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState<string | null>(null)
+
+  const eventTypes = [
+    { id: 'event', label: '事件' },
+    { id: 'meeting', label: '會議' },
+    { id: 'assignment', label: '交辦事項' },
+    { id: 'public', label: '公共事項' },
+    { id: 'visit', label: '客戶拜訪' },
+    { id: 'routine', label: '例行公事' },
+    { id: 'training', label: '課程進修' },
+  ]
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const profiles = await getAllProfiles()
+        setUsers(profiles)
+        const depts = [...new Set(profiles.map(p => p.department).filter(Boolean))] as string[]
+        setDepartments(depts)
+
+        // Load saved permissions from localStorage (will migrate to DB later)
+        const savedDept = localStorage.getItem('ops_dept_permissions')
+        const savedPerson = localStorage.getItem('ops_person_permissions')
+        if (savedDept) setDeptPermissions(JSON.parse(savedDept))
+        if (savedPerson) setPersonOverrides(JSON.parse(savedPerson))
+      } catch (e) {
+        console.error('Failed to load:', e)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const savePermissions = () => {
+    localStorage.setItem('ops_dept_permissions', JSON.stringify(deptPermissions))
+    localStorage.setItem('ops_person_permissions', JSON.stringify(personOverrides))
+    setToast('Permissions saved')
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const toggleDeptPermission = (dept: string, eventTypeId: string) => {
+    const current = deptPermissions[dept] || eventTypes.map(e => e.id)
+    const updated = current.includes(eventTypeId)
+      ? current.filter(id => id !== eventTypeId)
+      : [...current, eventTypeId]
+    setDeptPermissions({ ...deptPermissions, [dept]: updated })
+  }
+
+  const togglePersonPermission = (userId: string, eventTypeId: string) => {
+    const current = personOverrides[userId] || []
+    const updated = current.includes(eventTypeId)
+      ? current.filter(id => id !== eventTypeId)
+      : [...current, eventTypeId]
+    setPersonOverrides({ ...personOverrides, [userId]: updated })
+  }
+
+  const clearPersonOverride = (userId: string) => {
+    const updated = { ...personOverrides }
+    delete updated[userId]
+    setPersonOverrides(updated)
+  }
+
+  if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>LOADING...</div>
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ padding: '3px 8px', marginBottom: '4px', background: 'var(--accent-teal)', color: '#FFF', fontSize: '9px', display: 'flex', justifyContent: 'space-between' }}>
+          <span>{toast}</span>
+          <span onClick={() => setToast(null)} style={{ cursor: 'pointer' }}>×</span>
+        </div>
+      )}
+
+      {/* View mode toggle + Save */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', alignItems: 'center' }}>
+        <button onClick={() => setViewMode('department')} className="btn" style={{ fontSize: '9px', padding: '2px 8px', fontWeight: viewMode === 'department' ? 'bold' : 'normal', backgroundColor: viewMode === 'department' ? 'var(--active-bg)' : 'var(--bg-window)', color: viewMode === 'department' ? '#FFF' : 'var(--text-primary)' }}>BY DEPARTMENT</button>
+        <button onClick={() => setViewMode('person')} className="btn" style={{ fontSize: '9px', padding: '2px 8px', fontWeight: viewMode === 'person' ? 'bold' : 'normal', backgroundColor: viewMode === 'person' ? 'var(--active-bg)' : 'var(--bg-window)', color: viewMode === 'person' ? '#FFF' : 'var(--text-primary)' }}>BY PERSON</button>
+        <div style={{ flex: 1 }} />
+        <button onClick={savePermissions} className="btn" style={{ fontSize: '9px', padding: '2px 10px', fontWeight: 'bold' }}>SAVE</button>
+      </div>
+
+      {/* Department view */}
+      {viewMode === 'department' && (
+        <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '400px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-window)' }}>
+                <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '80px' }}>DEPT</th>
+                {eventTypes.map(et => (
+                  <th key={et.id} style={{ padding: '3px 2px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px' }}>{et.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {departments.map(dept => {
+                const perms = deptPermissions[dept] || eventTypes.map(e => e.id)
+                return (
+                  <tr key={dept} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
+                    <td style={{ padding: '3px 4px', fontWeight: 'bold' }}>{dept}</td>
+                    {eventTypes.map(et => (
+                      <td key={et.id} style={{ padding: '2px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={perms.includes(et.id)}
+                          onChange={() => toggleDeptPermission(dept, et.id)}
+                          style={{ width: '12px', height: '12px', cursor: 'pointer' }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Person view */}
+      {viewMode === 'person' && (
+        <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '400px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-window)' }}>
+                <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '50px' }}>ID</th>
+                <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '60px' }}>NAME</th>
+                <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '50px' }}>DEPT</th>
+                {eventTypes.map(et => (
+                  <th key={et.id} style={{ padding: '3px 2px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px' }}>{et.label}</th>
+                ))}
+                <th style={{ padding: '3px 2px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '30px', fontSize: '8px' }}>RST</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(user => {
+                const hasOverride = !!personOverrides[user.id]
+                const deptPerms = deptPermissions[user.department] || eventTypes.map(e => e.id)
+                const effectivePerms = hasOverride ? personOverrides[user.id] : deptPerms
+                return (
+                  <tr key={user.id} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)', backgroundColor: hasOverride ? 'rgba(0,128,128,0.05)' : undefined }}>
+                    <td style={{ padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>{user.employee_id}</td>
+                    <td style={{ padding: '2px 4px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.full_name}</td>
+                    <td style={{ padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>{user.department}</td>
+                    {eventTypes.map(et => (
+                      <td key={et.id} style={{ padding: '2px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={effectivePerms.includes(et.id)}
+                          onChange={() => togglePersonPermission(user.id, et.id)}
+                          style={{ width: '12px', height: '12px', cursor: 'pointer' }}
+                        />
+                      </td>
+                    ))}
+                    <td style={{ padding: '2px', textAlign: 'center' }}>
+                      {hasOverride && (
+                        <button onClick={() => clearPersonOverride(user.id)} style={{ fontSize: '7px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', padding: '0 2px', outline: 'none' }}>×</button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <div style={{ padding: '4px', fontSize: '8px', color: 'var(--text-muted)' }}>
+            Highlighted rows have individual overrides. Click [×] RST to reset to department default.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// ASSIGNMENT TAB — Task assignment management
+// ============================================
+function AssignmentTab() {
   const [users, setUsers] = useState<Profile[]>([])
   const [taskDefs, setTaskDefs] = useState<TaskDefinition[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const [taskToDelete, setTaskToDelete] = useState<TaskDefinition | null>(null)
-  const [taskToEdit, setTaskToEdit] = useState<TaskDefinition | null>(null)
-  const [activeTab, setActiveTab] = useState<SettingsTab>('classification')
 
-  // 載入資料
   useEffect(() => {
-    async function loadData() {
-      console.log('[SettingsPage] 載入資料...')
+    async function load() {
       setLoading(true)
-      
       try {
-        // 載入所有員工
-        const profilesData = await getAllProfiles()
-        console.log('[SettingsPage] 員工數量:', profilesData.length)
-        setUsers(profilesData)
-        
-        // 載入所有任務定義（包含 is_active = false 的）
-        const tasksData = await getAllTaskDefinitions()
-        console.log('[SettingsPage] 任務數量（全部）:', tasksData.length)
-        
-        // 只保留實際任務（排除職能清單）
-        const actualTasks = tasksData.filter(t => t.item_type !== 'capability')
-        console.log('[SettingsPage] 實際任務數量:', actualTasks.length)
-        console.log('[SettingsPage] 職能清單數量:', tasksData.length - actualTasks.length)
-        
-        setTaskDefs(actualTasks)
-        
-        // 預設選擇第一個員工
-        if (profilesData.length > 0) {
-          setSelectedUserId(profilesData[0].id)
-        }
-      } catch (error) {
-        console.error('[SettingsPage] 載入失敗:', error)
-        alert('載入資料失敗，請檢查連線')
-      } finally {
-        setLoading(false)
+        const [profiles, tasks] = await Promise.all([getAllProfiles(), getAllTaskDefinitions()])
+        setUsers(profiles)
+        setTaskDefs(tasks.filter(t => t.item_type !== 'capability'))
+        if (profiles.length > 0) setSelectedUserId(profiles[0].id)
+      } catch (e) {
+        console.error('Load failed:', e)
       }
+      setLoading(false)
     }
-    
-    loadData()
+    load()
   }, [])
 
   const selectedUser = users.find(u => u.id === selectedUserId)
+  const isAssigned = (task: TaskDefinition) => task.default_assignee_id === selectedUserId || task.backup_assignee_id === selectedUserId
 
-  // 檢查任務是否已分配給選中的使用者
-  const isAssigned = (task: TaskDefinition) => {
-    return task.default_assignee_id === selectedUserId || 
-           task.backup_assignee_id === selectedUserId
+  const toggleAssignment = (task: TaskDefinition) => {
+    setTaskDefs(prev => prev.map(t => {
+      if (t.id !== task.id) return t
+      if (t.default_assignee_id === selectedUserId) return { ...t, default_assignee_id: undefined, backup_assignee_id: selectedUserId }
+      if (t.backup_assignee_id === selectedUserId) return { ...t, backup_assignee_id: undefined }
+      return { ...t, default_assignee_id: selectedUserId }
+    }))
   }
 
-  // 取得角色（主辦/協辦）
   const getRole = (task: TaskDefinition) => {
     if (task.default_assignee_id === selectedUserId) return '主辦'
     if (task.backup_assignee_id === selectedUserId) return '協辦'
     return ''
   }
 
-  // 切換任務分配
-  const toggleAssignment = async (task: TaskDefinition) => {
-    console.log('[SettingsPage] 切換任務分配:', { taskId: task.id, userId: selectedUserId })
-    
-    // 樂觀更新 UI
-    const updatedTasks = taskDefs.map(t => {
-      if (t.id !== task.id) return t
-      
-      // 如果已經是主辦，改為協辦
-      if (t.default_assignee_id === selectedUserId) {
-        return { ...t, default_assignee_id: undefined, backup_assignee_id: selectedUserId }
-      }
-      // 如果是協辦，取消分配
-      else if (t.backup_assignee_id === selectedUserId) {
-        return { ...t, backup_assignee_id: undefined }
-      }
-      // 如果未分配，設為主辦
-      else {
-        return { ...t, default_assignee_id: selectedUserId }
-      }
-    })
-    
-    setTaskDefs(updatedTasks)
-  }
-
-  // 儲存所有變更
   const handleSave = async () => {
-    console.log('[SettingsPage] 儲存變更...')
     setSaving(true)
-    
     try {
-      // 只更新與選中使用者相關的任務
-      const userTasks = taskDefs.filter(t => 
-        t.default_assignee_id === selectedUserId || 
-        t.backup_assignee_id === selectedUserId
-      )
-      
-      console.log('[SettingsPage] 需要更新的任務數:', userTasks.length)
-      
+      const userTasks = taskDefs.filter(t => t.default_assignee_id === selectedUserId || t.backup_assignee_id === selectedUserId)
       for (const task of userTasks) {
-        await updateTaskDefinitionAssignee(
-          task.id, 
-          task.default_assignee_id || null, 
-          task.backup_assignee_id || null
-        )
+        await updateTaskDefinitionAssignee(task.id, task.default_assignee_id || null, task.backup_assignee_id || null)
       }
-      
-      setToast('✓ 儲存成功！')
-      setTimeout(() => setToast(null), 3000)
-      
-      console.log('[SettingsPage] 儲存完成')
-    } catch (error) {
-      console.error('[SettingsPage] 儲存失敗:', error)
-      alert('儲存失敗，請稍後再試')
-    } finally {
-      setSaving(false)
-    }
+      setToast('Saved')
+      setTimeout(() => setToast(null), 2000)
+    } catch { setToast('Save failed') }
+    setSaving(false)
   }
 
-  // 刪除任務（帶確認）
-  const handleDeleteTask = (task: TaskDefinition) => {
-    console.log('[SettingsPage] 準備刪除任務:', task.id, task.title)
-    setTaskToDelete(task)
-  }
-
-  // 確認刪除
-  const confirmDelete = async () => {
-    if (!taskToDelete) return
-    
-    console.log('[SettingsPage] 執行刪除:', taskToDelete.id)
-    
-    try {
-      await deleteTaskDefinition(taskToDelete.id)
-      
-      // 從列表中移除
-      setTaskDefs(prev => prev.filter(t => t.id !== taskToDelete.id))
-      
-      setToast(`✓ 已刪除「${taskToDelete.title}」`)
-      setTimeout(() => setToast(null), 3000)
-      
-      setTaskToDelete(null)
-    } catch (error: any) {
-      console.error('[SettingsPage] 刪除失敗:', error)
-      
-      // 顯示詳細錯誤訊息
-      const errorMsg = error?.message || error?.error?.message || '刪除失敗，請稍後再試'
-      alert(`刪除失敗：${errorMsg}`)
-    }
-  }
-
-  // 取得使用者的任務統計
-  const getUserStats = (userId: string) => {
-    const userTasks = taskDefs.filter(t => 
-      t.default_assignee_id === userId || t.backup_assignee_id === userId
-    )
-    
-    return {
-      total: userTasks.length,
-      primary: userTasks.filter(t => t.default_assignee_id === userId).length,
-      backup: userTasks.filter(t => t.backup_assignee_id === userId).length,
-      routine: userTasks.filter(t => 
-        (t.default_assignee_id === userId || t.backup_assignee_id === userId) && 
-        t.frequency !== 'event_triggered'
-      ).length
-    }
-  }
-
-  // 開啟任務編輯器
-  const handleEditTask = (task: TaskDefinition) => {
-    console.log('[SettingsPage] ========== 開啟任務編輯器 ==========')
-    console.log('[SettingsPage] 任務 ID:', task.id)
-    console.log('[SettingsPage] 任務標題:', task.title)
-    console.log('[SettingsPage] 完整任務資料:', task)
-    console.log('[SettingsPage] v3.0 欄位檢查:', {
-      task_category: task.task_category,
-      display_type: task.display_type,
-      schedule_type: task.schedule_type,
-      schedule_config: task.schedule_config
-    })
-    setTaskToEdit(task)
-    console.log('[SettingsPage] taskToEdit 狀態已設定')
-  }
-
-  // 儲存任務編輯
-  const handleSaveTaskEdit = async (updates: Partial<TaskDefinition>) => {
-    if (!taskToEdit) {
-      console.error('[SettingsPage] taskToEdit 為空，無法儲存')
-      return
-    }
-    
-    console.log('[SettingsPage] ========== 儲存任務編輯 ==========')
-    console.log('[SettingsPage] 任務 ID:', taskToEdit.id)
-    console.log('[SettingsPage] 更新內容:', updates)
-    
-    try {
-      // 呼叫 API 更新
-      console.log('[SettingsPage] 呼叫 API updateTaskDefinitionFull...')
-      const updatedTask = await updateTaskDefinitionFull(taskToEdit.id, updates)
-      console.log('[SettingsPage] API 回傳結果:', updatedTask)
-      
-      // 更新本地狀態
-      setTaskDefs(prev => prev.map(t => 
-        t.id === taskToEdit.id ? { ...t, ...updatedTask } : t
-      ))
-      
-      console.log('[SettingsPage] 本地狀態已更新')
-      
-      setToast(`✓ 已更新「${taskToEdit.title}」`)
-      setTimeout(() => setToast(null), 3000)
-      
-      setTaskToEdit(null)
-      console.log('[SettingsPage] 編輯器已關閉')
-    } catch (error) {
-      console.error('[SettingsPage] ========== 更新任務失敗 ==========')
-      console.error('[SettingsPage] 錯誤詳情:', error)
-      alert('更新失敗，請稍後再試')
-    }
-  }
-
-  const selectedStats = selectedUserId ? getUserStats(selectedUserId) : null
-
-  console.log('[SettingsPage] Render 檢查:', {
-    loading,
-    usersCount: users.length,
-    taskDefsCount: taskDefs.length,
-    taskToEdit: taskToEdit ? `Task #${taskToEdit.id} - ${taskToEdit.title}` : null,
-    taskToDelete: taskToDelete ? `Task #${taskToDelete.id}` : null
-  })
-
-  if (loading) {
-    return (
-      <div className="window">
-        <div className="titlebar">系統設定</div>
-        <div className="p-4 text-center text-mono">載入中...</div>
-      </div>
-    )
-  }
-
-  // 分頁渲染邏輯
-  const renderTabs = () => (
-    <div style={{ 
-      display: 'flex', 
-      gap: '2px', 
-      marginBottom: '0',
-      background: '#C0C0C0',
-      padding: '4px'
-    }}>
-      <button
-        onClick={() => setActiveTab('classification')}
-        style={{
-          padding: '4px 12px',
-          fontSize: '10px',
-          fontFamily: 'monospace',
-          background: activeTab === 'classification' ? '#C0C0C0' : '#808080',
-          color: activeTab === 'classification' ? '#000' : '#C0C0C0',
-          border: activeTab === 'classification' ? '2px solid' : '2px solid #808080',
-          borderColor: activeTab === 'classification' ? '#FFFFFF #808080 #808080 #FFFFFF' : undefined,
-          fontWeight: activeTab === 'classification' ? 'bold' : 'normal',
-          cursor: 'pointer'
-        }}
-      >
-        TASK CLASS
-      </button>
-      <button
-        onClick={() => setActiveTab('assignment')}
-        style={{
-          padding: '4px 12px',
-          fontSize: '10px',
-          fontFamily: 'monospace',
-          background: activeTab === 'assignment' ? '#C0C0C0' : '#808080',
-          color: activeTab === 'assignment' ? '#000' : '#C0C0C0',
-          border: activeTab === 'assignment' ? '2px solid' : '2px solid #808080',
-          borderColor: activeTab === 'assignment' ? '#FFFFFF #808080 #808080 #FFFFFF' : undefined,
-          fontWeight: activeTab === 'assignment' ? 'bold' : 'normal',
-          cursor: 'pointer'
-        }}
-      >
-        ASSIGNMENT
-      </button>
-      {isAdmin && (
-        <button
-          onClick={() => setActiveTab('devtracker')}
-          style={{
-            padding: '4px 12px',
-            fontSize: '10px',
-            fontFamily: 'monospace',
-            background: activeTab === 'devtracker' ? '#008080' : '#808080',
-            color: activeTab === 'devtracker' ? '#FFF' : '#C0C0C0',
-            border: activeTab === 'devtracker' ? '2px solid' : '2px solid #808080',
-            borderColor: activeTab === 'devtracker' ? '#00FFFF #005050 #005050 #00FFFF' : undefined,
-            fontWeight: activeTab === 'devtracker' ? 'bold' : 'normal',
-            cursor: 'pointer'
-          }}
-        >
-          DEV TRACKER
-        </button>
-      )}
-    </div>
-  )
-
-  // DEV TRACKER 頁面
-  if (activeTab === 'devtracker' && isAdmin) {
-    return (
-      <div>
-        {renderTabs()}
-        <DevTrackerPage />
-      </div>
-    )
-  }
-
-  // 如果是分類頁面，直接顯示
-  if (activeTab === 'classification') {
-    return (
-      <div>
-        {renderTabs()}
-        <TaskClassificationPage />
-      </div>
-    )
-  }
+  if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>LOADING...</div>
 
   return (
     <div>
-      {renderTabs()}
-      
-      <div className="window">
-      <div className="titlebar">系統設定 - 人員指派管理</div>
-      
-      {/* Toast 通知 */}
-      {toast && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: '70px',
-            right: '20px',
-            background: '#008000',
-            color: 'white',
-            padding: '12px 20px',
-            border: '2px solid #000',
-            boxShadow: '4px 4px 0 #000',
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            zIndex: 9999
-          }}
-        >
-          {toast}
-        </div>
-      )}
-      
-      <div className="p-4 bg-grey-200">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-          {/* 左側：人員列表 */}
-          <Card title={`人員列表 (共 ${users.length} 人)`}>
-            <div className="inset bg-white" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              <table className="w-full text-11" style={{ borderCollapse: 'collapse' }}>
-                <thead style={{ position: 'sticky', top: 0, background: '#C0C0C0' }}>
-                  <tr className="border-b-2 border-grey-600">
-                    <th style={{width: '60px', padding: '4px', textAlign: 'left'}}>編號</th>
-                    <th style={{padding: '4px', textAlign: 'left'}}>姓名</th>
-                    <th style={{width: '80px', padding: '4px', textAlign: 'left'}}>部門</th>
-                    <th style={{width: '40px', padding: '4px', textAlign: 'center'}}>主辦</th>
-                    <th style={{width: '40px', padding: '4px', textAlign: 'center'}}>協辦</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => {
-                    const stats = getUserStats(user.id)
-                    return (
-                      <tr 
-                        key={user.id}
-                        className={`border-b border-grey-300 cursor-pointer ${
-                          selectedUserId === user.id ? 'bg-blue-900 text-white' : 'hover:bg-grey-100'
-                        }`}
-                        onClick={() => setSelectedUserId(user.id)}
-                      >
-                        <td className="text-mono" style={{padding: '4px'}}>{user.employee_id}</td>
-                        <td style={{padding: '4px'}}>{user.full_name}</td>
-                        <td className="text-11" style={{padding: '4px'}}>{user.department}</td>
-                        <td className="text-mono text-center" style={{padding: '4px'}}>{stats.primary}</td>
-                        <td className="text-mono text-center" style={{padding: '4px'}}>{stats.backup}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+      {toast && <div style={{ padding: '3px 8px', marginBottom: '4px', background: 'var(--accent-teal)', color: '#FFF', fontSize: '9px' }}>{toast}</div>}
 
-          {/* 右側：任務定義列表 */}
-          <Card title={`任務項目 (共 ${taskDefs.length} 項)`}>
-            <div className="inset bg-white" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              <table className="w-full text-11" style={{ borderCollapse: 'collapse' }}>
-                <thead style={{ position: 'sticky', top: 0, background: '#C0C0C0' }}>
-                  <tr className="border-b-2 border-grey-600">
-                    <th style={{width: '40px', padding: '4px', textAlign: 'left'}}>序號</th>
-                    <th style={{padding: '4px', textAlign: 'left'}}>標題</th>
-                    <th style={{width: '60px', padding: '4px', textAlign: 'left'}}>頻率</th>
-                    <th style={{width: '50px', padding: '4px', textAlign: 'left'}}>廠區</th>
-                    <th style={{width: '80px', padding: '4px', textAlign: 'center'}}>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {taskDefs.map((task, index) => {
-                    // 計算有多少人被指派此任務
-                    const assignedCount = users.filter(u => 
-                      task.default_assignee_id === u.id || task.backup_assignee_id === u.id
-                    ).length
-                    
-                    return (
-                      <tr key={task.id} className="border-b border-grey-300 hover:bg-grey-100">
-                        <td className="text-mono" style={{padding: '4px'}}>{index + 1}</td>
-                        <td style={{padding: '4px'}}>
-                          {task.title}
-                          {!task.is_active && <span className="text-grey-600"> (未啟用)</span>}
-                        </td>
-                        <td className="text-11" style={{padding: '4px'}}>
-                          {task.frequency === 'daily' ? '每日' :
-                           task.frequency === 'weekly' ? '每週' :
-                           task.frequency === 'monthly' ? '每月' : '事件'}
-                        </td>
-                        <td className="text-mono text-11" style={{padding: '4px'}}>{task.site_location}</td>
-                        <td style={{padding: '4px', textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center'}}>
-                          <button
-                            onClick={() => handleEditTask(task)}
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 6px',
-                              background: '#C0C0C0',
-                              border: '1px solid #808080',
-                              cursor: 'pointer'
-                            }}
-                            title="編輯任務"
-                          >
-                            編
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTask(task)}
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 6px',
-                              background: '#C0C0C0',
-                              border: '1px solid #808080',
-                              cursor: 'pointer',
-                              color: assignedCount > 0 ? '#800000' : '#000'
-                            }}
-                            title={assignedCount > 0 ? `${assignedCount} 人被指派` : '刪除'}
-                          >
-                            {assignedCount > 0 ? `[${assignedCount}]` : 'X'}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-
-        {/* 任務分配區域 */}
-        <Card title={`任務分配 - ${selectedUser?.full_name || '未選擇'} (${selectedUser?.employee_id || '-'})`}>
-          {selectedUser ? (
-            <>
-              <div className="mb-2 text-11 text-grey-600">
-                點擊勾選框：[ ] → [主] → [協] → [ ]（循環）
-              </div>
-
-              <div className="inset bg-white" style={{ maxHeight: '300px', overflowY: 'auto', padding: '0' }}>
-                <table className="w-full text-11" style={{ borderCollapse: 'collapse' }}>
-                  <tbody>
-                    {taskDefs.map(task => {
-                      const role = getRole(task)
-                      const assigned = isAssigned(task)
-                      
-                      return (
-                        <tr 
-                          key={task.id} 
-                          className="border-b border-grey-300 hover:bg-grey-100 cursor-pointer"
-                          onClick={() => toggleAssignment(task)}
-                        >
-                          <td style={{ width: '40px', padding: '4px', textAlign: 'center' }}>
-                            <span className="text-mono text-bold">
-                              {role === '主辦' ? '[主]' : role === '協辦' ? '[協]' : '[ ]'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <span className={assigned ? 'text-bold' : 'text-grey-600'}>
-                              {task.title}
-                            </span>
-                          </td>
-                          <td className="text-11 text-grey-600" style={{ width: '60px', padding: '4px' }}>
-                            {task.frequency === 'daily' ? '每日' :
-                             task.frequency === 'weekly' ? '每週' :
-                             task.frequency === 'monthly' ? '每月' : '事件'}
-                          </td>
-                          <td className="text-mono text-11 text-grey-600" style={{ width: '50px', padding: '4px' }}>
-                            {task.site_location}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 flex gap-2">
-                <Button 
-                  onClick={handleSave}
-                  style={{ flex: 1 }}
-                  disabled={saving}
-                >
-                  {saving ? '儲存中...' : '儲存變更'}
-                </Button>
-                <Button 
-                  onClick={() => window.location.reload()}
-                  style={{ flex: 1 }}
-                >
-                  重新載入
-                </Button>
-              </div>
-
-              {/* 統計 */}
-              {selectedStats && (
-                <div className="mt-4 outset" style={{padding: '8px'}}>
-                  <div className="text-11 text-mono">
-                    <div className="text-bold mb-1">任務統計</div>
-                    <div>總任務數: {selectedStats.total} 項</div>
-                    <div className="text-grey-600">
-                      主辦: {selectedStats.primary} | 協辦: {selectedStats.backup} | 例行: {selectedStats.routine}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center text-11 text-grey-600 p-4">
-              請從左側選擇員工
-            </div>
-          )}
-        </Card>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+        <select className="inset" value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}>
+          {users.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.employee_id})</option>)}
+        </select>
+        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{selectedUser?.department}</span>
+        <div style={{ flex: 1 }} />
+        <button className="btn" onClick={handleSave} disabled={saving} style={{ fontSize: '9px', padding: '2px 10px' }}>{saving ? 'SAVING...' : 'SAVE'}</button>
       </div>
 
-      {/* 刪除確認對話框 */}
-      {taskToDelete && (
-        <>
-          {/* 半透明背景 */}
-          <div 
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0,0,0,0.5)',
-              zIndex: 9998
-            }}
-            onClick={() => setTaskToDelete(null)}
-          />
-          
-          {/* 對話框 */}
-          <div 
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              background: '#C0C0C0',
-              border: '2px solid',
-              borderColor: '#FFFFFF #000000 #000000 #FFFFFF',
-              boxShadow: '4px 4px 0 rgba(0,0,0,0.5)',
-              zIndex: 9999,
-              width: '500px',
-              padding: '0'
-            }}
-          >
-            {/* 標題列 */}
-            <div 
-              style={{
-                background: 'linear-gradient(90deg, #800000 0%, #D01010 100%)',
-                color: 'white',
-                padding: '4px 8px',
-                fontWeight: 'bold',
-                fontSize: '11px'
-              }}
-            >
-              ⚠️ 確認刪除任務
-            </div>
-            
-            {/* 內容 */}
-            <div style={{ padding: '16px' }}>
-              <div className="text-11 mb-4">
-                <div className="text-bold mb-2">即將刪除任務：</div>
-                <div className="outset p-2 bg-white">
-                  <div>ID: {taskToDelete.id}</div>
-                  <div>標題: {taskToDelete.title}</div>
-                  <div>頻率: {taskToDelete.frequency === 'daily' ? '每日' :
-                              taskToDelete.frequency === 'weekly' ? '每週' :
-                              taskToDelete.frequency === 'monthly' ? '每月' : '事件'}</div>
-                  <div>廠區: {taskToDelete.site_location}</div>
-                </div>
-              </div>
-              
-              {/* 顯示綁定的人員 */}
-              {(() => {
-                const assignedUsers = users.filter(u => 
-                  taskToDelete.default_assignee_id === u.id || 
-                  taskToDelete.backup_assignee_id === u.id
-                )
-                
-                if (assignedUsers.length > 0) {
-                  return (
-                    <div className="text-11 mb-4">
-                      <div className="text-bold text-red-700 mb-2">
-                        ⚠️ 此任務已指派給 {assignedUsers.length} 位員工：
-                      </div>
-                      <div className="outset p-2 bg-white" style={{ maxHeight: '100px', overflowY: 'auto' }}>
-                        {assignedUsers.map(user => {
-                          const role = taskToDelete.default_assignee_id === user.id ? '主辦' : '協辦'
-                          return (
-                            <div key={user.id} className="mb-1">
-                              • {user.full_name} ({user.employee_id}) - {role}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                }
-                return null
-              })()}
-              
-              <div className="text-11 text-grey-600 mb-4">
-                此操作無法復原，確定要刪除嗎？
-              </div>
-              
-              {/* 按鈕 */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button 
-                  onClick={confirmDelete}
-                  style={{ 
-                    flex: 1, 
-                    background: '#800000',
-                    color: 'white'
-                  }}
-                >
-                  確定刪除
-                </Button>
-                <Button 
-                  onClick={() => setTaskToDelete(null)}
-                  style={{ flex: 1 }}
-                >
-                  取消
-                </Button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '400px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-window)' }}>
+              <th style={{ padding: '2px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '30px' }}>SEL</th>
+              <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>TASK</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '40px' }}>ROLE</th>
+              <th style={{ padding: '2px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '50px' }}>FREQ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {taskDefs.map(task => (
+              <tr key={task.id} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)', cursor: 'pointer' }} onClick={() => toggleAssignment(task)}>
+                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                  <input type="checkbox" checked={isAssigned(task)} readOnly style={{ width: '12px', height: '12px', pointerEvents: 'none' }} />
+                </td>
+                <td style={{ padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 'bold', color: getRole(task) === '主辦' ? 'var(--accent-blue)' : 'var(--accent-teal)' }}>{getRole(task)}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: '8px', color: 'var(--text-muted)' }}>{task.frequency}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 
-      {/* 任務編輯器 */}
-      {taskToEdit && (
-        <>
-          {console.log('[SettingsPage] 渲染 TaskEditor，task:', taskToEdit)}
-          {/* 半透明背景 */}
-          <div 
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0,0,0,0.5)',
-              zIndex: 10000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onClick={() => {
-              console.log('[SettingsPage] 點擊背景，關閉編輯器')
-              setTaskToEdit(null)
-            }}
-          >
-            {/* 編輯器視窗容器 - 阻止點擊事件冒泡 */}
-            <div 
-              style={{
-                zIndex: 10001,
-                maxHeight: '90vh',
-                maxWidth: '90vw',
-                overflowY: 'auto'
-              }}
-              onClick={(e) => {
-                e.stopPropagation() // 防止點擊視窗時關閉
-                console.log('[SettingsPage] 點擊視窗內容（不關閉）')
-              }}
-            >
-              <TaskEditor 
-                task={taskToEdit}
-                onSave={handleSaveTaskEdit}
-                onCancel={() => {
-                  console.log('[SettingsPage] 點擊取消，關閉編輯器')
-                  setTaskToEdit(null)
-                }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-    </div>
+// ============================================
+// SETTINGS PAGE — Main component using DepartmentShell
+// ============================================
+export default function SettingsPage({ isAdmin = false }: SettingsPageProps) {
+  const tabs: DepartmentTab[] = [
+    { id: 'permissions', label: 'PERMISSIONS', show: isAdmin, component: <PermissionsTab /> },
+    { id: 'assignment',  label: 'ASSIGNMENT',  show: true,    component: <AssignmentTab /> },
+    { id: 'devtracker',  label: 'DEV TRACKER', show: isAdmin, component: <DevTrackerPage /> },
+  ]
+
+  return (
+    <DepartmentShell
+      departmentId="config"
+      departmentName="CONFIG - SETTINGS"
+      tabs={tabs}
+      defaultTab={isAdmin ? 'permissions' : 'assignment'}
+      statusInfo="MODULE: System Configuration"
+    />
   )
 }

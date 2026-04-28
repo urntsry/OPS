@@ -701,6 +701,8 @@ function HomePageInner() {
                       onDeleteEvent={handleDeleteAssignment}
                       onAddEvent={handleSubmitEvent}
                       userRole={userRole}
+                      userId={userId}
+                      userDepartment={userProfile?.department || ''}
                     />
                   </div>
 
@@ -859,6 +861,8 @@ function HomePageInner() {
                       onDeleteEvent={handleDeleteAssignment}
                       onAddEvent={handleSubmitEvent}
                       userRole={userRole}
+                      userId={userId}
+                      userDepartment={userProfile?.department || ''}
                     />
                   </div>
 
@@ -958,6 +962,8 @@ function HomePageInner() {
                 onDeleteEvent={handleDeleteAssignment}
                 onAddEvent={handleSubmitEvent}
                 userRole={userRole}
+                userId={userId}
+                userDepartment={userProfile?.department || ''}
               />
             </div>
 

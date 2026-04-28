@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getEventColor, getTypesForRole, getEventLabel, type EventType } from '@/lib/eventTypes'
+import { getEventColor, getTypesForUser, getTypesForRole, getEventLabel, type EventType } from '@/lib/eventTypes'
 
 interface CalendarEvent {
   id?: number
@@ -22,16 +22,19 @@ interface CalendarProps {
   hideWeekend?: boolean
   compact?: boolean
   userRole?: string
+  userId?: string
+  userDepartment?: string
 }
 
 export default function Calendar({
   year, month, events = [], onMonthChange,
   onToggleEvent, onDeleteEvent, onAddEvent,
-  hideWeekend = false, compact = false, userRole = 'user'
+  hideWeekend = false, compact = false, userRole = 'user',
+  userId = '', userDepartment = ''
 }: CalendarProps) {
   const [editingDay, setEditingDay] = useState<number | null>(null)
   const [newTitle, setNewTitle] = useState('')
-  const availableTypes = getTypesForRole(userRole)
+  const availableTypes = userId ? getTypesForUser(userId, userDepartment, userRole) : getTypesForRole(userRole)
   const [newType, setNewType] = useState(availableTypes[0]?.id || 'routine')
   const [extraDates, setExtraDates] = useState<string[]>([])
   const [newExtraDate, setNewExtraDate] = useState('')

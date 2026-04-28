@@ -27,4 +27,32 @@ export function getTypesForRole(role: string): EventType[] {
   return EVENT_TYPES.filter(t => t.allowedRoles.includes(role))
 }
 
+/**
+ * Get allowed event types for a specific user, checking:
+ * 1. Individual override (highest priority)
+ * 2. Department permissions
+ * 3. Role-based defaults (fallback)
+ */
+export function getTypesForUser(userId: string, department: string, role: string): EventType[] {
+  if (role === 'admin') return EVENT_TYPES
+
+  if (typeof window === 'undefined') return getTypesForRole(role)
+
+  try {
+    const personOverrides = JSON.parse(localStorage.getItem('ops_person_permissions') || '{}')
+    if (personOverrides[userId]) {
+      const allowed = personOverrides[userId] as string[]
+      return EVENT_TYPES.filter(t => allowed.includes(t.id))
+    }
+
+    const deptPermissions = JSON.parse(localStorage.getItem('ops_dept_permissions') || '{}')
+    if (deptPermissions[department]) {
+      const allowed = deptPermissions[department] as string[]
+      return EVENT_TYPES.filter(t => allowed.includes(t.id))
+    }
+  } catch { /* fallback */ }
+
+  return getTypesForRole(role)
+}
+
 export type EventTypeId = typeof EVENT_TYPES[number]['id']
