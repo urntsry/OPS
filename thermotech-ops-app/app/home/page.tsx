@@ -431,7 +431,7 @@ function HomePageInner() {
     setIsAddModalOpen(true)
   }
 
-  const handleAnnouncementClick = (id: number) => {
+  const handleAnnouncementClick = (id: number | string) => {
     console.log('[HomePage] handleAnnouncementClick 被調用:', { id })
     const announcement = announcements.find(a => a.id === id)
     if (announcement) {
