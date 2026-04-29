@@ -6,7 +6,7 @@ import {
   getFaxes, getFaxById, updateFax, deleteFax, markFaxHandled,
   searchFaxes, getFaxStats, subscribeFaxUpdates, getFaxFileSignedUrl,
   getDocTypeStyle, DOCUMENT_TYPES,
-  type Fax, type OrderItem,
+  type Fax,
 } from '@/lib/faxApi'
 import {
   getInternalContacts, createInternalContact, updateInternalContact, deleteInternalContact,
@@ -204,7 +204,16 @@ function InboxTab({ onPendingChange, userProfile, isAdmin, agentStatus }: { onPe
   if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>LOADING...</div>
 
   if (selectedFax) {
-    return <FaxDetail fax={selectedFax} onBack={() => { setSelectedFax(null); loadFaxes() }} onReanalyze={handleReanalyze} userProfile={userProfile} />
+    return (
+      <FaxDetail
+        fax={selectedFax}
+        faxList={filteredFaxes}
+        onBack={() => { setSelectedFax(null); loadFaxes() }}
+        onNavigate={(f) => setSelectedFax(f)}
+        onReanalyze={handleReanalyze}
+        userProfile={userProfile}
+      />
+    )
   }
 
   const unhandledCount = faxes.filter(f => !f.is_handled && f.status === 'analyzed').length
@@ -347,13 +356,41 @@ const thStyle: React.CSSProperties = {
 // ============================================
 // FAX DETAIL VIEW — Full structured display
 // ============================================
-function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
-  fax: Fax; onBack: () => void; onReanalyze: (f: Fax) => void; userProfile: any
+function FaxDetail({ fax: initialFax, faxList, onBack, onNavigate, onReanalyze, userProfile }: {
+  fax: Fax
+  faxList?: Fax[]
+  onBack: () => void
+  onNavigate?: (f: Fax) => void
+  onReanalyze: (f: Fax) => void
+  userProfile: any
 }) {
   const [fax, setFax] = useState(initialFax)
   const [editing, setEditing] = useState(false)
   const [rotation, setRotation] = useState(0)
   const [zoom, setZoom] = useState(1)
+  const [previewLoading, setPreviewLoading] = useState(true)
+
+  useEffect(() => { setFax(initialFax); setRotation(0); setZoom(1) }, [initialFax])
+
+  // Compute prev/next within faxList
+  const list = faxList || []
+  const currentIdx = list.findIndex(f => f.id === fax.id)
+  const prevFax = currentIdx > 0 ? list[currentIdx - 1] : null
+  const nextFax = currentIdx >= 0 && currentIdx < list.length - 1 ? list[currentIdx + 1] : null
+
+  // Keyboard shortcuts: left/right to navigate, esc to close
+  useEffect(() => {
+    if (!onNavigate) return
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return
+      if (e.key === 'ArrowLeft' && prevFax) { e.preventDefault(); onNavigate(prevFax) }
+      else if (e.key === 'ArrowRight' && nextFax) { e.preventDefault(); onNavigate(nextFax) }
+      else if (e.key === 'Escape') { e.preventDefault(); onBack() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [prevFax, nextFax, onNavigate, onBack])
   const [editData, setEditData] = useState({
     customer_name: fax.customer_name || '',
     customer_address: fax.customer_address || '',
@@ -372,17 +409,49 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
   const [toast, setToast] = useState<string | null>(null)
   const [signedUrl, setSignedUrl] = useState<string | null>(null)
 
+  // Persistent cache of signed URLs across re-renders & navigation
+  const urlCacheRef = useRef<Map<string, string>>(new Map())
+
   useEffect(() => {
-    // Use server-side proxy to get a working URL (works with private buckets via service role)
+    let cancelled = false
     if (fax.id) {
-      fetch(`/api/fax/file?id=${fax.id}`)
-        .then(r => r.json())
-        .then(d => setSignedUrl(d.url || fax.file_url))
-        .catch(() => setSignedUrl(fax.file_url))
+      const cached = urlCacheRef.current.get(fax.id)
+      if (cached) {
+        // Use cached URL instantly (still valid up to 1h)
+        setSignedUrl(cached)
+        setPreviewLoading(false)
+      } else {
+        setSignedUrl(null)
+        setPreviewLoading(true)
+        fetch(`/api/fax/file?id=${fax.id}`)
+          .then(r => r.json())
+          .then(d => {
+            if (cancelled) return
+            if (d.url) urlCacheRef.current.set(fax.id, d.url)
+            setSignedUrl(d.url || null)
+            setPreviewLoading(false)
+          })
+          .catch(() => { if (!cancelled) { setSignedUrl(null); setPreviewLoading(false) } })
+      }
     } else {
       setSignedUrl(null)
+      setPreviewLoading(false)
     }
-  }, [fax.id, fax.file_url])
+    return () => { cancelled = true }
+  }, [fax.id])
+
+  // Prefetch adjacent faxes' signed URLs in background so prev/next feels instant
+  useEffect(() => {
+    const prefetch = (id: string) => {
+      if (urlCacheRef.current.has(id)) return
+      fetch(`/api/fax/file?id=${id}`)
+        .then(r => r.json())
+        .then(d => { if (d.url) urlCacheRef.current.set(id, d.url) })
+        .catch(() => { /* ignore */ })
+    }
+    if (prevFax) prefetch(prevFax.id)
+    if (nextFax) prefetch(nextFax.id)
+  }, [prevFax, nextFax])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -421,7 +490,9 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
   }
 
   const raw = fax.ai_raw_response
-  const fileUrl = signedUrl || fax.file_url
+  // Always use signedUrl (the public-style URL stored on `fax.file_url`
+  // does NOT work because the bucket is private — only signed URLs work).
+  const fileUrl = signedUrl
 
   return (
     <div>
@@ -430,6 +501,35 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={onBack} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>BACK</button>
+
+        {/* Prev / Next */}
+        {onNavigate && list.length > 1 && (
+          <>
+            <button
+              onClick={() => prevFax && onNavigate(prevFax)}
+              className="btn"
+              disabled={!prevFax}
+              style={{ fontSize: '9px', padding: '2px 8px', opacity: prevFax ? 1 : 0.4 }}
+              title={prevFax ? `上一個：${prevFax.customer_name || prevFax.file_name}` : '已是第一個'}
+            >
+              ◀ 上一個
+            </button>
+            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: '36px', textAlign: 'center' }}>
+              {currentIdx + 1}/{list.length}
+            </span>
+            <button
+              onClick={() => nextFax && onNavigate(nextFax)}
+              className="btn"
+              disabled={!nextFax}
+              style={{ fontSize: '9px', padding: '2px 8px', opacity: nextFax ? 1 : 0.4 }}
+              title={nextFax ? `下一個：${nextFax.customer_name || nextFax.file_name}` : '已是最後一個'}
+            >
+              下一個 ▶
+            </button>
+            <div style={{ width: '1px', height: '14px', background: 'var(--border-mid-dark)', margin: '0 3px' }} />
+          </>
+        )}
+
         <button onClick={() => setEditing(!editing)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>{editing ? 'CANCEL' : 'EDIT'}</button>
         {editing && <button onClick={handleSave} className="btn" disabled={saving} style={{ fontSize: '9px', padding: '2px 8px', fontWeight: 'bold' }}>{saving ? '...' : 'SAVE'}</button>}
         <button onClick={() => onReanalyze(fax)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>RE-ANALYZE</button>
@@ -487,7 +587,7 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
           </div>
 
           {/* Preview area */}
-          <div className="inset" style={{ flex: 1, minHeight: '500px', background: '#404040', overflow: 'auto', position: 'relative' }}>
+          <div className="inset" style={{ flex: 1, minHeight: '500px', background: '#E8E8E8', overflow: 'auto', position: 'relative' }}>
             {fileUrl ? (
               <div style={{
                 width: '100%',
@@ -495,7 +595,7 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '8px',
+                padding: '4px',
                 transform: `rotate(${rotation}deg) scale(${zoom})`,
                 transformOrigin: 'center center',
                 transition: 'transform 0.2s ease',
@@ -505,10 +605,13 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
                     src={fileUrl}
                     alt={fax.file_name}
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block', boxShadow: '0 0 8px rgba(0,0,0,0.5)' }}
+                    onLoad={() => setPreviewLoading(false)}
                   />
                 ) : (
+                  // NOTE: #toolbar=0&navpanes=0&scrollbar=0 hides Chrome's PDF reader
+                  // sidebar/toolbar so users only see the document itself
                   <iframe
-                    src={fileUrl}
+                    src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
                     title={fax.file_name}
                     style={{
                       width: '100%',
@@ -517,12 +620,25 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
                       background: '#FFF',
                       boxShadow: '0 0 8px rgba(0,0,0,0.5)',
                     }}
+                    onLoad={() => setPreviewLoading(false)}
                   />
                 )}
               </div>
-            ) : (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '10px' }}>
-                No file available
+            ) : !previewLoading ? (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: '10px' }}>
+                檔案不存在
+              </div>
+            ) : null}
+
+            {/* Loading overlay (semi-transparent so previous content stays visible during nav) */}
+            {previewLoading && (
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(232,232,232,0.6)', pointerEvents: 'none', zIndex: 5,
+              }}>
+                <div style={{ background: '#FFF', border: '1px solid var(--border-mid-dark)', padding: '8px 14px', fontSize: '10px', color: 'var(--text-primary)', fontFamily: 'monospace', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                  載入中...
+                </div>
               </div>
             )}
           </div>
@@ -613,36 +729,14 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
             )}
           </div>
 
-          {/* Order items */}
+          {/* Order items hint — full details intentionally hidden, AI extraction is unreliable
+              for handwritten/scanned forms. Refer to the preview on the left for actual content. */}
           {fax.order_items && fax.order_items.length > 0 && (
-            <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px' }}>
-              <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                ORDER ITEMS ({fax.order_items.length})
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8px', fontFamily: 'monospace' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-window)' }}>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '18px' }}>#</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>品項</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '40px' }}>數量</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '35px' }}>單位</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>規格/備註</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fax.order_items.map((item: OrderItem, i: number) => (
-                    <tr key={i} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
-                      <td style={{ padding: '2px 3px', color: 'var(--text-muted)' }}>{i + 1}</td>
-                      <td style={{ padding: '2px 3px', fontWeight: 'bold' }}>{item.name}</td>
-                      <td style={{ padding: '2px 3px', textAlign: 'center' }}>{item.quantity || '—'}</td>
-                      <td style={{ padding: '2px 3px' }}>{item.unit || '—'}</td>
-                      <td style={{ padding: '2px 3px', fontSize: '7px', color: 'var(--text-muted)' }}>
-                        {[item.spec, item.note].filter(Boolean).join(' | ') || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{
+              padding: '4px 6px', fontSize: '8px', color: 'var(--text-muted)', fontStyle: 'italic',
+              background: 'var(--bg-secondary)', border: '1px dashed var(--border-mid-dark)',
+            }}>
+              文件中含 {fax.order_items.length} 筆品項資料 — 請以左側原檔預覽為準
             </div>
           )}
         </div>
