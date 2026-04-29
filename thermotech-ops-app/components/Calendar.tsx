@@ -331,7 +331,7 @@ export default function Calendar({
                                 </select>
                                 {/* OK 按鈕只在非會議類型顯示；會議必須走進階流程 */}
                                 {!isMeetingType && (
-                                  <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 10px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
+                                  <button onClick={() => handleAddSubmit(day)} style={{ width: '44px', flexShrink: 0, fontSize: '10px', fontFamily: 'monospace', padding: '0', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
                                 )}
                               </div>
                               {/* 會議類型：只顯示「進階」按鈕 + 提示，不允許多日期 */}
@@ -366,8 +366,8 @@ export default function Calendar({
                                     </div>
                                   )}
                                   <div style={{ display: 'flex', gap: '3px' }}>
-                                    <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '10px', fontFamily: 'monospace', padding: '3px 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '22px', boxSizing: 'border-box' }} />
-                                    <button onClick={addExtraDate} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', height: '22px', boxSizing: 'border-box' }}>+ 日</button>
+                                    <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '10px', fontFamily: 'monospace', padding: '3px 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '24px', boxSizing: 'border-box' }} />
+                                    <button onClick={addExtraDate} style={{ width: '44px', flexShrink: 0, fontSize: '10px', fontFamily: 'monospace', padding: '0', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>+ 日</button>
                                   </div>
                                 </>
                               )}
