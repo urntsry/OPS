@@ -21,6 +21,8 @@ import Taskbar from '@/components/Taskbar'
 import DevTrackerPage from '@/components/DevTrackerPage'
 import MeetingPage from '@/components/MeetingPage'
 import MeetingCreateModal from '@/components/MeetingCreateModal'
+import DelegationCreateModal from '@/components/DelegationCreateModal'
+import DelegatedPanel from '@/components/DelegatedPanel'
 import FaxPage from '@/components/FaxPage'
 import OPSPage from '@/components/OPSPage'
 import SalesPage from '@/components/SalesPage'
@@ -29,6 +31,7 @@ import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
 import { getMeetingsForMonth as fetchMeetingsForMonth, subscribeScheduledMeetings } from '@/lib/meetingsApi'
+import { getDelegationsForMonth, subscribeDelegations, type Delegation } from '@/lib/delegationsApi'
 import { 
   getTaskDefinitionsByAssignee, 
   getPendingAssignments,
@@ -116,6 +119,10 @@ function HomePageInner() {
   const [calendarRefreshTick, setCalendarRefreshTick] = useState(0)
   // Meetings for calendar (merged with assignment events)
   const [meetingsForMonth, setMeetingsForMonth] = useState<Array<{ id: string; title: string; meeting_date: string; summary: string | null; location: string | null; start_time: string | null }>>([])
+  // Delegations for calendar (cross-day bars)
+  const [delegationsForMonth, setDelegationsForMonth] = useState<Delegation[]>([])
+  // Delegation create modal
+  const [delegationModalOpen, setDelegationModalOpen] = useState(false)
   // Deep-link target — when user clicks "完整詳情" on a meeting event
   const [selectedScheduledMeetingId, setSelectedScheduledMeetingId] = useState<string | null>(null)
   const [hideWeekend, setHideWeekend] = useState(false) // 隱藏週末
@@ -416,6 +423,25 @@ function HomePageInner() {
     })
     return unsub
   }, [])
+
+  // 載入當月交辦事項（用於日曆跨日橫條）
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    getDelegationsForMonth(currentYear, currentMonth, userId)
+      .then(data => { if (!cancelled) setDelegationsForMonth(data) })
+      .catch(err => console.warn('[HomePage] load delegations failed:', err))
+    return () => { cancelled = true }
+  }, [currentYear, currentMonth, userId, calendarRefreshTick])
+
+  // Realtime: 交辦事項異動 → 即時重撈
+  useEffect(() => {
+    if (!userId) return
+    const unsub = subscribeDelegations(() => {
+      setCalendarRefreshTick(t => t + 1)
+    })
+    return unsub
+  }, [userId])
   
   // 轉換頻率為中文標籤
   function getFrequencyLabel(frequency: string): string {
@@ -499,8 +525,46 @@ function HomePageInner() {
       scheduledMeetingId: m.id,
     }))
 
+  // 將交辦事項展開成跨日事件 (start_date → due_date 之間每一天都顯示)
+  const delegationCalendarEvents = (() => {
+    const events: Array<{ id: undefined; date: number; title: string; type: string; done: boolean; content: string; detailLink?: string }> = []
+    const monthStart = new Date(currentYear, currentMonth, 1)
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0)
+    for (const d of delegationsForMonth) {
+      const start = new Date(d.start_date)
+      const end = new Date(d.due_date)
+      // 限定在當月顯示範圍
+      const from = start < monthStart ? monthStart : start
+      const to = end > monthEnd ? monthEnd : end
+      const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+      for (let cur = new Date(from); cur <= to; cur.setDate(cur.getDate() + 1)) {
+        const dayNum = cur.getDate()
+        const dayIdx = Math.round((cur.getTime() - start.getTime()) / 86400000) + 1
+        const isStart = cur.toISOString().slice(0, 10) === d.start_date
+        const isEnd = cur.toISOString().slice(0, 10) === d.due_date
+        const marker = isStart ? '▶' : isEnd ? '◀' : '─'
+        const dayLabel = totalDays > 1 ? ` (${dayIdx}/${totalDays})` : ''
+        events.push({
+          id: undefined,
+          date: dayNum,
+          title: `${marker} ${d.title}${dayLabel}`,
+          type: 'delegation',
+          done: d.status === 'done',
+          content: [
+            `交辦人：${d.issuer_name || '—'}`,
+            `承辦人：${d.assignee_name || '—'}`,
+            `期間：${d.start_date} → ${d.due_date}`,
+            d.priority !== 'normal' ? `優先度：${d.priority === 'urgent' ? '緊急' : '重要'}` : null,
+            d.description ? `\n${d.description}` : null,
+          ].filter(Boolean).join('\n'),
+        })
+      }
+    }
+    return events
+  })()
+
   // 合併所有日曆事件
-  const calendarEvents = [...assignmentEvents, ...bulletinCalendarEvents, ...meetingCalendarEvents]
+  const calendarEvents = [...assignmentEvents, ...bulletinCalendarEvents, ...meetingCalendarEvents, ...delegationCalendarEvents]
 
   const handleToggleTask = async (id: number | string) => {
     console.log('[HomePage] handleToggleTask 被調用:', { id })
@@ -1090,8 +1154,14 @@ function HomePageInner() {
               />
             </div>
 
-            {/* Bottom panels — responsive: 4 cols wide / 2 cols medium / 1 col narrow */}
+            {/* Bottom panels — responsive: auto-fit, narrow → 1 col, wide → 5 cols */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px' }}>
+              <DelegatedPanel
+                userId={userId}
+                userRole={userRole}
+                userName={userProfile?.full_name || ''}
+                onCreateRequest={() => setDelegationModalOpen(true)}
+              />
               <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
               <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
               <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
@@ -1176,6 +1246,17 @@ function HomePageInner() {
         onCreated={() => {
           // Bump tick to reload meetings + calendar
           setCalendarRefreshTick(t => t + 1)
+        }}
+      />
+
+      <DelegationCreateModal
+        open={delegationModalOpen}
+        currentUserId={userId}
+        currentUserName={userProfile?.full_name || ''}
+        onClose={() => setDelegationModalOpen(false)}
+        onCreated={() => {
+          setCalendarRefreshTick(t => t + 1)
+          setToast({ message: '已建立交辦事項，承辦人會收到通知', type: 'success' })
         }}
       />
 

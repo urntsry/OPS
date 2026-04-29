@@ -39,7 +39,8 @@ interface CalendarProps {
 }
 
 // Pure event types (not tasks) — clicking shows info popup instead of toggling done
-const PURE_EVENT_TYPES = new Set(['public', 'event', 'meeting', 'visit', 'training'])
+// delegation 也歸類於此（完成需經 DELEGATED 面板的「✓ 完成」鈕，不在日曆上直接 toggle）
+const PURE_EVENT_TYPES = new Set(['public', 'event', 'meeting', 'visit', 'training', 'delegation'])
 
 export default function Calendar({
   year, month, events = [], onMonthChange,
@@ -51,7 +52,9 @@ export default function Calendar({
   const [newTitle, setNewTitle] = useState('')
   // Event info popup state
   const [popupEvent, setPopupEvent] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null)
-  const availableTypes = userId ? getTypesForUser(userId, userDepartment, userRole) : getTypesForRole(userRole)
+  // delegation 類型有專屬建立流程（DELEGATED 面板 + Modal），inline 下拉不顯示
+  const availableTypes = (userId ? getTypesForUser(userId, userDepartment, userRole) : getTypesForRole(userRole))
+    .filter(t => t.id !== 'delegation')
   const [newType, setNewType] = useState(availableTypes[0]?.id || 'routine')
   const [extraDates, setExtraDates] = useState<string[]>([])
   const [newExtraDate, setNewExtraDate] = useState('')

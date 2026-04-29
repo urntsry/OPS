@@ -11,6 +11,7 @@ import {
   getDepartments, addDepartment as apiAddDepartment, removeDepartment as apiRemoveDepartment,
   type Department
 } from '@/lib/departmentApi'
+import { getIssuerOverrides, setIssuerOverrides } from '@/lib/delegationsApi'
 
 interface SettingsPageProps {
   isAdmin?: boolean
@@ -405,11 +406,139 @@ function AssignmentTab() {
 }
 
 // ============================================
+// DELEGATION TAB — 交辦權限管理（誰可以發出正式交辦事項）
+// ============================================
+function DelegationTab() {
+  const [users, setUsers] = useState<Profile[]>([])
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({})
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const profiles = await getAllProfiles()
+        setUsers(profiles)
+        setOverrides(getIssuerOverrides())
+      } catch (e) {
+        console.error('Failed to load:', e)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const isIssuer = (u: Profile): boolean => {
+    if (u.id in overrides) return overrides[u.id]
+    return u.role === 'admin'
+  }
+
+  const toggleIssuer = (u: Profile) => {
+    const cur = isIssuer(u)
+    const next = { ...overrides, [u.id]: !cur }
+    setOverrides(next)
+  }
+
+  const resetUser = (u: Profile) => {
+    const next = { ...overrides }
+    delete next[u.id]
+    setOverrides(next)
+  }
+
+  const handleSave = () => {
+    setIssuerOverrides(overrides)
+    setToast('交辦權限已儲存')
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const issuerCount = users.filter(u => isIssuer(u)).length
+
+  if (loading) {
+    return <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px' }}>LOADING...</div>
+  }
+
+  return (
+    <div style={{ padding: '8px', fontFamily: 'monospace', fontSize: '11px' }}>
+      <div style={{ marginBottom: '8px', padding: '6px', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)', fontSize: '10px', lineHeight: 1.5 }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>※ 交辦權限說明</div>
+        <div>•「具交辦權限」者可建立正式「交辦事項」（含起訖日、承辦人、追蹤）</div>
+        <div>• 預設：admin (管理) 角色具有此權限</div>
+        <div>• 此處可個別 開啟/關閉 — 不影響原本的角色設定</div>
+        <div>• 目前共 <span style={{ fontWeight: 'bold', color: 'var(--accent-blue)' }}>{issuerCount}</span> 人具交辦權限</div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', gap: '6px', alignItems: 'center' }}>
+        {toast && <span style={{ fontSize: '10px', color: 'var(--accent-green)' }}>{toast}</span>}
+        <button
+          onClick={handleSave}
+          style={{ padding: '3px 12px', fontSize: '11px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--accent-blue)', color: '#FFF', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          ✓ 儲存
+        </button>
+      </div>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+        <thead>
+          <tr style={{ background: 'var(--titlebar-end)', color: 'var(--text-inverse)' }}>
+            <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>姓名</th>
+            <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>員編</th>
+            <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>部門</th>
+            <th style={{ padding: '3px 6px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)' }}>角色</th>
+            <th style={{ padding: '3px 6px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)' }}>交辦權限</th>
+            <th style={{ padding: '3px 6px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)' }}>狀態</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.sort((a, b) => a.employee_id.localeCompare(b.employee_id)).map(u => {
+            const allowed = isIssuer(u)
+            const overridden = u.id in overrides
+            return (
+              <tr key={u.id} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
+                <td style={{ padding: '3px 6px' }}>{u.full_name}</td>
+                <td style={{ padding: '3px 6px', color: 'var(--text-muted)' }}>{u.employee_id}</td>
+                <td style={{ padding: '3px 6px' }}>{u.department}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'center', fontSize: '9px', color: u.role === 'admin' ? 'var(--accent-red)' : u.role === 'supervisor' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+                  {u.role === 'admin' ? '管理' : u.role === 'supervisor' ? '行政' : '作業員'}
+                </td>
+                <td style={{ padding: '3px 6px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={allowed}
+                    onChange={() => toggleIssuer(u)}
+                    style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                  />
+                </td>
+                <td style={{ padding: '3px 6px', textAlign: 'center', fontSize: '9px' }}>
+                  {overridden ? (
+                    <span style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--accent-orange)' }}>覆寫</span>
+                      <button
+                        onClick={() => resetUser(u)}
+                        style={{ fontSize: '8px', padding: '0 3px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', cursor: 'pointer' }}
+                        title="還原為角色預設"
+                      >↶</button>
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)' }}>角色預設</span>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ============================================
 // SETTINGS PAGE — Main component using DepartmentShell
 // ============================================
 export default function SettingsPage({ isAdmin = false }: SettingsPageProps) {
   const tabs: DepartmentTab[] = [
     { id: 'permissions', label: 'PERMISSIONS', show: isAdmin, component: <PermissionsTab /> },
+    { id: 'delegation',  label: 'DELEGATION',  show: isAdmin, component: <DelegationTab /> },
     { id: 'assignment',  label: 'ASSIGNMENT',  show: true,    component: <AssignmentTab /> },
     { id: 'devtracker',  label: 'DEV TRACKER', show: isAdmin, component: <DevTrackerPage /> },
   ]

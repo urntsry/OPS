@@ -16,6 +16,10 @@
     {
       "path": "/api/meetings/reminder",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/delegations/check",
+      "schedule": "0 8 * * *"
     }
   ]
 }
