@@ -135,11 +135,13 @@ export async function POST(request: NextRequest) {
 
     let result: any = null
     let lastError: any = null
+    // Aggressive retry to survive rate-limit bursts (paid accounts have RPM limits too)
     const attempts: { model: string; delayMs: number }[] = [
       { model: PRIMARY_MODEL, delayMs: 0 },
-      { model: PRIMARY_MODEL, delayMs: 2000 },
-      { model: FALLBACK_MODEL, delayMs: 1000 },
-      { model: FALLBACK_MODEL, delayMs: 4000 },
+      { model: PRIMARY_MODEL, delayMs: 3000 },
+      { model: PRIMARY_MODEL, delayMs: 8000 },
+      { model: FALLBACK_MODEL, delayMs: 2000 },
+      { model: FALLBACK_MODEL, delayMs: 10000 },
     ]
 
     for (const attempt of attempts) {
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest) {
       } catch (e: any) {
         lastError = e
         const msg = String(e?.message || '')
-        const is429 = msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted')
+        const is429 = msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted') || msg.toLowerCase().includes('rate')
         console.warn(`[fax/analyze] Attempt failed (${attempt.model}): ${msg.slice(0, 150)}`)
         if (!is429) break
       }
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
       const msg = String(lastError?.message || '')
       const is429 = msg.includes('429') || msg.toLowerCase().includes('quota')
       const errMsg = is429
-        ? 'Gemini API 配額已用完（每日 1500 次免費額度）。請等待重置或升級至付費方案。'
+        ? 'Gemini API 速率超過：可能是免費版每日 1500 次用完，或付費版瞬間呼叫過多。請點 RE-ANALYZE 重試，或檢查 Google AI Studio Plan 狀態。'
         : `AI 分析失敗：${msg.slice(0, 200)}`
       await supabase
         .from('faxes')

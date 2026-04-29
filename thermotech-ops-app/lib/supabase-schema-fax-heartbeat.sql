@@ -20,8 +20,6 @@ CREATE TABLE IF NOT EXISTS fax_agent_status (
   CONSTRAINT single_row CHECK (id = 1)
 );
 
-INSERT INTO fax_agent_status (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
-
 ALTER TABLE fax_agent_status ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated users can read agent status" ON fax_agent_status;
@@ -29,4 +27,7 @@ CREATE POLICY "Authenticated users can read agent status"
   ON fax_agent_status FOR SELECT
   USING (auth.role() = 'authenticated');
 
--- INSERT/UPDATE only via service_role (API routes)
+INSERT INTO fax_agent_status (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- INSERT/UPDATE only via service_role key (used by API routes).
+-- No INSERT/UPDATE/DELETE policy added intentionally — anon/authenticated cannot write.
