@@ -55,13 +55,18 @@ export async function POST(request: NextRequest) {
       .from('fax-files')
       .upload(filePath, buffer, { contentType: file.type })
 
-    let fileUrl = ''
-    if (!uploadError) {
-      const { data } = supabase.storage.from('fax-files').getPublicUrl(filePath)
-      fileUrl = data.publicUrl
-    } else {
-      console.error('[fax/upload] Storage error:', uploadError)
+    if (uploadError) {
+      console.error('[fax/upload] Storage upload FAILED:', uploadError)
+      // Fail loudly so the agent knows and can retry — don't create an orphan DB record
+      return NextResponse.json({
+        error: 'Storage upload failed',
+        detail: uploadError.message,
+        diagnosis: 'Check that "fax-files" bucket exists in Supabase Storage and SUPABASE_SERVICE_ROLE_KEY is correct on Vercel.',
+      }, { status: 500 })
     }
+
+    const { data: urlData } = supabase.storage.from('fax-files').getPublicUrl(filePath)
+    const fileUrl = urlData.publicUrl
 
     // Create fax record
     const { data: fax, error: dbError } = await supabase
