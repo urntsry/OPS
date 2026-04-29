@@ -360,17 +360,16 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
   const [signedUrl, setSignedUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    if (fax.file_url) {
-      getFaxFileSignedUrl(fax.file_url).then(url => {
-        // Prefer signed URL; fallback to original file_url (in case bucket is still public)
-        setSignedUrl(url || fax.file_url)
-      }).catch(() => {
-        setSignedUrl(fax.file_url)
-      })
+    // Use server-side proxy to get a working URL (works with private buckets via service role)
+    if (fax.id) {
+      fetch(`/api/fax/file?id=${fax.id}`)
+        .then(r => r.json())
+        .then(d => setSignedUrl(d.url || fax.file_url))
+        .catch(() => setSignedUrl(fax.file_url))
     } else {
       setSignedUrl(null)
     }
-  }, [fax.file_url])
+  }, [fax.id, fax.file_url])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 

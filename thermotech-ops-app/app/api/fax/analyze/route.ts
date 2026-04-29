@@ -107,15 +107,52 @@ export async function POST(request: NextRequest) {
     else if (ext === 'tif' || ext === 'tiff') mimeType = 'image/tiff'
 
     // Pre-fetch the file content (so we can retry without re-downloading)
+    // Use Supabase service-role download instead of HTTP fetch — works for private buckets too
     let base64: string | null = null
     if ((isImage || isPdf) && file_url) {
-      try {
-        const fileResponse = await fetch(file_url)
-        if (!fileResponse.ok) throw new Error(`File fetch failed: ${fileResponse.status}`)
-        const fileBuffer = await fileResponse.arrayBuffer()
-        base64 = Buffer.from(fileBuffer).toString('base64')
-      } catch (e: any) {
-        console.error('[fax/analyze] File fetch failed:', e?.message)
+      // Extract storage path from URL
+      let storagePath = ''
+      if (file_url.includes('/storage/v1/object/public/fax-files/')) {
+        storagePath = file_url.split('/storage/v1/object/public/fax-files/')[1].split('?')[0]
+      } else if (file_url.includes('/storage/v1/object/sign/fax-files/')) {
+        storagePath = file_url.split('/storage/v1/object/sign/fax-files/')[1].split('?')[0]
+      } else if (file_url.includes('fax-files/')) {
+        storagePath = file_url.substring(file_url.indexOf('fax-files/') + 'fax-files/'.length).split('?')[0]
+      }
+
+      if (storagePath) {
+        try {
+          const { data: blob, error: dlErr } = await supabase.storage
+            .from('fax-files')
+            .download(storagePath)
+          if (dlErr) throw dlErr
+          if (blob) {
+            const arr = await blob.arrayBuffer()
+            base64 = Buffer.from(arr).toString('base64')
+            console.log(`[fax/analyze] Downloaded ${storagePath} via service-role (${arr.byteLength} bytes)`)
+          }
+        } catch (e: any) {
+          console.error('[fax/analyze] Storage download failed:', e?.message, 'path:', storagePath)
+          // Fallback: try direct HTTP fetch (works if bucket still public)
+          try {
+            const fileResponse = await fetch(file_url)
+            if (fileResponse.ok) {
+              const arr = await fileResponse.arrayBuffer()
+              base64 = Buffer.from(arr).toString('base64')
+            }
+          } catch { /* ignore */ }
+        }
+      } else {
+        // No path could be extracted — try direct fetch
+        try {
+          const fileResponse = await fetch(file_url)
+          if (fileResponse.ok) {
+            const arr = await fileResponse.arrayBuffer()
+            base64 = Buffer.from(arr).toString('base64')
+          }
+        } catch (e: any) {
+          console.error('[fax/analyze] Direct fetch failed:', e?.message)
+        }
       }
     }
 
