@@ -7,7 +7,10 @@ import EventList from '@/components/EventList'
 import Button from '@/components/Button'
 import AddEventModal from '@/components/AddEventModal'
 import Toast from '@/components/Toast'
+// Sidebar/MobileNav: kept for legacy dead-code branches only (never reached at runtime)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Sidebar from '@/components/Sidebar'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import MobileNav from '@/components/MobileNav'
 import HRPage from '@/components/HRPage'
 import SettingsPage from '@/components/SettingsPage'
@@ -23,7 +26,6 @@ import SalesPage from '@/components/SalesPage'
 import ReportPage from '@/components/ReportPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
-import { useDevice } from '@/lib/useDevice'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
 import { 
   getTaskDefinitionsByAssignee, 
@@ -79,7 +81,10 @@ export default function HomePage() {
 }
 
 function HomePageInner() {
-  const device = useDevice()
+  // NOTE: Win95 desktop layout is now the only layout (works at all widths).
+  // The old mobile/tablet branches have been retired — at small viewports the
+  // taskbar / windows simply scale down. This avoids the jarring "sidebar with
+  // OPS/SALES/REPORT" layout that appeared below 1024px.
   const router = useRouter()
   const searchParams = useSearchParams()
   const { openWindow } = useWindowManager()
@@ -671,10 +676,11 @@ function HomePageInner() {
   }
 
   // ============================================
-  // MOBILE LAYOUT (< 768px)
-  // 設計理念：單欄、緊湊、專注核心任務
+  // MOBILE LAYOUT — RETIRED (kept as dead code for reference, never reached)
+  // We now use the same Win95 desktop OS layout at every viewport.
   // ============================================
-  if (device === 'mobile') {
+  const _mobileLegacy = false as boolean
+  if (_mobileLegacy) {
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -856,10 +862,10 @@ function HomePageInner() {
   }
 
   // ============================================
-  // TABLET LAYOUT (768px - 1399px)
-  // 設計理念：行事曆全寬優先，任務列表在下方
+  // TABLET LAYOUT — RETIRED (kept as dead code for reference, never reached)
   // ============================================
-  if (device === 'tablet') {
+  const _tabletLegacy = false as boolean
+  if (_tabletLegacy) {
     return (
       <div style={{ 
         display: 'flex',
@@ -1025,8 +1031,8 @@ function HomePageInner() {
               />
             </div>
 
-            {/* Bottom panels */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+            {/* Bottom panels — responsive: 4 cols wide / 2 cols medium / 1 col narrow */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px' }}>
               <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
               <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
               <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />

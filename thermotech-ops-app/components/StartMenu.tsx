@@ -113,7 +113,7 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
           fontWeight: 'bold',
           letterSpacing: '1px',
         }}>
-          THERMOTECH-OPS
+          THERMOTECH-OPS v3.0
         </span>
       </div>
 

@@ -102,6 +102,17 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
     globalZCounter++
     const pos = getCascadePosition(windows)
 
+    // Clamp window to viewport so default sizes don't exceed the screen
+    // (important when the browser window itself is small)
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const maxW = Math.max(320, vw - 20)
+    const maxH = Math.max(240, vh - TASKBAR_HEIGHT - 20)
+    const w = Math.min(config.defaultWidth, maxW)
+    const h = Math.min(config.defaultHeight, maxH)
+    const x = Math.min(pos.x, Math.max(0, vw - w - 10))
+    const y = Math.min(pos.y, Math.max(0, vh - h - TASKBAR_HEIGHT - 10))
+
     set({
       windows: {
         ...windows,
@@ -112,10 +123,10 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
           isMinimized: false,
           isMaximized: false,
           isFullscreen: config.fullscreenDefault || false,
-          x: pos.x,
-          y: pos.y,
-          width: config.defaultWidth,
-          height: config.defaultHeight,
+          x,
+          y,
+          width: w,
+          height: h,
           zIndex: globalZCounter,
         },
       },

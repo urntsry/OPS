@@ -49,7 +49,7 @@ export default function Sidebar({ currentTab, onTabChange, userProfile, onLogout
         letterSpacing: '0.5px'
       }}>
         THERMOTECH-OPS
-        <div style={{ fontSize: '8px', color: '#8899BB', fontWeight: 'normal', marginTop: '1px' }}>v2.9</div>
+        <div style={{ fontSize: '8px', color: '#8899BB', fontWeight: 'normal', marginTop: '1px' }}>v3.0</div>
       </div>
 
       {/* Theme Toggle */}
