@@ -20,6 +20,7 @@ import Win95Window from '@/components/win95/Win95Window'
 import Taskbar from '@/components/Taskbar'
 import DevTrackerPage from '@/components/DevTrackerPage'
 import MeetingPage from '@/components/MeetingPage'
+import MeetingCreateModal from '@/components/MeetingCreateModal'
 import FaxPage from '@/components/FaxPage'
 import OPSPage from '@/components/OPSPage'
 import SalesPage from '@/components/SalesPage'
@@ -27,6 +28,7 @@ import ReportPage from '@/components/ReportPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
+import { getMeetingsForMonth as fetchMeetingsForMonth } from '@/lib/meetingsApi'
 import { 
   getTaskDefinitionsByAssignee, 
   getPendingAssignments,
@@ -108,6 +110,12 @@ function HomePageInner() {
   
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
+  // Advanced meeting create modal
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false)
+  const [meetingModalDefaults, setMeetingModalDefaults] = useState<{ title: string; date: string }>({ title: '', date: '' })
+  const [calendarRefreshTick, setCalendarRefreshTick] = useState(0)
+  // Meetings for calendar (merged with assignment events)
+  const [meetingsForMonth, setMeetingsForMonth] = useState<Array<{ id: string; title: string; meeting_date: string; summary: string | null; location: string | null; start_time: string | null }>>([])
   const [hideWeekend, setHideWeekend] = useState(false) // 隱藏週末
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null)
@@ -387,7 +395,16 @@ function HomePageInner() {
     }
     
     loadUserTasks()
-  }, [userId, viewingUserId]) // 依賴 userId 和 viewingUserId
+  }, [userId, viewingUserId, calendarRefreshTick]) // 依賴 userId 和 viewingUserId, 以及刷新計數器
+
+  // 載入當月會議（用於日曆顯示）
+  useEffect(() => {
+    let cancelled = false
+    fetchMeetingsForMonth(currentYear, currentMonth)
+      .then(data => { if (!cancelled) setMeetingsForMonth(data) })
+      .catch(err => console.warn('[HomePage] load meetings failed:', err))
+    return () => { cancelled = true }
+  }, [currentYear, currentMonth, calendarRefreshTick])
   
   // 轉換頻率為中文標籤
   function getFrequencyLabel(frequency: string): string {
@@ -450,8 +467,28 @@ function HomePageInner() {
     currentMonth
   ).map(e => ({ date: e.date, title: e.title, type: e.type }))
 
+  // 將會議轉為日曆事件（type='meeting'）
+  const meetingCalendarEvents = meetingsForMonth
+    .filter(m => {
+      const d = new Date(m.meeting_date)
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth
+    })
+    .map(m => ({
+      id: undefined as number | undefined, // meetings 沒有 numeric id, 不可被 toggle/delete via assignment API
+      date: new Date(m.meeting_date).getDate(),
+      title: m.title,
+      type: 'meeting',
+      done: false,
+      content: [
+        m.start_time ? `時間: ${m.start_time.slice(0, 5)}` : null,
+        m.location ? `地點: ${m.location}` : null,
+        m.summary ? `\n${m.summary}` : null,
+      ].filter(Boolean).join('\n'),
+      detailLink: `/home?tab=meeting&id=${m.id}`,
+    }))
+
   // 合併所有日曆事件
-  const calendarEvents = [...assignmentEvents, ...bulletinCalendarEvents]
+  const calendarEvents = [...assignmentEvents, ...bulletinCalendarEvents, ...meetingCalendarEvents]
 
   const handleToggleTask = async (id: number | string) => {
     console.log('[HomePage] handleToggleTask 被調用:', { id })
@@ -1025,6 +1062,10 @@ function HomePageInner() {
                 onToggleEvent={handleToggleTask}
                 onDeleteEvent={handleDeleteAssignment}
                 onAddEvent={handleSubmitEvent}
+                onAdvancedMeeting={(data) => {
+                  setMeetingModalDefaults(data)
+                  setMeetingModalOpen(true)
+                }}
                 userRole={userRole}
                 userId={userId}
                 userDepartment={userProfile?.department || ''}
@@ -1101,6 +1142,19 @@ function HomePageInner() {
           onClose={() => setEditingBulletin(null)}
         />
       )}
+
+      {/* Advanced Meeting Create Modal */}
+      <MeetingCreateModal
+        open={meetingModalOpen}
+        defaultDate={meetingModalDefaults.date}
+        defaultTitle={meetingModalDefaults.title}
+        currentUserId={userId}
+        onClose={() => setMeetingModalOpen(false)}
+        onCreated={() => {
+          // Bump tick to reload meetings + calendar
+          setCalendarRefreshTick(t => t + 1)
+        }}
+      />
 
       {/* Taskbar */}
       <Taskbar

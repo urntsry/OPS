@@ -12,6 +12,7 @@ import {
   getInternalContacts, createInternalContact, updateInternalContact, deleteInternalContact,
   type InternalContact,
 } from '@/lib/contactsApi'
+import { useFaxStore } from '@/lib/useFaxStore'
 
 interface FaxPageProps {
   isAdmin: boolean
@@ -172,11 +173,20 @@ function InboxTab({ onPendingChange, userProfile, isAdmin, agentStatus }: { onPe
 
   const handleToggleHandled = async (fax: Fax, e: React.MouseEvent) => {
     e.stopPropagation()
+    // Optimistic badge update — Taskbar reflects change instantly
+    const wasHandled = fax.is_handled
+    if (!wasHandled) useFaxStore.getState().decrement()
+    else useFaxStore.getState().increment()
     try {
       const updated = await markFaxHandled(fax.id, userProfile?.id || '', !fax.is_handled)
       setFaxes(prev => prev.map(f => f.id === fax.id ? updated : f))
       showToast(updated.is_handled ? '已標記處理' : '已取消處理')
-    } catch { showToast('更新失敗') }
+    } catch {
+      showToast('更新失敗')
+      // Roll back optimistic update on failure
+      if (!wasHandled) useFaxStore.getState().increment()
+      else useFaxStore.getState().decrement()
+    }
   }
 
   const handleReanalyze = async (fax: Fax) => {
@@ -482,11 +492,19 @@ function FaxDetail({ fax: initialFax, faxList, onBack, onNavigate, onReanalyze, 
   }
 
   const handleToggleHandled = async () => {
+    // Optimistic badge update
+    const wasHandled = fax.is_handled
+    if (!wasHandled) useFaxStore.getState().decrement()
+    else useFaxStore.getState().increment()
     try {
       const updated = await markFaxHandled(fax.id, userProfile?.id || '', !fax.is_handled)
       setFax(updated)
       showToast(updated.is_handled ? '已標記為處理完成' : '已取消處理狀態')
-    } catch { showToast('更新失敗') }
+    } catch {
+      showToast('更新失敗')
+      if (!wasHandled) useFaxStore.getState().increment()
+      else useFaxStore.getState().decrement()
+    }
   }
 
   const raw = fax.ai_raw_response

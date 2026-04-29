@@ -9,6 +9,10 @@ interface CalendarEvent {
   title: string
   type: string
   done?: boolean
+  /** Optional preview content shown in event popup */
+  content?: string
+  /** Optional link to open more details (e.g. meeting/bulletin module) */
+  detailLink?: string
 }
 
 interface CalendarProps {
@@ -19,6 +23,9 @@ interface CalendarProps {
   onToggleEvent?: (id: number) => void
   onDeleteEvent?: (id: number) => void
   onAddEvent?: (data: { title: string; type: string; dates: string[] }) => void
+  /** Called when user clicks "進階" button while creating a meeting event.
+   *  Parent should open MeetingCreateModal pre-filled with title + date. */
+  onAdvancedMeeting?: (data: { title: string; date: string }) => void
   hideWeekend?: boolean
   compact?: boolean
   userRole?: string
@@ -26,14 +33,19 @@ interface CalendarProps {
   userDepartment?: string
 }
 
+// Pure event types (not tasks) — clicking shows info popup instead of toggling done
+const PURE_EVENT_TYPES = new Set(['public', 'event', 'meeting', 'visit', 'training'])
+
 export default function Calendar({
   year, month, events = [], onMonthChange,
-  onToggleEvent, onDeleteEvent, onAddEvent,
+  onToggleEvent, onDeleteEvent, onAddEvent, onAdvancedMeeting,
   hideWeekend = false, compact = false, userRole = 'user',
   userId = '', userDepartment = ''
 }: CalendarProps) {
   const [editingDay, setEditingDay] = useState<number | null>(null)
   const [newTitle, setNewTitle] = useState('')
+  // Event info popup state
+  const [popupEvent, setPopupEvent] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null)
   const availableTypes = userId ? getTypesForUser(userId, userDepartment, userRole) : getTypesForRole(userRole)
   const [newType, setNewType] = useState(availableTypes[0]?.id || 'routine')
   const [extraDates, setExtraDates] = useState<string[]>([])
@@ -200,9 +212,33 @@ export default function Calendar({
 
                           {/* Events — scrollable */}
                           <div style={{ overflow: 'hidden auto', maxHeight: isEditing ? `calc(${eventAreaHeight} - 26px)` : eventAreaHeight }}>
-                            {dayEvents.map((event, idx) => (
+                            {dayEvents.map((event, idx) => {
+                              const isPureEvent = PURE_EVENT_TYPES.has(event.type)
+                              const handleEventClick = (e: React.MouseEvent) => {
+                                if (isEditing) return
+                                e.stopPropagation()
+                                if (isPureEvent) {
+                                  // Open info popup near click position
+                                  setPopupEvent({ event, x: e.clientX, y: e.clientY })
+                                } else if (event.id && onToggleEvent) {
+                                  // Task types: toggle completion
+                                  onToggleEvent(event.id)
+                                }
+                              }
+                              return (
                               <div
                                 key={event.id || idx}
+                                onClick={handleEventClick}
+                                onMouseEnter={e => {
+                                  const el = e.currentTarget as HTMLElement
+                                  el.style.background = 'var(--bg-hover, rgba(0,95,175,0.12))'
+                                  el.style.transform = 'translateX(1px)'
+                                }}
+                                onMouseLeave={e => {
+                                  const el = e.currentTarget as HTMLElement
+                                  el.style.background = 'transparent'
+                                  el.style.transform = 'none'
+                                }}
                                 style={{
                                   fontFamily: 'monospace',
                                   fontSize: eventFontSize,
@@ -215,8 +251,12 @@ export default function Calendar({
                                   alignItems: 'center',
                                   gap: '2px',
                                   opacity: event.done ? 0.45 : 1,
+                                  cursor: isEditing ? 'default' : (isPureEvent || event.id) ? 'pointer' : 'default',
+                                  padding: '1px 2px',
+                                  borderRadius: '1px',
+                                  transition: 'background 0.08s, transform 0.08s',
                                 }}
-                                title={`${getEventLabel(event.type)}: ${event.title}`}
+                                title={`${getEventLabel(event.type)}: ${event.title}${isPureEvent ? '（點擊查看詳情）' : event.id ? '（點擊切換完成）' : ''}`}
                               >
                                 <span style={{ width: '3px', height: '10px', backgroundColor: getEventColor(event.type), flexShrink: 0, display: 'inline-block' }} />
                                 <span style={{
@@ -244,13 +284,14 @@ export default function Calendar({
                                   </span>
                                 )}
                               </div>
-                            ))}
+                              )
+                            })}
                           </div>
 
                           {/* Inline add — directly in the cell */}
                           {isEditing && (
-                            <div onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()} style={{ marginTop: '2px', borderTop: '1px solid var(--border-mid-dark)', paddingTop: '2px' }}>
-                              <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
+                            <div onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()} style={{ marginTop: '4px', borderTop: '1px solid var(--border-mid-dark)', paddingTop: '4px' }}>
+                              <div style={{ display: 'flex', gap: '3px', marginBottom: '3px' }}>
                                 <input
                                   type="text"
                                   value={newTitle}
@@ -259,37 +300,51 @@ export default function Calendar({
                                     if (e.key === 'Enter') handleAddSubmit(day)
                                     if (e.key === 'Escape') setEditingDay(null)
                                   }}
-                                  placeholder="+ new"
+                                  placeholder="+ 新增事件 / Enter 確認"
                                   autoFocus
-                                  style={{ flex: 1, minWidth: 0, padding: '1px 3px', fontSize: '9px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }}
+                                  style={{ flex: 1, minWidth: 0, padding: '4px 6px', fontSize: '11px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '24px', boxSizing: 'border-box' }}
                                 />
                               </div>
-                              <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
+                              <div style={{ display: 'flex', gap: '3px', marginBottom: '3px' }}>
                                 <select
                                   value={newType}
                                   onChange={e => setNewType(e.target.value)}
-                                  style={{ flex: 1, minWidth: 0, padding: '0 2px', fontSize: '8px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }}
+                                  style={{ flex: 1, minWidth: 0, padding: '3px 4px', fontSize: '11px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '24px', boxSizing: 'border-box' }}
                                 >
                                   {availableTypes.map((t: EventType) => (
                                     <option key={t.id} value={t.id}>{t.label}</option>
                                   ))}
                                 </select>
-                                <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '8px', fontFamily: 'monospace', padding: '0 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold' }}>OK</button>
+                                <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 10px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
                               </div>
+                              {/* Advanced — only visible for meeting type */}
+                              {newType === 'meeting' && onAdvancedMeeting && (
+                                <button
+                                  onClick={() => {
+                                    const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                                    onAdvancedMeeting({ title: newTitle, date: isoDate })
+                                    setEditingDay(null)
+                                  }}
+                                  style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', marginBottom: '3px', border: '1px solid #003F7F', background: '#005FAF', color: '#FFF', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '22px', boxSizing: 'border-box' }}
+                                  title="開啟進階建立視窗：選擇出席/相關/協助人員、自動發送通知"
+                                >
+                                  ◎ 進階建立會議（含人員 / 通知）
+                                </button>
+                              )}
                               {/* Extra dates */}
                               {extraDates.length > 0 && (
-                                <div style={{ marginBottom: '2px' }}>
+                                <div style={{ marginBottom: '3px' }}>
                                   {extraDates.map(d => (
-                                    <div key={d} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', color: 'var(--text-muted)', padding: '0 2px' }}>
+                                    <div key={d} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', padding: '1px 3px', alignItems: 'center' }}>
                                       <span>+{d}</span>
-                                      <span onClick={() => setExtraDates(extraDates.filter(x => x !== d))} style={{ color: 'var(--accent-red)', cursor: 'pointer' }}>×</span>
+                                      <span onClick={() => setExtraDates(extraDates.filter(x => x !== d))} style={{ color: 'var(--accent-red)', cursor: 'pointer', fontWeight: 'bold', padding: '0 4px' }}>×</span>
                                     </div>
                                   ))}
                                 </div>
                               )}
-                              <div style={{ display: 'flex', gap: '2px' }}>
-                                <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '7px', fontFamily: 'monospace', padding: '0 2px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }} />
-                                <button onClick={addExtraDate} style={{ fontSize: '7px', fontFamily: 'monospace', padding: '0 3px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none' }}>+日</button>
+                              <div style={{ display: 'flex', gap: '3px' }}>
+                                <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '10px', fontFamily: 'monospace', padding: '3px 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '22px', boxSizing: 'border-box' }} />
+                                <button onClick={addExtraDate} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', height: '22px', boxSizing: 'border-box' }}>+ 日</button>
                               </div>
                             </div>
                           )}
@@ -302,6 +357,159 @@ export default function Calendar({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Event info popup */}
+      {popupEvent && (
+        <EventInfoPopup
+          event={popupEvent.event}
+          x={popupEvent.x}
+          y={popupEvent.y}
+          year={year}
+          month={month}
+          onClose={() => setPopupEvent(null)}
+          onDelete={onDeleteEvent}
+        />
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// EVENT INFO POPUP
+// 純事件 (event/meeting/visit/training/public) 點擊後顯示的小窗
+// ============================================
+function EventInfoPopup({ event, x, y, year, month, onClose, onDelete }: {
+  event: CalendarEvent
+  x: number
+  y: number
+  year: number
+  month: number
+  onClose: () => void
+  onDelete?: (id: number) => void
+}) {
+  const popupRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) onClose()
+    }
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    setTimeout(() => document.addEventListener('mousedown', handleClickOutside), 50)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [onClose])
+
+  // Clamp position so popup stays in viewport
+  const POPUP_W = 280
+  const POPUP_H = 200
+  const left = Math.min(x, window.innerWidth - POPUP_W - 10)
+  const top = Math.min(y, window.innerHeight - POPUP_H - 10)
+  const color = getEventColor(event.type)
+  const label = getEventLabel(event.type)
+  const dateStr = `${year}/${String(month + 1).padStart(2, '0')}/${String(event.date).padStart(2, '0')}`
+
+  return (
+    <div
+      ref={popupRef}
+      onClick={e => e.stopPropagation()}
+      onDoubleClick={e => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        left,
+        top,
+        width: POPUP_W,
+        zIndex: 10500,
+        fontFamily: 'monospace',
+        backgroundColor: 'var(--bg-window)',
+        borderTop: '2px solid var(--border-light)',
+        borderLeft: '2px solid var(--border-light)',
+        borderRight: '2px solid var(--border-dark)',
+        borderBottom: '2px solid var(--border-dark)',
+        boxShadow: '3px 3px 8px rgba(0,0,0,0.3)',
+      }}
+    >
+      {/* Title bar */}
+      <div className="titlebar" style={{
+        padding: '3px 6px',
+        fontSize: '10px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: color,
+      }}>
+        <span style={{ fontWeight: 'bold', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {label} 事件
+        </span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: '#FFF', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', padding: 0, lineHeight: 1 }}
+        >×</button>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '8px 10px' }}>
+        <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 'bold' }}>
+          {dateStr}
+        </div>
+        <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '6px', wordBreak: 'break-word' }}>
+          {event.title}
+        </div>
+        <div style={{
+          fontSize: '10px',
+          color: 'var(--text-primary)',
+          padding: '6px 8px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-mid-dark)',
+          minHeight: '50px',
+          maxHeight: '120px',
+          overflow: 'auto',
+          whiteSpace: 'pre-wrap',
+          lineHeight: 1.4,
+        }}>
+          {event.content || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>（此事件未填寫詳細內容）</span>}
+        </div>
+      </div>
+
+      {/* Footer actions */}
+      <div style={{
+        padding: '4px 8px',
+        borderTop: '1px solid var(--border-mid-dark)',
+        display: 'flex',
+        gap: '4px',
+        background: 'var(--bg-secondary)',
+      }}>
+        {event.detailLink && (
+          <a
+            href={event.detailLink}
+            style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', textDecoration: 'none', fontFamily: 'monospace' }}
+          >
+            完整詳情 →
+          </a>
+        )}
+        <div style={{ flex: 1 }} />
+        {event.id && onDelete && (
+          <button
+            onClick={() => {
+              if (confirm(`刪除「${event.title}」？`)) {
+                onDelete(event.id!)
+                onClose()
+              }
+            }}
+            style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', fontFamily: 'monospace' }}
+          >
+            刪除
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 'bold' }}
+        >
+          關閉
+        </button>
       </div>
     </div>
   )

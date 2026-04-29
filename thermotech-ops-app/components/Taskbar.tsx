@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { useTheme } from '@/lib/useTheme'
-import { subscribeFaxUpdates, getFaxes } from '@/lib/faxApi'
+import { subscribeFaxUpdates } from '@/lib/faxApi'
+import { useFaxStore } from '@/lib/useFaxStore'
+import { getUnreadCount, subscribeNotifications } from '@/lib/notifications'
 import StartMenu from './StartMenu'
+import NotificationCenter from './NotificationCenter'
 
 interface TaskbarProps {
   userProfile: {
+    id?: string
     full_name: string
     employee_id: string
     department: string
@@ -24,8 +28,16 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
   const { toggleTheme, isDark, mounted } = useTheme()
   const [startMenuOpen, setStartMenuOpen] = useState(false)
   const [clock, setClock] = useState('')
-  const [faxPending, setFaxPending] = useState(0)
-  const [faxFlash, setFaxFlash] = useState(false)
+
+  // Fax badge state — driven by global store so InboxTab's "MARK HANDLED"
+  // updates this badge instantly (optimistic) without waiting for Realtime.
+  const faxPending = useFaxStore(s => s.unhandledCount)
+  const faxFlash = useFaxStore(s => s.isFlashing)
+  const refreshFax = useFaxStore(s => s.refresh)
+
+  // Notification center state
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [unreadNotif, setUnreadNotif] = useState(0)
 
   useEffect(() => {
     const update = () => {
@@ -37,23 +49,24 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
     return () => clearInterval(interval)
   }, [])
 
-  const checkFaxes = useCallback(async () => {
-    try {
-      const faxes = await getFaxes(100)
-      const unhandled = faxes.filter(f => !f.is_handled && (f.status === 'analyzed' || f.status === 'pending' || f.status === 'analyzing')).length
-      if (unhandled > faxPending && faxPending >= 0) {
-        setFaxFlash(true)
-        setTimeout(() => setFaxFlash(false), 5000)
-      }
-      setFaxPending(unhandled)
-    } catch { /* ignore */ }
-  }, [faxPending])
-
   useEffect(() => {
-    checkFaxes()
-    const unsub = subscribeFaxUpdates(() => checkFaxes())
+    refreshFax()
+    const unsub = subscribeFaxUpdates(() => refreshFax())
     return unsub
-  }, [checkFaxes])
+  }, [refreshFax])
+
+  // Notifications: load unread count + subscribe to realtime updates
+  useEffect(() => {
+    const uid = userProfile?.id
+    if (!uid) return
+    const refreshUnread = async () => {
+      const n = await getUnreadCount(uid)
+      setUnreadNotif(n)
+    }
+    refreshUnread()
+    const unsub = subscribeNotifications(uid, () => { refreshUnread() })
+    return unsub
+  }, [userProfile?.id])
 
   const openWindows = Object.values(windows).filter(w => w.isOpen)
 
@@ -200,6 +213,41 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
             {mounted ? (isDark ? '☀' : '☾') : ''}
           </button>
 
+          {/* Notification bell */}
+          <button
+            data-bell-btn
+            onClick={() => setNotifOpen(s => !s)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: unreadNotif > 0 ? 'var(--accent-red)' : 'var(--text-primary)',
+              padding: '0 4px',
+              outline: 'none',
+              position: 'relative',
+              fontWeight: unreadNotif > 0 ? 'bold' : 'normal',
+            }}
+            title={unreadNotif > 0 ? `${unreadNotif} 個未讀通知` : '通知中心'}
+          >
+            ♪
+            {unreadNotif > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-3px',
+                background: 'var(--accent-red)',
+                color: '#FFF',
+                fontSize: '7px',
+                fontWeight: 'bold',
+                padding: '1px 3px',
+                minWidth: '12px',
+                lineHeight: 1,
+                fontFamily: 'monospace',
+              }}>{unreadNotif > 99 ? '99+' : unreadNotif}</span>
+            )}
+          </button>
+
           {/* Fax indicator */}
           {faxPending > 0 && (
             <span
@@ -234,6 +282,25 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
           </span>
         </div>
       </div>
+
+      {/* Notification Center popover */}
+      {userProfile?.id && (
+        <NotificationCenter
+          userId={userProfile.id}
+          open={notifOpen}
+          onClose={() => setNotifOpen(false)}
+          onOpenLink={(link) => {
+            // Parse window id from query string e.g. /home?tab=meeting&id=xxx
+            try {
+              const url = new URL(link, window.location.origin)
+              const tab = url.searchParams.get('tab')
+              if (tab === 'meeting' || tab === 'fax' || tab === 'hr' || tab === 'settings') {
+                openWindow(tab === 'meeting' ? 'meeting' : tab === 'settings' ? 'settings' : tab)
+              }
+            } catch { /* ignore */ }
+          }}
+        />
+      )}
     </>
   )
 }

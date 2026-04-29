@@ -8,6 +8,14 @@
     {
       "path": "/api/fax/notify",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/notifications/dispatch",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/meetings/reminder",
+      "schedule": "0 9 * * *"
     }
   ]
 }
