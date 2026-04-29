@@ -13,6 +13,8 @@ interface CalendarEvent {
   content?: string
   /** Optional link to open more details (e.g. meeting/bulletin module) */
   detailLink?: string
+  /** Scheduled meeting id (for deep-link to MeetingPage schedule tab) */
+  scheduledMeetingId?: string
 }
 
 interface CalendarProps {
@@ -26,6 +28,9 @@ interface CalendarProps {
   /** Called when user clicks "進階" button while creating a meeting event.
    *  Parent should open MeetingCreateModal pre-filled with title + date. */
   onAdvancedMeeting?: (data: { title: string; date: string }) => void
+  /** Called when user clicks "完整詳情" in the event popup.
+   *  Parent should open the relevant window (Meeting / Bulletin) and select. */
+  onOpenDetail?: (event: CalendarEvent) => void
   hideWeekend?: boolean
   compact?: boolean
   userRole?: string
@@ -38,7 +43,7 @@ const PURE_EVENT_TYPES = new Set(['public', 'event', 'meeting', 'visit', 'traini
 
 export default function Calendar({
   year, month, events = [], onMonthChange,
-  onToggleEvent, onDeleteEvent, onAddEvent, onAdvancedMeeting,
+  onToggleEvent, onDeleteEvent, onAddEvent, onAdvancedMeeting, onOpenDetail,
   hideWeekend = false, compact = false, userRole = 'user',
   userId = '', userDepartment = ''
 }: CalendarProps) {
@@ -369,6 +374,7 @@ export default function Calendar({
           month={month}
           onClose={() => setPopupEvent(null)}
           onDelete={onDeleteEvent}
+          onOpenDetail={onOpenDetail}
         />
       )}
     </div>
@@ -379,7 +385,7 @@ export default function Calendar({
 // EVENT INFO POPUP
 // 純事件 (event/meeting/visit/training/public) 點擊後顯示的小窗
 // ============================================
-function EventInfoPopup({ event, x, y, year, month, onClose, onDelete }: {
+function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onOpenDetail }: {
   event: CalendarEvent
   x: number
   y: number
@@ -387,6 +393,7 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete }: {
   month: number
   onClose: () => void
   onDelete?: (id: number) => void
+  onOpenDetail?: (event: CalendarEvent) => void
 }) {
   const popupRef = useRef<HTMLDivElement>(null)
 
@@ -482,13 +489,13 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete }: {
         gap: '4px',
         background: 'var(--bg-secondary)',
       }}>
-        {event.detailLink && (
-          <a
-            href={event.detailLink}
+        {(event.scheduledMeetingId || event.detailLink) && onOpenDetail && (
+          <button
+            onClick={() => { onOpenDetail(event); onClose() }}
             style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', textDecoration: 'none', fontFamily: 'monospace' }}
           >
             完整詳情 →
-          </a>
+          </button>
         )}
         <div style={{ flex: 1 }} />
         {event.id && onDelete && (

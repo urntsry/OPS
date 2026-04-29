@@ -107,8 +107,8 @@ export default function PointsPage({ userProfile }: PointsPageProps) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', padding: '4px' }}>
           <div className="inset" style={{ padding: '8px', background: '#FFF', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#000080' }}>[公告]</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#000080' }}>+{stats.announcement}</div>
+            <div style={{ fontSize: '9px', color: 'var(--accent-blue)' }}>[公告]</div>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--accent-blue)' }}>+{stats.announcement}</div>
           </div>
           <div className="inset" style={{ padding: '8px', background: '#FFF', textAlign: 'center' }}>
             <div style={{ fontSize: '9px', color: '#008080' }}>[任務]</div>
@@ -135,7 +135,7 @@ export default function PointsPage({ userProfile }: PointsPageProps) {
             fontFamily: 'monospace',
             fontWeight: 'bold',
             background: activeTab === 'history' ? '#000080' : '#C0C0C0',
-            color: activeTab === 'history' ? '#FFF' : '#000',
+            color: activeTab === 'history' ? '#FFF' : 'var(--text-primary)',
             border: activeTab === 'history' ? '2px inset #808080' : '2px outset #FFF',
             cursor: 'pointer'
           }}
@@ -150,7 +150,7 @@ export default function PointsPage({ userProfile }: PointsPageProps) {
             fontFamily: 'monospace',
             fontWeight: 'bold',
             background: activeTab === 'leaderboard' ? '#000080' : '#C0C0C0',
-            color: activeTab === 'leaderboard' ? '#FFF' : '#000',
+            color: activeTab === 'leaderboard' ? '#FFF' : 'var(--text-primary)',
             border: activeTab === 'leaderboard' ? '2px inset #808080' : '2px outset #FFF',
             cursor: 'pointer'
           }}
@@ -218,7 +218,7 @@ export default function PointsPage({ userProfile }: PointsPageProps) {
                       padding: '4px', 
                       textAlign: 'center',
                       fontWeight: 'bold',
-                      color: item.rank <= 3 ? '#800000' : '#000'
+                      color: item.rank <= 3 ? 'var(--accent-red)' : 'var(--text-primary)'
                     }}>
                       {item.rank <= 3 ? `★${item.rank}` : item.rank}
                     </td>
@@ -249,7 +249,7 @@ export default function PointsPage({ userProfile }: PointsPageProps) {
           INFO - 積分說明
         </div>
         <div className="inset" style={{ padding: '8px', background: '#FFF', fontSize: '10px' }}>
-          <div style={{ marginBottom: '4px' }}><span style={{ color: '#000080' }}>[公告]</span> 閱讀公告可獲得 1 PT（每則公告限一次）</div>
+          <div style={{ marginBottom: '4px' }}><span style={{ color: 'var(--accent-blue)' }}>[公告]</span> 閱讀公告可獲得 1 PT（每則公告限一次）</div>
           <div style={{ marginBottom: '4px' }}><span style={{ color: '#008080' }}>[任務]</span> 完成任務依難度獲得 10-100 PT</div>
           <div style={{ marginBottom: '4px' }}><span style={{ color: '#008000' }}>[獎勵]</span> 特殊表現或活動獎勵</div>
           <div><span style={{ color: '#800000' }}>[兌換]</span> 使用積分兌換福利（開發中）</div>

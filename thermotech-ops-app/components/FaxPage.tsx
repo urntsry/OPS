@@ -240,7 +240,7 @@ function InboxTab({ onPendingChange, userProfile, isAdmin, agentStatus }: { onPe
       <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center', flexWrap: 'wrap' }}>
         <span>Total: <b style={{ color: 'var(--text-primary)' }}>{faxes.length}</b></span>
         {unhandledCount > 0 && <span style={{ color: '#C00000', fontWeight: 'bold' }}>UNHANDLED: {unhandledCount}</span>}
-        {analyzingCount > 0 && <span style={{ color: '#000080' }}>Analyzing: {analyzingCount}</span>}
+        {analyzingCount > 0 && <span style={{ color: 'var(--accent-blue)' }}>Analyzing: {analyzingCount}</span>}
         <span>Handled: {faxes.filter(f => f.is_handled).length}</span>
         <div style={{ flex: 1 }} />
         {/* Filters */}

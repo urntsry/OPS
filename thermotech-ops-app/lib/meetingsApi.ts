@@ -176,6 +176,31 @@ export async function getMeetingsForMonth(year: number, month: number): Promise<
   return (data || []) as Meeting[]
 }
 
+export async function listScheduledMeetings(filter: 'upcoming' | 'past' | 'all' = 'upcoming', limit = 100): Promise<Meeting[]> {
+  const today = new Date().toISOString().slice(0, 10)
+  let q = sb.from('scheduled_meetings').select('*').limit(limit)
+  if (filter === 'upcoming') q = q.gte('meeting_date', today).order('meeting_date', { ascending: true })
+  else if (filter === 'past') q = q.lt('meeting_date', today).order('meeting_date', { ascending: false })
+  else q = q.order('meeting_date', { ascending: false })
+  const { data, error } = await q
+  if (error) throw error
+  return (data || []) as Meeting[]
+}
+
+/** Get participants joined with profile name */
+export interface ParticipantWithProfile extends MeetingParticipant {
+  profile?: { id: string; full_name: string; employee_id: string; department: string }
+}
+
+export async function getMeetingParticipants(meetingId: string): Promise<ParticipantWithProfile[]> {
+  const { data, error } = await sb
+    .from('meeting_participants')
+    .select('*, profile:profiles(id, full_name, employee_id, department)')
+    .eq('meeting_id', meetingId)
+  if (error) throw error
+  return (data || []) as ParticipantWithProfile[]
+}
+
 export async function deleteMeeting(id: string): Promise<void> {
   const { error } = await sb.from('scheduled_meetings').delete().eq('id', id)
   if (error) throw error

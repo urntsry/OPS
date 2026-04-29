@@ -116,6 +116,8 @@ function HomePageInner() {
   const [calendarRefreshTick, setCalendarRefreshTick] = useState(0)
   // Meetings for calendar (merged with assignment events)
   const [meetingsForMonth, setMeetingsForMonth] = useState<Array<{ id: string; title: string; meeting_date: string; summary: string | null; location: string | null; start_time: string | null }>>([])
+  // Deep-link target — when user clicks "完整詳情" on a meeting event
+  const [selectedScheduledMeetingId, setSelectedScheduledMeetingId] = useState<string | null>(null)
   const [hideWeekend, setHideWeekend] = useState(false) // 隱藏週末
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null)
@@ -485,6 +487,7 @@ function HomePageInner() {
         m.summary ? `\n${m.summary}` : null,
       ].filter(Boolean).join('\n'),
       detailLink: `/home?tab=meeting&id=${m.id}`,
+      scheduledMeetingId: m.id,
     }))
 
   // 合併所有日曆事件
@@ -1066,6 +1069,12 @@ function HomePageInner() {
                   setMeetingModalDefaults(data)
                   setMeetingModalOpen(true)
                 }}
+                onOpenDetail={(event) => {
+                  if (event.scheduledMeetingId) {
+                    setSelectedScheduledMeetingId(event.scheduledMeetingId)
+                    openWindow('meeting')
+                  }
+                }}
                 userRole={userRole}
                 userId={userId}
                 userDepartment={userProfile?.department || ''}
@@ -1089,7 +1098,12 @@ function HomePageInner() {
       </Win95Window>
 
       <Win95Window windowId="meeting">
-        <MeetingPage isAdmin={isAdmin} userProfile={userProfile} />
+        <MeetingPage
+          isAdmin={isAdmin}
+          userProfile={userProfile}
+          selectedScheduledMeetingId={selectedScheduledMeetingId}
+          onClearSelectedMeeting={() => setSelectedScheduledMeetingId(null)}
+        />
       </Win95Window>
 
       <Win95Window windowId="fax">

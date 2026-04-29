@@ -7,16 +7,29 @@ import {
   updateMeetingDeadlineStatus, deleteMeeting, updateMeeting,
   type Meeting, type MeetingCategory, type MeetingDeadline, type MeetingTask
 } from '@/lib/meetingApi'
+import {
+  listScheduledMeetings, getMeetingParticipants, deleteMeeting as deleteScheduledMeeting,
+  type Meeting as ScheduledMeeting, type ParticipantWithProfile,
+} from '@/lib/meetingsApi'
 
-type TabType = 'records' | 'upload' | 'categories' | 'search' | 'create'
+type TabType = 'schedule' | 'records' | 'upload' | 'categories' | 'search' | 'create'
 
 interface MeetingPageProps {
   isAdmin: boolean
   userProfile: any
+  /** Deep-link target — when set, auto-switches to schedule tab and selects the meeting */
+  selectedScheduledMeetingId?: string | null
+  /** Allows deep-link to be cleared after consumption */
+  onClearSelectedMeeting?: () => void
 }
 
-export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('records')
+export default function MeetingPage({ isAdmin, userProfile, selectedScheduledMeetingId, onClearSelectedMeeting }: MeetingPageProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('schedule')
+
+  // Auto-switch to schedule tab when a scheduled meeting deep-link arrives
+  useEffect(() => {
+    if (selectedScheduledMeetingId) setActiveTab('schedule')
+  }, [selectedScheduledMeetingId])
   const [aiStatus, setAiStatus] = useState<'checking' | 'connected' | 'no_key' | 'error'>('checking')
   const [analyzingCount, setAnalyzingCount] = useState(0)
   const [pendingCount, setPendingCount] = useState(0)
@@ -53,6 +66,7 @@ export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) 
   }, [])
 
   const tabs: { id: TabType; label: string; show: boolean }[] = [
+    { id: 'schedule', label: 'SCHEDULE', show: true },
     { id: 'records', label: 'RECORDS', show: true },
     { id: 'upload', label: 'UPLOAD', show: true },
     { id: 'categories', label: 'CATEGORIES', show: true },
@@ -107,6 +121,13 @@ export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) 
 
       {/* Tab Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: '6px', background: 'var(--bg-window)' }}>
+        {activeTab === 'schedule' && (
+          <ScheduleTab
+            selectedId={selectedScheduledMeetingId || null}
+            onClearSelected={onClearSelectedMeeting}
+            currentUserId={userProfile?.id}
+          />
+        )}
         {activeTab === 'records' && <RecordsTab />}
         {activeTab === 'upload' && <UploadTab userProfile={userProfile} />}
         {activeTab === 'categories' && <CategoriesTab />}
@@ -150,6 +171,318 @@ export default function MeetingPage({ isAdmin, userProfile }: MeetingPageProps) 
 
         {/* Gemini model */}
         <span style={{ marginLeft: 'auto' }}>MODEL: gemini-2.0-flash</span>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// SCHEDULE TAB — 會議排程清單（從日曆雙擊建立的會議）
+// 與 RECORDS（會議記錄）不同：這裡是「將召開或已召開但記錄未上傳」的會議
+// ============================================
+function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
+  selectedId: string | null
+  onClearSelected?: () => void
+  currentUserId?: string
+}) {
+  const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
+  const [meetings, setMeetings] = useState<ScheduledMeeting[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<ScheduledMeeting | null>(null)
+  const [participants, setParticipants] = useState<ParticipantWithProfile[]>([])
+  const [loadingParticipants, setLoadingParticipants] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await listScheduledMeetings(filter)
+      setMeetings(data)
+    } catch (e) { console.error(e) }
+    setLoading(false)
+  }, [filter])
+
+  useEffect(() => { load() }, [load])
+
+  // Auto-select on deep-link
+  useEffect(() => {
+    if (!selectedId || meetings.length === 0) return
+    const m = meetings.find(x => x.id === selectedId)
+    if (m) setSelected(m)
+    // If not found in current filter (e.g. linked is past but filter=upcoming), switch filter to all
+    else if (filter !== 'all') setFilter('all')
+    onClearSelected?.()
+  }, [selectedId, meetings, filter, onClearSelected])
+
+  // Load participants when selecting a meeting
+  useEffect(() => {
+    if (!selected) { setParticipants([]); return }
+    setLoadingParticipants(true)
+    getMeetingParticipants(selected.id)
+      .then(setParticipants)
+      .catch(e => console.error(e))
+      .finally(() => setLoadingParticipants(false))
+  }, [selected])
+
+  const handleDelete = async (m: ScheduledMeeting) => {
+    if (!confirm(`刪除「${m.title}」？\n（同時會清除所有參與者通知關聯）`)) return
+    try {
+      await deleteScheduledMeeting(m.id)
+      setMeetings(prev => prev.filter(x => x.id !== m.id))
+      if (selected?.id === m.id) setSelected(null)
+    } catch (e: any) {
+      alert('刪除失敗: ' + (e.message || ''))
+    }
+  }
+
+  const fmtDate = (d: string) => {
+    const date = new Date(d)
+    const today = new Date(); today.setHours(0,0,0,0)
+    const target = new Date(d); target.setHours(0,0,0,0)
+    const diff = Math.round((target.getTime() - today.getTime()) / 86400000)
+    const dateStr = `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`
+    if (diff === 0) return `${dateStr} 今天`
+    if (diff === 1) return `${dateStr} 明天`
+    if (diff > 0 && diff < 7) return `${dateStr} (${diff}天後)`
+    if (diff < 0 && diff > -7) return `${dateStr} (${-diff}天前)`
+    return dateStr
+  }
+
+  const fmtTime = (t: string | null) => t ? t.slice(0, 5) : ''
+
+  const attendees = participants.filter(p => p.role === 'attendee')
+  const helpers = participants.filter(p => p.role === 'helper')
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', height: '100%', minHeight: 0 }}>
+      {/* Left: list */}
+      <div style={{ width: '50%', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {/* Filter bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+          <span style={{ color: 'var(--text-muted)' }}>FILTER:</span>
+          {([
+            { key: 'upcoming', label: '即將召開' },
+            { key: 'past', label: '已過去' },
+            { key: 'all', label: '全部' },
+          ] as const).map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              style={{
+                fontSize: '10px',
+                fontFamily: 'monospace',
+                padding: '2px 8px',
+                border: '1px solid var(--border-mid-dark)',
+                background: filter === f.key ? 'var(--accent-blue)' : 'var(--bg-window)',
+                color: filter === f.key ? '#FFF' : 'var(--text-primary)',
+                cursor: 'pointer',
+                fontWeight: filter === f.key ? 'bold' : 'normal',
+                outline: 'none',
+              }}
+            >{f.label}</button>
+          ))}
+          <button
+            onClick={load}
+            style={{
+              fontSize: '10px',
+              fontFamily: 'monospace',
+              padding: '2px 8px',
+              border: '1px solid var(--border-mid-dark)',
+              background: 'var(--bg-window)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              outline: 'none',
+              marginLeft: 'auto',
+            }}
+          >RELOAD</button>
+        </div>
+
+        {/* Hint */}
+        <div style={{ fontSize: '9px', color: 'var(--text-muted)', padding: '2px 0' }}>
+          ※ 從日曆雙擊日期 → 選「meeting」→「進階建立會議」即可新增
+        </div>
+
+        {/* List */}
+        <div className="inset" style={{ flex: 1, overflow: 'auto', background: 'var(--bg-inset)' }}>
+          {loading ? (
+            <div style={{ padding: '20px', textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)' }}>載入中...</div>
+          ) : meetings.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.4 }}>◎</div>
+              <div>{filter === 'upcoming' ? '尚無即將召開的會議' : filter === 'past' ? '尚無歷史會議' : '尚無會議排程'}</div>
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', fontFamily: 'monospace' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-mid-dark)' }}>
+                  <th style={{ padding: '3px 5px', textAlign: 'left', fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)' }}>DATE</th>
+                  <th style={{ padding: '3px 5px', textAlign: 'left', fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)' }}>TITLE</th>
+                  <th style={{ padding: '3px 5px', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)', width: '60px' }}>RECORD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {meetings.map(m => {
+                  const isSelected = selected?.id === m.id
+                  return (
+                    <tr
+                      key={m.id}
+                      className="eventlist-row"
+                      onClick={() => setSelected(m)}
+                      style={{
+                        cursor: 'pointer',
+                        borderBottom: '1px solid var(--table-border)',
+                        background: isSelected ? 'var(--accent-blue)' : 'transparent',
+                        color: isSelected ? '#FFF' : 'var(--text-primary)',
+                      }}
+                    >
+                      <td style={{ padding: '3px 5px', whiteSpace: 'nowrap', fontSize: '9px', color: isSelected ? '#FFF' : 'var(--text-muted)' }}>
+                        {fmtDate(m.meeting_date)}
+                        {m.start_time && <span style={{ marginLeft: '4px' }}>{fmtTime(m.start_time)}</span>}
+                      </td>
+                      <td style={{ padding: '3px 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.title}
+                        {m.location && <span style={{ marginLeft: '4px', fontSize: '8px', color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>@ {m.location}</span>}
+                      </td>
+                      <td style={{ padding: '3px 5px', textAlign: 'center', fontSize: '9px' }}>
+                        {m.record_uploaded ? (
+                          <span style={{ color: isSelected ? '#80FF80' : 'var(--status-success)', fontWeight: 'bold' }}>已上傳</span>
+                        ) : (
+                          <span style={{ color: isSelected ? '#FFFF80' : 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Right: detail */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {!selected ? (
+          <div className="inset" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '11px', padding: '20px', textAlign: 'center' }}>
+            ← 點選左側會議查看詳情
+          </div>
+        ) : (
+          <div className="inset" style={{ flex: 1, overflow: 'auto', padding: '10px', background: 'var(--bg-inset)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '6px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 'bold' }}>
+                  {selected.meeting_date} {selected.start_time && `${fmtTime(selected.start_time)}${selected.end_time ? `-${fmtTime(selected.end_time)}` : ''}`}
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                  {selected.title}
+                </div>
+                {selected.location && (
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    地點: {selected.location}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => handleDelete(selected)}
+                style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', fontFamily: 'monospace' }}
+                title="刪除會議"
+              >
+                刪除
+              </button>
+            </div>
+
+            {/* Summary */}
+            {selected.summary && (
+              <div>
+                <div style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '3px' }}>會議簡介</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-mid-dark)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                  {selected.summary}
+                </div>
+              </div>
+            )}
+
+            {/* Record status banner */}
+            <div style={{
+              padding: '4px 8px',
+              fontSize: '10px',
+              background: selected.record_uploaded ? 'rgba(0,160,0,0.15)' : 'rgba(255,140,0,0.15)',
+              border: `1px solid ${selected.record_uploaded ? 'var(--status-success)' : 'var(--status-warning)'}`,
+              color: selected.record_uploaded ? 'var(--status-success)' : 'var(--status-warning)',
+            }}>
+              {selected.record_uploaded
+                ? '✓ 會議記錄已上傳'
+                : new Date(selected.meeting_date) < new Date()
+                  ? '⚠ 會議已結束，尚未上傳會議記錄'
+                  : '◎ 等待會議召開'
+              }
+            </div>
+
+            {/* Participants */}
+            <div>
+              <div style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '3px' }}>
+                出席人員 ({attendees.length})
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                {loadingParticipants ? (
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>載入中...</span>
+                ) : attendees.length === 0 ? (
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontStyle: 'italic' }}>無</span>
+                ) : (
+                  attendees.map(p => (
+                    <span key={p.id} style={{
+                      fontSize: '9px',
+                      padding: '2px 6px',
+                      background: 'var(--bg-window)',
+                      border: '1px solid var(--border-mid-dark)',
+                    }}>
+                      <strong>{p.profile?.full_name || '未知'}</strong>
+                      {p.profile?.department && <span style={{ color: 'var(--text-muted)', marginLeft: '3px' }}>({p.profile.department})</span>}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Helpers */}
+            <div>
+              <div style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '3px' }}>
+                協助準備人員 ({helpers.length})
+              </div>
+              {loadingParticipants ? (
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>載入中...</span>
+              ) : helpers.length === 0 ? (
+                <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontStyle: 'italic' }}>無</span>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {helpers.map(p => (
+                    <div key={p.id} style={{
+                      fontSize: '10px',
+                      padding: '4px 6px',
+                      background: 'var(--bg-window)',
+                      border: '1px solid var(--border-mid-dark)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}>
+                      <strong>{p.profile?.full_name || '未知'}</strong>
+                      {p.profile?.department && <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>({p.profile.department})</span>}
+                      <span style={{ color: 'var(--text-muted)' }}>→</span>
+                      <span style={{ color: 'var(--accent-orange)', fontWeight: 'bold' }}>
+                        {p.helper_task || '（未指定任務）'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {currentUserId && (
+              <div style={{ marginTop: 'auto', paddingTop: '6px', fontSize: '8px', color: 'var(--text-muted)', borderTop: '1px solid var(--border-mid-dark)' }}>
+                建立者: {selected.created_by === currentUserId ? '你' : '—'}
+                <span style={{ marginLeft: '8px' }}>建立於: {new Date(selected.created_at).toLocaleString('zh-TW')}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

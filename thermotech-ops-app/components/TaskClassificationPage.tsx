@@ -190,7 +190,7 @@ export default function TaskClassificationPage() {
       
       <div className="p-2">
         {/* Stats */}
-        <div className="text-mono" style={{ fontSize: '11px', marginBottom: '4px', color: '#000' }}>
+        <div className="text-mono" style={{ fontSize: '11px', marginBottom: '4px', color: 'var(--text-primary)' }}>
           TOTAL:{stats.total} | CAP:{stats.capability} | TASK:{stats.actual_task} | TPL:{stats.templates}
         </div>
 
@@ -212,7 +212,7 @@ export default function TaskClassificationPage() {
                 fontFamily: 'monospace',
                 cursor: 'pointer',
                 background: activeTab === tab.key ? '#000080' : '#C0C0C0',
-                color: activeTab === tab.key ? '#FFF' : '#000',
+                color: activeTab === tab.key ? '#FFF' : 'var(--text-primary)',
                 border: 'none'
               }}
             >
