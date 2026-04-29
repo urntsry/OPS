@@ -33,11 +33,10 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
   const [attendees, setAttendees] = useState<string[]>([])
-  const [related, setRelated] = useState<string[]>([])
   const [helpers, setHelpers] = useState<HelperTask[]>([])
   const [useLine, setUseLine] = useState(false)
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState<'attendee' | 'related' | 'helper'>('attendee')
+  const [activeTab, setActiveTab] = useState<'attendee' | 'helper'>('attendee')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -51,7 +50,6 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
     setStartTime('09:00')
     setEndTime('10:00')
     setAttendees([])
-    setRelated([])
     setHelpers([])
     setUseLine(false)
     setSearch('')
@@ -80,9 +78,8 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
   }, [profiles, search])
 
   // Determine which set this profile is currently in
-  const getRole = (uid: string): 'attendee' | 'related' | 'helper' | null => {
+  const getRole = (uid: string): 'attendee' | 'helper' | null => {
     if (attendees.includes(uid)) return 'attendee'
-    if (related.includes(uid)) return 'related'
     if (helpers.some(h => h.user_id === uid)) return 'helper'
     return null
   }
@@ -92,7 +89,6 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
 
     // Remove from all lists first
     setAttendees(prev => prev.filter(x => x !== uid))
-    setRelated(prev => prev.filter(x => x !== uid))
     setHelpers(prev => prev.filter(h => h.user_id !== uid))
 
     // If they were already in the active tab → remove (toggle off)
@@ -100,7 +96,6 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
 
     // Otherwise add to active tab
     if (activeTab === 'attendee') setAttendees(prev => [...prev, uid])
-    else if (activeTab === 'related') setRelated(prev => [...prev, uid])
     else if (activeTab === 'helper') setHelpers(prev => [...prev, { user_id: uid, helper_task: '' }])
   }
 
@@ -111,7 +106,7 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
   const handleSubmit = async () => {
     if (!title.trim()) { setError('請輸入會議標題'); return }
     if (!date) { setError('請選擇會議日期'); return }
-    if (attendees.length === 0 && related.length === 0 && helpers.length === 0) {
+    if (attendees.length === 0 && helpers.length === 0) {
       if (!confirm('尚未選擇任何人員，確定要建立會議？')) return
     }
     setSubmitting(true)
@@ -125,7 +120,7 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
         start_time: startTime || undefined,
         end_time: endTime || undefined,
         attendees,
-        related,
+        related: [],
         helpers: helpers.map(h => ({ user_id: h.user_id, helper_task: h.helper_task.trim() || undefined })),
         created_by: currentUserId,
         use_line: useLine,
@@ -217,7 +212,6 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
             <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid var(--border-dark)' }}>
               {([
                 { key: 'attendee', label: '出席人員', count: attendees.length, hint: '會出席會議' },
-                { key: 'related', label: '相關通知', count: related.length, hint: '不出席但需知悉' },
                 { key: 'helper', label: '協助準備', count: helpers.length, hint: '需協助準備事項' },
               ] as const).map(t => (
                 <button
@@ -249,7 +243,7 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-dark)', borderTop: 'none', padding: '6px' }}>
               {/* Currently selected chips */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '6px', minHeight: '20px' }}>
-                {(activeTab === 'attendee' ? attendees : activeTab === 'related' ? related : helpers.map(h => h.user_id))
+                {(activeTab === 'attendee' ? attendees : helpers.map(h => h.user_id))
                   .map(uid => {
                     const p = profileById(uid)
                     if (!p) return null
@@ -274,7 +268,6 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
                         <button
                           onClick={() => {
                             if (activeTab === 'attendee') setAttendees(prev => prev.filter(x => x !== uid))
-                            else if (activeTab === 'related') setRelated(prev => prev.filter(x => x !== uid))
                             else setHelpers(prev => prev.filter(h => h.user_id !== uid))
                           }}
                           style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', padding: 0 }}
@@ -282,9 +275,9 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
                       </div>
                     )
                   })}
-                {(activeTab === 'attendee' ? attendees : activeTab === 'related' ? related : helpers).length === 0 && (
+                {(activeTab === 'attendee' ? attendees : helpers).length === 0 && (
                   <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    尚未選擇{activeTab === 'attendee' ? '出席人員' : activeTab === 'related' ? '相關人員' : '協助人員'}
+                    尚未選擇{activeTab === 'attendee' ? '出席人員' : '協助人員'}
                   </span>
                 )}
               </div>
@@ -337,7 +330,7 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
                             border: '1px solid var(--border-mid-dark)',
                             fontWeight: 'bold',
                           }}>
-                            {role === 'attendee' ? '出席' : role === 'related' ? '相關' : '協助'}
+                            {role === 'attendee' ? '出席' : '協助'}
                           </span>
                         )}
                       </div>
@@ -346,7 +339,7 @@ export default function MeetingCreateModal({ open, defaultDate, defaultTitle, cu
                 )}
               </div>
               <div style={{ marginTop: '4px', fontSize: '8px', color: 'var(--text-muted)' }}>
-                點擊人員加入「{activeTab === 'attendee' ? '出席人員' : activeTab === 'related' ? '相關通知' : '協助準備'}」 / 同類別再點即移除
+                點擊人員加入「{activeTab === 'attendee' ? '出席人員' : '協助準備'}」 / 同類別再點即移除
               </div>
             </div>
           </div>

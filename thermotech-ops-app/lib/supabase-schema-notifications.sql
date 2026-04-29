@@ -42,17 +42,10 @@ CREATE INDEX IF NOT EXISTS idx_notif_type ON notifications(type);
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Authenticated read own notifications" ON notifications;
-CREATE POLICY "Authenticated read own notifications" ON notifications
-  FOR SELECT TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "Authenticated update own notifications" ON notifications;
-CREATE POLICY "Authenticated update own notifications" ON notifications
-  FOR UPDATE TO authenticated USING (true);
-
-DROP POLICY IF EXISTS "Service role full access notifications" ON notifications;
-CREATE POLICY "Service role full access notifications" ON notifications
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
+-- OPS 用自訂登入（非 Supabase Auth），故開放 anon + authenticated
+DROP POLICY IF EXISTS "Allow all for notifications" ON notifications;
+CREATE POLICY "Allow all for notifications" ON notifications
+  FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
 -- 會議排程系統 v1
@@ -103,21 +96,13 @@ CREATE INDEX IF NOT EXISTS idx_meeting_participants_user ON meeting_participants
 ALTER TABLE scheduled_meetings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meeting_participants ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Authenticated full access scheduled_meetings" ON scheduled_meetings;
-CREATE POLICY "Authenticated full access scheduled_meetings" ON scheduled_meetings
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all for scheduled_meetings" ON scheduled_meetings;
+CREATE POLICY "Allow all for scheduled_meetings" ON scheduled_meetings
+  FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Authenticated full access meeting_participants" ON meeting_participants;
-CREATE POLICY "Authenticated full access meeting_participants" ON meeting_participants
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access scheduled_meetings" ON scheduled_meetings;
-CREATE POLICY "Service role full access scheduled_meetings" ON scheduled_meetings
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Service role full access meeting_participants" ON meeting_participants;
-CREATE POLICY "Service role full access meeting_participants" ON meeting_participants
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all for meeting_participants" ON meeting_participants;
+CREATE POLICY "Allow all for meeting_participants" ON meeting_participants
+  FOR ALL USING (true) WITH CHECK (true);
 
 COMMENT ON TABLE notifications IS '通用通知佇列 — 所有業務透過 lib/notifications.notify() 發送';
 COMMENT ON TABLE scheduled_meetings IS '會議排程（雙擊行事曆建立）— 與 meetings(會議記錄) 不同';
