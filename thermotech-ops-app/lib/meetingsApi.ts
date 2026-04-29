@@ -205,3 +205,19 @@ export async function deleteMeeting(id: string): Promise<void> {
   const { error } = await sb.from('scheduled_meetings').delete().eq('id', id)
   if (error) throw error
 }
+
+/**
+ * Subscribe to scheduled_meetings changes (insert/update/delete).
+ * Returns an unsubscribe function.
+ */
+export function subscribeScheduledMeetings(callback: () => void) {
+  const channel = sb
+    .channel('scheduled-meetings-changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'scheduled_meetings' },
+      () => callback()
+    )
+    .subscribe()
+  return () => { sb.removeChannel(channel) }
+}

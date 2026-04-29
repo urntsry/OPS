@@ -289,7 +289,15 @@ export default function Calendar({
                           </div>
 
                           {/* Inline add — directly in the cell */}
-                          {isEditing && (
+                          {isEditing && (() => {
+                            const isMeetingType = newType === 'meeting'
+                            const triggerAdvancedMeeting = () => {
+                              if (!onAdvancedMeeting) return
+                              const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                              onAdvancedMeeting({ title: newTitle, date: isoDate })
+                              setEditingDay(null)
+                            }
+                            return (
                             <div onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()} style={{ marginTop: '4px', borderTop: '1px solid var(--border-mid-dark)', paddingTop: '4px' }}>
                               <div style={{ display: 'flex', gap: '3px', marginBottom: '3px' }}>
                                 <input
@@ -297,10 +305,13 @@ export default function Calendar({
                                   value={newTitle}
                                   onChange={e => setNewTitle(e.target.value)}
                                   onKeyDown={e => {
-                                    if (e.key === 'Enter') handleAddSubmit(day)
+                                    if (e.key === 'Enter') {
+                                      if (isMeetingType) triggerAdvancedMeeting()
+                                      else handleAddSubmit(day)
+                                    }
                                     if (e.key === 'Escape') setEditingDay(null)
                                   }}
-                                  placeholder="+ 新增事件 / Enter 確認"
+                                  placeholder={isMeetingType ? '輸入會議標題 (Enter 進階)' : '+ 新增事件 / Enter 確認'}
                                   autoFocus
                                   style={{ flex: 1, minWidth: 0, padding: '4px 6px', fontSize: '11px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '24px', boxSizing: 'border-box' }}
                                 />
@@ -315,39 +326,51 @@ export default function Calendar({
                                     <option key={t.id} value={t.id}>{t.label}</option>
                                   ))}
                                 </select>
-                                <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 10px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
+                                {/* OK 按鈕只在非會議類型顯示；會議必須走進階流程 */}
+                                {!isMeetingType && (
+                                  <button onClick={() => handleAddSubmit(day)} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 10px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
+                                )}
                               </div>
-                              {/* Advanced — only visible for meeting type */}
-                              {newType === 'meeting' && onAdvancedMeeting && (
-                                <button
-                                  onClick={() => {
-                                    const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                                    onAdvancedMeeting({ title: newTitle, date: isoDate })
-                                    setEditingDay(null)
-                                  }}
-                                  style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', marginBottom: '3px', border: '1px solid #003F7F', background: '#005FAF', color: '#FFF', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '22px', boxSizing: 'border-box' }}
-                                  title="開啟進階建立視窗：選擇出席/相關/協助人員、自動發送通知"
-                                >
-                                  ◎ 進階建立會議（含人員 / 通知）
-                                </button>
-                              )}
-                              {/* Extra dates */}
-                              {extraDates.length > 0 && (
-                                <div style={{ marginBottom: '3px' }}>
-                                  {extraDates.map(d => (
-                                    <div key={d} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', padding: '1px 3px', alignItems: 'center' }}>
-                                      <span>+{d}</span>
-                                      <span onClick={() => setExtraDates(extraDates.filter(x => x !== d))} style={{ color: 'var(--accent-red)', cursor: 'pointer', fontWeight: 'bold', padding: '0 4px' }}>×</span>
+                              {/* 會議類型：只顯示「進階」按鈕 + 提示，不允許多日期 */}
+                              {isMeetingType ? (
+                                onAdvancedMeeting && (
+                                  <>
+                                    <button
+                                      onClick={triggerAdvancedMeeting}
+                                      style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', marginBottom: '3px', border: '1px solid #003F7F', background: '#005FAF', color: '#FFF', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}
+                                      title="開啟進階建立視窗：選擇出席/相關/協助人員、自動發送通知"
+                                    >
+                                      ◎ 進階建立 →
+                                    </button>
+                                    <div style={{ fontSize: '8px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.3 }}>
+                                      會議必須透過進階視窗
+                                      <br />
+                                      指定人員後才能建立
                                     </div>
-                                  ))}
-                                </div>
+                                  </>
+                                )
+                              ) : (
+                                /* 非會議類型：保留原本的多日期功能 */
+                                <>
+                                  {extraDates.length > 0 && (
+                                    <div style={{ marginBottom: '3px' }}>
+                                      {extraDates.map(d => (
+                                        <div key={d} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', padding: '1px 3px', alignItems: 'center' }}>
+                                          <span>+{d}</span>
+                                          <span onClick={() => setExtraDates(extraDates.filter(x => x !== d))} style={{ color: 'var(--accent-red)', cursor: 'pointer', fontWeight: 'bold', padding: '0 4px' }}>×</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div style={{ display: 'flex', gap: '3px' }}>
+                                    <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '10px', fontFamily: 'monospace', padding: '3px 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '22px', boxSizing: 'border-box' }} />
+                                    <button onClick={addExtraDate} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', height: '22px', boxSizing: 'border-box' }}>+ 日</button>
+                                  </div>
+                                </>
                               )}
-                              <div style={{ display: 'flex', gap: '3px' }}>
-                                <input type="date" value={newExtraDate} onChange={e => setNewExtraDate(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: '10px', fontFamily: 'monospace', padding: '3px 4px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', height: '22px', boxSizing: 'border-box' }} />
-                                <button onClick={addExtraDate} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', height: '22px', boxSizing: 'border-box' }}>+ 日</button>
-                              </div>
                             </div>
-                          )}
+                            )
+                          })()}
                         </>
                       )}
                     </td>

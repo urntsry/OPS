@@ -28,7 +28,7 @@ import ReportPage from '@/components/ReportPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
-import { getMeetingsForMonth as fetchMeetingsForMonth } from '@/lib/meetingsApi'
+import { getMeetingsForMonth as fetchMeetingsForMonth, subscribeScheduledMeetings } from '@/lib/meetingsApi'
 import { 
   getTaskDefinitionsByAssignee, 
   getPendingAssignments,
@@ -407,6 +407,15 @@ function HomePageInner() {
       .catch(err => console.warn('[HomePage] load meetings failed:', err))
     return () => { cancelled = true }
   }, [currentYear, currentMonth, calendarRefreshTick])
+
+  // Realtime: 任何 scheduled_meetings 異動 (新增/刪除/更新) 都立即重新撈，
+  // 解決 SCHEDULE tab 刪除後日曆延遲移除的問題
+  useEffect(() => {
+    const unsub = subscribeScheduledMeetings(() => {
+      setCalendarRefreshTick(t => t + 1)
+    })
+    return unsub
+  }, [])
   
   // 轉換頻率為中文標籤
   function getFrequencyLabel(frequency: string): string {
