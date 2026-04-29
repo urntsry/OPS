@@ -171,16 +171,36 @@ export function subscribeFaxUpdates(callback: () => void) {
 }
 
 export async function getFaxFileSignedUrl(filePath: string): Promise<string | null> {
-  const pathPart = filePath.includes('/storage/v1/object/public/')
-    ? filePath.split('/storage/v1/object/public/fax-files/')[1]
-    : filePath
+  if (!filePath) return null
+
+  // Handle multiple possible URL formats:
+  // 1. Full public URL: https://xxx.supabase.co/storage/v1/object/public/fax-files/faxes/abc.pdf
+  // 2. Full signed URL: https://xxx.supabase.co/storage/v1/object/sign/fax-files/...
+  // 3. Bare path: faxes/abc.pdf
+  let pathPart = filePath
+  if (filePath.includes('/storage/v1/object/public/fax-files/')) {
+    pathPart = filePath.split('/storage/v1/object/public/fax-files/')[1]
+  } else if (filePath.includes('/storage/v1/object/sign/fax-files/')) {
+    pathPart = filePath.split('/storage/v1/object/sign/fax-files/')[1].split('?')[0]
+  } else if (filePath.startsWith('http')) {
+    // Unknown URL format — try last segment after bucket name
+    const idx = filePath.indexOf('fax-files/')
+    if (idx >= 0) pathPart = filePath.substring(idx + 'fax-files/'.length).split('?')[0]
+  }
 
   if (!pathPart) return null
 
-  const { data, error } = await supabase.storage
-    .from('fax-files')
-    .createSignedUrl(pathPart, 3600)
-
-  if (error) return null
-  return data.signedUrl
+  try {
+    const { data, error } = await supabase.storage
+      .from('fax-files')
+      .createSignedUrl(pathPart, 3600)
+    if (error) {
+      console.warn('[getFaxFileSignedUrl] error:', error.message, 'pathPart:', pathPart)
+      return null
+    }
+    return data.signedUrl
+  } catch (e) {
+    console.warn('[getFaxFileSignedUrl] exception:', e)
+    return null
+  }
 }

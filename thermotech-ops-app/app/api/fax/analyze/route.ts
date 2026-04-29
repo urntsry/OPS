@@ -91,41 +91,82 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    // Try gemini-2.0-flash first, fall back to gemini-1.5-flash if quota hit
+    const PRIMARY_MODEL = 'gemini-2.0-flash'
+    const FALLBACK_MODEL = 'gemini-1.5-flash'
 
     const ext = (file_name || file_url || '').split('.').pop()?.toLowerCase() || ''
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'tif', 'tiff', 'bmp'].includes(ext)
     const isPdf = ext === 'pdf'
 
-    let result
+    let mimeType = 'image/jpeg'
+    if (ext === 'png') mimeType = 'image/png'
+    else if (ext === 'gif') mimeType = 'image/gif'
+    else if (ext === 'webp') mimeType = 'image/webp'
+    else if (ext === 'pdf') mimeType = 'application/pdf'
+    else if (ext === 'tif' || ext === 'tiff') mimeType = 'image/tiff'
 
+    // Pre-fetch the file content (so we can retry without re-downloading)
+    let base64: string | null = null
     if ((isImage || isPdf) && file_url) {
       try {
         const fileResponse = await fetch(file_url)
+        if (!fileResponse.ok) throw new Error(`File fetch failed: ${fileResponse.status}`)
         const fileBuffer = await fileResponse.arrayBuffer()
-        const base64 = Buffer.from(fileBuffer).toString('base64')
+        base64 = Buffer.from(fileBuffer).toString('base64')
+      } catch (e: any) {
+        console.error('[fax/analyze] File fetch failed:', e?.message)
+      }
+    }
 
-        let mimeType = 'image/jpeg'
-        if (ext === 'png') mimeType = 'image/png'
-        else if (ext === 'gif') mimeType = 'image/gif'
-        else if (ext === 'webp') mimeType = 'image/webp'
-        else if (ext === 'pdf') mimeType = 'application/pdf'
-        else if (ext === 'tif' || ext === 'tiff') mimeType = 'image/tiff'
-
-        result = await model.generateContent([
+    // Retry loop: try primary model, fallback model, with exponential backoff for 429
+    async function callGemini(modelName: string): Promise<any> {
+      const model = genAI.getGenerativeModel({ model: modelName })
+      if (base64) {
+        return await model.generateContent([
           FAX_ANALYSIS_PROMPT + '\n\n請分析這份傳真文件中的所有內容：',
           { inlineData: { data: base64, mimeType } },
         ])
-      } catch (e: any) {
-        console.error('[fax/analyze] File fetch/analysis failed:', e)
-        result = await model.generateContent(
-          FAX_ANALYSIS_PROMPT + `\n\n文件名稱：${file_name}\n[檔案載入失敗]`
-        )
       }
-    } else {
-      result = await model.generateContent(
-        FAX_ANALYSIS_PROMPT + `\n\n文件名稱：${file_name}\n[無法直接分析此格式]`
+      return await model.generateContent(
+        FAX_ANALYSIS_PROMPT + `\n\n文件名稱：${file_name}\n[檔案無法載入，請依檔名判斷]`
       )
+    }
+
+    let result: any = null
+    let lastError: any = null
+    const attempts: { model: string; delayMs: number }[] = [
+      { model: PRIMARY_MODEL, delayMs: 0 },
+      { model: PRIMARY_MODEL, delayMs: 2000 },
+      { model: FALLBACK_MODEL, delayMs: 1000 },
+      { model: FALLBACK_MODEL, delayMs: 4000 },
+    ]
+
+    for (const attempt of attempts) {
+      if (attempt.delayMs > 0) await new Promise(r => setTimeout(r, attempt.delayMs))
+      try {
+        result = await callGemini(attempt.model)
+        break
+      } catch (e: any) {
+        lastError = e
+        const msg = String(e?.message || '')
+        const is429 = msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted')
+        console.warn(`[fax/analyze] Attempt failed (${attempt.model}): ${msg.slice(0, 150)}`)
+        if (!is429) break
+      }
+    }
+
+    if (!result) {
+      const msg = String(lastError?.message || '')
+      const is429 = msg.includes('429') || msg.toLowerCase().includes('quota')
+      const errMsg = is429
+        ? 'Gemini API 配額已用完（每日 1500 次免費額度）。請等待重置或升級至付費方案。'
+        : `AI 分析失敗：${msg.slice(0, 200)}`
+      await supabase
+        .from('faxes')
+        .update({ status: 'error', notes: errMsg, document_type: 'unknown' })
+        .eq('id', fax_id)
+      return NextResponse.json({ error: errMsg, quota_exceeded: is429 }, { status: 200 })
     }
 
     const responseText = result.response.text()

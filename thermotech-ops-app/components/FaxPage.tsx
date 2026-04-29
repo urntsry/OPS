@@ -329,7 +329,14 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
 
   useEffect(() => {
     if (fax.file_url) {
-      getFaxFileSignedUrl(fax.file_url).then(url => setSignedUrl(url || fax.file_url))
+      getFaxFileSignedUrl(fax.file_url).then(url => {
+        // Prefer signed URL; fallback to original file_url (in case bucket is still public)
+        setSignedUrl(url || fax.file_url)
+      }).catch(() => {
+        setSignedUrl(fax.file_url)
+      })
+    } else {
+      setSignedUrl(null)
     }
   }, [fax.file_url])
 
@@ -406,6 +413,13 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
       {fax.is_handled && fax.handled_at && (
         <div style={{ padding: '3px 8px', marginBottom: '4px', background: '#D0FFD0', color: '#006000', fontSize: '8px', border: '1px solid #008000', fontWeight: 'bold' }}>
           HANDLED — {new Date(fax.handled_at).toLocaleString('zh-TW')}
+        </div>
+      )}
+
+      {/* Error banner */}
+      {fax.status === 'error' && fax.notes && (
+        <div style={{ padding: '4px 8px', marginBottom: '4px', background: '#FFE0E0', color: '#800000', fontSize: '9px', border: '1px solid #C00000', fontWeight: 'bold' }}>
+          ERROR: {fax.notes}
         </div>
       )}
 
