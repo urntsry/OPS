@@ -29,15 +29,13 @@ export default function Sidebar({ currentTab, onTabChange, userProfile, onLogout
   ]
 
   return (
-    <div className="sidebar" style={{ 
-      display: 'flex', 
+    <div className="sidebar" style={{
+      display: 'flex',
       flexDirection: 'column',
       height: '100vh',
       borderRight: '2px solid var(--border-dark)',
       fontFamily: 'monospace',
       fontSize: '11px',
-      width: '120px',
-      minWidth: '120px'
     }}>
       {/* Logo */}
       <div style={{

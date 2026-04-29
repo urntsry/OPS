@@ -8,6 +8,10 @@ import {
   getDocTypeStyle, DOCUMENT_TYPES,
   type Fax, type OrderItem,
 } from '@/lib/faxApi'
+import {
+  getInternalContacts, createInternalContact, updateInternalContact, deleteInternalContact,
+  type InternalContact,
+} from '@/lib/contactsApi'
 
 interface FaxPageProps {
   isAdmin: boolean
@@ -61,6 +65,7 @@ export default function FaxPage({ isAdmin, userProfile }: FaxPageProps) {
     { id: 'inbox', label: 'INBOX', show: true, badge: totalPending > 0 ? totalPending : undefined, component: <InboxTab onPendingChange={setTotalPending} userProfile={userProfile} isAdmin={isAdmin} agentStatus={agentStatus} /> },
     { id: 'upload', label: 'UPLOAD', show: isAdmin, component: <UploadTab /> },
     { id: 'search', label: 'SEARCH', show: true, component: <SearchTab userProfile={userProfile} /> },
+    { id: 'contacts', label: 'CONTACTS', show: true, component: <ContactsTab isAdmin={isAdmin} /> },
     { id: 'stats', label: 'STATS', show: true, component: <StatsTab /> },
   ]
 
@@ -305,8 +310,14 @@ function InboxTab({ onPendingChange, userProfile, isAdmin, agentStatus }: { onPe
                   }}>
                     {raw?.summary || fax.file_name}
                   </td>
-                  <td style={{ padding: '2px 4px', fontSize: '8px', color: fax.our_contact_user_id ? 'var(--status-success)' : 'var(--text-muted)' }}>
-                    {fax.our_contact_person || '—'}
+                  <td style={{ padding: '2px 4px', fontSize: '8px', color: fax.our_contact_matched_id || fax.our_contact_user_id ? 'var(--status-success)' : 'var(--text-muted)' }}>
+                    {fax.our_contact_uncertain ? (
+                      <span style={{ background: '#FFFFC0', color: '#806000', padding: '0 3px', border: '1px solid #C0A000', fontWeight: 'bold' }} title={`AI 辨識：${fax.our_contact_raw || '未知'}`}>
+                        ⚠ 需確認
+                      </span>
+                    ) : (
+                      fax.our_contact_person || '—'
+                    )}
                   </td>
                   <td style={{ padding: '2px', textAlign: 'center' }}>
                     <StatusBadge status={fax.status} />
@@ -341,6 +352,8 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
 }) {
   const [fax, setFax] = useState(initialFax)
   const [editing, setEditing] = useState(false)
+  const [rotation, setRotation] = useState(0)
+  const [zoom, setZoom] = useState(1)
   const [editData, setEditData] = useState({
     customer_name: fax.customer_name || '',
     customer_address: fax.customer_address || '',
@@ -420,11 +433,6 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
         <button onClick={() => setEditing(!editing)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>{editing ? 'CANCEL' : 'EDIT'}</button>
         {editing && <button onClick={handleSave} className="btn" disabled={saving} style={{ fontSize: '9px', padding: '2px 8px', fontWeight: 'bold' }}>{saving ? '...' : 'SAVE'}</button>}
         <button onClick={() => onReanalyze(fax)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>RE-ANALYZE</button>
-        {fileUrl && (
-          <a href={fileUrl} target="_blank" rel="noreferrer" className="btn" style={{ fontSize: '9px', padding: '2px 8px', textDecoration: 'none', color: 'var(--text-primary)' }}>
-            VIEW FILE
-          </a>
-        )}
         <div style={{ flex: 1 }} />
         <button
           onClick={handleToggleHandled}
@@ -454,29 +462,78 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '6px' }}>
-        {/* Left: File preview */}
-        <div className="inset" style={{ width: '42%', minHeight: '300px', background: 'var(--bg-inset)', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, flexDirection: 'column' }}>
-          {fileUrl ? (
-            isImageFile(fax.file_name) ? (
-              <img src={fileUrl} alt={fax.file_name} style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain' }} />
-            ) : (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>PDF</div>
-                <div>{fax.file_name}</div>
-                <a href={fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', fontSize: '8px' }}>Open in new tab</a>
+      {/* Uncertain contact banner */}
+      {fax.our_contact_uncertain && fax.status === 'analyzed' && (
+        <div style={{ padding: '4px 8px', marginBottom: '4px', background: '#FFF8C0', color: '#604000', fontSize: '9px', border: '1px solid #C0A000', fontWeight: 'bold' }}>
+          ⚠ 我方窗口需確認 — AI 從文件辨識出「{fax.our_contact_raw || '未知'}」但無法在內部名單中匹配，請於下方手動指定。
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '6px', minHeight: 0, flex: 1 }}>
+        {/* Left: File preview with rotation */}
+        <div style={{ width: '45%', display: 'flex', flexDirection: 'column', flexShrink: 0, minHeight: 0 }}>
+          {/* Preview toolbar */}
+          <div style={{ display: 'flex', gap: '3px', marginBottom: '3px', alignItems: 'center', fontSize: '8px' }}>
+            <button onClick={() => setRotation(r => (r - 90 + 360) % 360)} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }} title="向左旋轉">↺ 左轉</button>
+            <button onClick={() => setRotation(r => (r + 90) % 360)} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }} title="向右旋轉">↻ 右轉</button>
+            <button onClick={() => setRotation(0)} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }} title="重置">重置</button>
+            <div style={{ width: '1px', height: '14px', background: 'var(--border-mid-dark)', margin: '0 3px' }} />
+            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.2))} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }} title="縮小">−</button>
+            <span style={{ fontSize: '8px', minWidth: '32px', textAlign: 'center', fontFamily: 'monospace' }}>{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(3, z + 0.2))} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }} title="放大">+</button>
+            <button onClick={() => { setZoom(1); setRotation(0) }} className="btn" style={{ fontSize: '9px', padding: '2px 6px' }} title="完整重置">100%</button>
+            <div style={{ flex: 1 }} />
+            {fileUrl && <a href={fileUrl} target="_blank" rel="noreferrer" className="btn" style={{ fontSize: '9px', padding: '2px 6px', textDecoration: 'none', color: 'var(--text-primary)' }}>新視窗</a>}
+          </div>
+
+          {/* Preview area */}
+          <div className="inset" style={{ flex: 1, minHeight: '500px', background: '#404040', overflow: 'auto', position: 'relative' }}>
+            {fileUrl ? (
+              <div style={{
+                width: '100%',
+                minHeight: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px',
+                transform: `rotate(${rotation}deg) scale(${zoom})`,
+                transformOrigin: 'center center',
+                transition: 'transform 0.2s ease',
+              }}>
+                {isImageFile(fax.file_name) ? (
+                  <img
+                    src={fileUrl}
+                    alt={fax.file_name}
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block', boxShadow: '0 0 8px rgba(0,0,0,0.5)' }}
+                  />
+                ) : (
+                  <iframe
+                    src={fileUrl}
+                    title={fax.file_name}
+                    style={{
+                      width: '100%',
+                      height: rotation % 180 === 0 ? '700px' : '500px',
+                      border: 'none',
+                      background: '#FFF',
+                      boxShadow: '0 0 8px rgba(0,0,0,0.5)',
+                    }}
+                  />
+                )}
               </div>
-            )
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: '9px' }}>No file</div>
-          )}
-          <div style={{ marginTop: '6px', fontSize: '7px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            {fax.file_name} ({fax.file_size ? `${(fax.file_size / 1024).toFixed(1)} KB` : '?'})
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '10px' }}>
+                No file available
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: '3px', fontSize: '8px', color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'monospace' }}>
+            {fax.file_name} {fax.file_size ? `(${(fax.file_size / 1024).toFixed(1)} KB)` : ''}
           </div>
         </div>
 
         {/* Right: Analysis data */}
-        <div style={{ flex: 1, overflow: 'auto', maxHeight: '450px' }}>
+        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           {/* Document classification */}
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
             <DocTypeBadge type={fax.document_type} />
@@ -545,7 +602,7 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
                 {(fax.total_amount || fax.currency) && (
                   <InfoRow label="金額" value={`${fax.currency || ''} ${fax.total_amount || ''}`} />
                 )}
-                <InfoRow label="我方窗口" value={fax.our_contact_person} highlight={!!fax.our_contact_user_id} />
+                <ContactRow fax={fax} onUpdate={(updated) => setFax(updated)} />
                 {fax.special_notes && <InfoRow label="特殊備註" value={fax.special_notes} />}
                 {fax.notes && <InfoRow label="內部備註" value={fax.notes} />}
                 {raw?.payment_terms && <InfoRow label="付款條件" value={raw.payment_terms} />}
@@ -974,4 +1031,290 @@ function FieldRow({ label, value, onChange, multiline }: { label: string; value:
 function isImageFile(name: string): boolean {
   const ext = name.split('.').pop()?.toLowerCase() || ''
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)
+}
+
+// ============================================
+// CONTACT ROW — 我方窗口顯示 + 不確定時手動修正
+// ============================================
+function ContactRow({ fax, onUpdate }: { fax: Fax; onUpdate: (f: Fax) => void }) {
+  const [showPicker, setShowPicker] = useState(false)
+  const [contacts, setContacts] = useState<InternalContact[]>([])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (showPicker && contacts.length === 0) {
+      getInternalContacts(true).then(setContacts).catch(() => { /* ignore */ })
+    }
+  }, [showPicker, contacts.length])
+
+  const handleAssign = async (contact: InternalContact | null) => {
+    setSaving(true)
+    try {
+      const updated = await updateFax(fax.id, {
+        our_contact_person: contact?.name || null,
+        our_contact_matched_id: contact?.id || null,
+        our_contact_uncertain: false,
+      } as any)
+      onUpdate(updated)
+      setShowPicker(false)
+    } catch (e: any) {
+      alert('更新失敗：' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isUncertain = !!fax.our_contact_uncertain
+  const hasMatch = !!fax.our_contact_matched_id
+  const displayName = fax.our_contact_person || fax.our_contact_raw || '—'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '2px 0', borderBottom: '1px solid var(--table-border)' }}>
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ width: '60px', flexShrink: 0, color: 'var(--text-muted)', fontSize: '8px', fontWeight: 'bold' }}>我方窗口</span>
+        {isUncertain ? (
+          <>
+            <span style={{
+              padding: '1px 6px', fontSize: '8px', fontWeight: 'bold',
+              background: '#FFFFC0', color: '#806000', border: '1px solid #C0A000',
+            }}>需確認</span>
+            <span style={{ fontStyle: 'italic', color: 'var(--text-muted)', fontSize: '9px' }}>
+              AI 辨識：「{fax.our_contact_raw || displayName}」
+            </span>
+            <button
+              onClick={() => setShowPicker(s => !s)}
+              className="btn"
+              style={{ fontSize: '8px', padding: '1px 6px', fontWeight: 'bold' }}
+            >
+              {showPicker ? '取消' : '手動指定'}
+            </button>
+          </>
+        ) : (
+          <>
+            <span style={{ fontWeight: hasMatch ? 'bold' : 'normal', color: hasMatch ? 'var(--status-success)' : 'var(--text-primary)' }}>
+              {displayName}
+            </span>
+            {hasMatch && (
+              <span style={{ fontSize: '7px', color: 'var(--status-success)', border: '1px solid var(--status-success)', padding: '0 3px' }}>
+                ✓ 名單匹配
+              </span>
+            )}
+            {fax.our_contact_raw && fax.our_contact_raw !== displayName && (
+              <span style={{ fontSize: '7px', color: 'var(--text-muted)' }}>
+                (原始：{fax.our_contact_raw})
+              </span>
+            )}
+            <button onClick={() => setShowPicker(s => !s)} className="btn" style={{ fontSize: '7px', padding: '0 4px' }}>變更</button>
+          </>
+        )}
+      </div>
+      {showPicker && (
+        <div style={{ marginTop: '3px', padding: '4px', background: 'var(--bg-secondary)', border: '1px solid var(--border-mid-dark)' }}>
+          <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '3px' }}>選擇正確的我方窗口：</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+            {contacts.length === 0 ? (
+              <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>名單空白 — 請先到 CONTACTS 分頁建立</span>
+            ) : (
+              <>
+                {contacts.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleAssign(c)}
+                    disabled={saving}
+                    className="btn"
+                    style={{ fontSize: '9px', padding: '2px 6px', fontWeight: 'bold' }}
+                    title={c.department ? `${c.department}${c.title ? ' / ' + c.title : ''}` : ''}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => handleAssign(null)}
+                  disabled={saving}
+                  className="btn"
+                  style={{ fontSize: '8px', padding: '2px 6px', color: 'var(--accent-red)' }}
+                >
+                  清空（不指派）
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// CONTACTS TAB — 我方窗口名單管理
+// ============================================
+function ContactsTab({ isAdmin }: { isAdmin: boolean }) {
+  const [contacts, setContacts] = useState<InternalContact[]>([])
+  const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', aliases: '', department: '', title: '', email: '', phone: '', line_user_id: '', notes: '' })
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const list = await getInternalContacts()
+      setContacts(list)
+    } catch (e: any) {
+      alert('載入失敗：' + e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const resetForm = () => setForm({ name: '', aliases: '', department: '', title: '', email: '', phone: '', line_user_id: '', notes: '' })
+
+  const handleSave = async (id?: string) => {
+    if (!form.name.trim()) { alert('姓名為必填'); return }
+    const aliases = form.aliases.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean)
+    try {
+      if (id) {
+        await updateInternalContact(id, { ...form, aliases } as any)
+      } else {
+        await createInternalContact({ ...form, aliases })
+      }
+      resetForm()
+      setShowAdd(false)
+      setEditingId(null)
+      await load()
+    } catch (e: any) {
+      alert('儲存失敗：' + e.message)
+    }
+  }
+
+  const handleEdit = (c: InternalContact) => {
+    setEditingId(c.id)
+    setShowAdd(false)
+    setForm({
+      name: c.name,
+      aliases: (c.aliases || []).join('、'),
+      department: c.department || '',
+      title: c.title || '',
+      email: c.email || '',
+      phone: c.phone || '',
+      line_user_id: c.line_user_id || '',
+      notes: c.notes || '',
+    })
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`確定刪除「${name}」？\n注意：刪除後 AI 將無法再比對此人名。`)) return
+    try {
+      await deleteInternalContact(id)
+      await load()
+    } catch (e: any) {
+      alert('刪除失敗：' + e.message)
+    }
+  }
+
+  const handleToggleActive = async (c: InternalContact) => {
+    try {
+      await updateInternalContact(c.id, { active: !c.active })
+      await load()
+    } catch (e: any) {
+      alert('狀態更新失敗：' + e.message)
+    }
+  }
+
+  return (
+    <div style={{ padding: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+        <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+          我方窗口名單 ({contacts.filter(c => c.active).length} 在職 / {contacts.length} 共)
+        </span>
+        <div style={{ flex: 1 }} />
+        {isAdmin && !showAdd && !editingId && (
+          <button onClick={() => { resetForm(); setShowAdd(true) }} className="btn" style={{ fontSize: '9px', padding: '2px 8px', fontWeight: 'bold' }}>+ 新增窗口</button>
+        )}
+        <button onClick={load} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }} disabled={loading}>{loading ? '...' : 'REFRESH'}</button>
+      </div>
+
+      {/* Help info */}
+      <div style={{ padding: '4px 6px', marginBottom: '6px', background: '#FFFFD0', border: '1px solid #C0C060', fontSize: '8px', color: '#604000' }}>
+        <strong>說明：</strong>清單中的人名將用於 AI 比對傳真上的「我方窗口」欄位。容許 OCR 錯字、別名、英文名。若 AI 比對不到，傳真會被標記「需確認」由您手動修正。
+      </div>
+
+      {/* Add / Edit form */}
+      {(showAdd || editingId) && (
+        <div className="inset" style={{ padding: '6px', marginBottom: '6px', background: 'var(--bg-secondary)' }}>
+          <div style={{ fontSize: '9px', fontWeight: 'bold', marginBottom: '4px' }}>{editingId ? '編輯窗口' : '新增窗口'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+            <FieldRow label="姓名*" value={form.name} onChange={v => setForm({ ...form, name: v })} />
+            <FieldRow label="部門" value={form.department} onChange={v => setForm({ ...form, department: v })} />
+            <FieldRow label="職稱" value={form.title} onChange={v => setForm({ ...form, title: v })} />
+            <FieldRow label="別名" value={form.aliases} onChange={v => setForm({ ...form, aliases: v })} />
+            <FieldRow label="Email" value={form.email} onChange={v => setForm({ ...form, email: v })} />
+            <FieldRow label="電話" value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
+            <FieldRow label="LINE ID" value={form.line_user_id} onChange={v => setForm({ ...form, line_user_id: v })} />
+            <FieldRow label="備註" value={form.notes} onChange={v => setForm({ ...form, notes: v })} />
+          </div>
+          <div style={{ fontSize: '7px', color: 'var(--text-muted)', marginTop: '2px', marginBottom: '4px' }}>
+            別名以逗號或頓號分隔，如：邦錦、Bang-Jin、B.J.Liu
+          </div>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button onClick={() => handleSave(editingId || undefined)} className="btn" style={{ fontSize: '9px', padding: '2px 10px', fontWeight: 'bold' }}>儲存</button>
+            <button onClick={() => { resetForm(); setShowAdd(false); setEditingId(null) }} className="btn" style={{ fontSize: '9px', padding: '2px 10px' }}>取消</button>
+          </div>
+        </div>
+      )}
+
+      {/* List table */}
+      <div className="inset" style={{ background: 'var(--bg-window)', maxHeight: '500px', overflow: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+          <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)', zIndex: 1 }}>
+            <tr>
+              <th style={thStyle}>狀態</th>
+              <th style={thStyle}>姓名</th>
+              <th style={thStyle}>部門/職稱</th>
+              <th style={thStyle}>別名</th>
+              <th style={thStyle}>聯絡</th>
+              <th style={thStyle}>LINE</th>
+              {isAdmin && <th style={{ ...thStyle, width: '70px' }}>操作</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {contacts.length === 0 ? (
+              <tr><td colSpan={isAdmin ? 7 : 6} style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>尚無資料 — 請點 [+ 新增窗口] 開始建立名單</td></tr>
+            ) : contacts.map(c => (
+              <tr key={c.id} style={{ borderBottom: '1px solid var(--table-border)', opacity: c.active ? 1 : 0.5 }}>
+                <td style={{ padding: '3px 4px', textAlign: 'center' }}>
+                  <span style={{
+                    display: 'inline-block', padding: '1px 4px', fontSize: '7px', fontWeight: 'bold',
+                    background: c.active ? '#D0FFD0' : '#E8E8E8',
+                    color: c.active ? '#006000' : '#666',
+                    border: `1px solid ${c.active ? '#008000' : '#999'}`,
+                  }}>{c.active ? '在職' : '停用'}</span>
+                </td>
+                <td style={{ padding: '3px 4px', fontWeight: 'bold' }}>{c.name}</td>
+                <td style={{ padding: '3px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>{[c.department, c.title].filter(Boolean).join(' / ') || '—'}</td>
+                <td style={{ padding: '3px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>{c.aliases?.join('、') || '—'}</td>
+                <td style={{ padding: '3px 4px', fontSize: '8px' }}>
+                  {c.email && <div>{c.email}</div>}
+                  {c.phone && <div>{c.phone}</div>}
+                  {!c.email && !c.phone && '—'}
+                </td>
+                <td style={{ padding: '3px 4px', fontSize: '7px', fontFamily: 'monospace', color: c.line_user_id ? 'var(--accent-green)' : 'var(--text-muted)' }}>
+                  {c.line_user_id ? '已綁' : '未綁'}
+                </td>
+                {isAdmin && (
+                  <td style={{ padding: '3px 4px', textAlign: 'center' }}>
+                    <button onClick={() => handleEdit(c)} className="btn" style={{ fontSize: '7px', padding: '1px 4px', marginRight: '2px' }}>編</button>
+                    <button onClick={() => handleToggleActive(c)} className="btn" style={{ fontSize: '7px', padding: '1px 4px', marginRight: '2px' }}>{c.active ? '停' : '啟'}</button>
+                    <button onClick={() => handleDelete(c.id, c.name)} className="btn" style={{ fontSize: '7px', padding: '1px 4px', color: 'var(--accent-red)' }}>×</button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }

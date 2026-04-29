@@ -10,7 +10,39 @@ const supabase = createClient(
 const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY || ''
 const FAX_API_KEY = process.env.FAX_API_KEY || ''
 
-const FAX_ANALYSIS_PROMPT = `你是一個專業的商業傳真文件分析助手。請仔細分析以下傳真文件，回傳 **純 JSON**（不要 markdown 格式，不要 \`\`\`json 標記）：
+function buildFaxPrompt(internalContacts: { name: string; aliases: string[] | null }[]): string {
+  // Build "our staff" list section for AI prompt
+  let staffSection = ''
+  if (internalContacts.length > 0) {
+    const lines = internalContacts.map(c => {
+      const all = [c.name, ...(c.aliases || [])].filter(Boolean)
+      return `  - ${c.name}${c.aliases && c.aliases.length > 0 ? ` (別名: ${c.aliases.join('、')})` : ''}`
+    }).join('\n')
+    staffSection = `
+
+【★最重要★ 我方窗口人員清單】
+以下是我方公司的所有窗口/業務人員，**只有在這份清單中的人才可能是 our_contact_person**：
+${lines}
+
+判讀規則：
+1. 若文件中「收件人/ATTN/敬啟/TO/我方窗口/承辦人」欄位的姓名與清單中的某人相符（容許 OCR 錯字、缺字、字形類似），請填入清單中的「正確姓名」（不是原始辨識出的字）
+2. 同時填入 our_contact_raw 為文件上實際看到的原始文字（含 OCR 錯誤）
+3. 若文件中的姓名**不在清單中**或無法匹配（例如那是對方公司的簽核人員、廠商人員、或完全無法辨識），請：
+   - our_contact_person 設為 null
+   - our_contact_raw 仍填入原始辨識文字
+   - our_contact_uncertain 設為 true
+4. 簽名/印章可能是對方上級主管核準，**不要**自動當成我方窗口
+5. 我方窗口通常出現在「收件人/TO/ATTN」位置，而非「核準/簽收/簽名」欄`
+  } else {
+    staffSection = `
+
+【our_contact_person 判讀】
+- 從文件「收件人/TO/ATTN/敬啟」欄位辨識我方窗口人員
+- our_contact_raw 為原始辨識文字（含 OCR 錯誤）
+- 若無法判定，our_contact_person 設 null、our_contact_uncertain 設 true`
+  }
+
+  return `你是一個專業的商業傳真文件分析助手。請仔細分析以下傳真文件，回傳 **純 JSON**（不要 markdown 格式，不要 \`\`\`json 標記）：
 
 {
   "document_type": "文件分類（必須是以下其中一種）",
@@ -18,7 +50,9 @@ const FAX_ANALYSIS_PROMPT = `你是一個專業的商業傳真文件分析助手
   "customer_address": "客戶地址",
   "customer_contact": "客戶聯絡人姓名",
   "customer_phone": "客戶電話/傳真號碼",
-  "our_contact_person": "我方對應窗口/收件人姓名",
+  "our_contact_person": "我方對應窗口姓名（必須是清單中的正確姓名，否則為 null）",
+  "our_contact_raw": "文件上實際辨識到的原始文字（含 OCR 錯誤）",
+  "our_contact_uncertain": false,
   "order_number": "訂單編號/PO Number",
   "order_date": "訂單/文件日期 YYYY-MM-DD",
   "delivery_date": "交期/希望交貨日 YYYY-MM-DD",
@@ -46,16 +80,61 @@ const FAX_ANALYSIS_PROMPT = `你是一個專業的商業傳真文件分析助手
 - "合約文件" — 合約、協議書、Contract
 - "一般通知" — 其他通知類、公告
 - "其他" — 無法歸類的文件
+${staffSection}
 
 注意：
 - 仔細辨識所有文字，包含手寫部分和印章
 - order_items 要盡量列出所有品項，若非訂單則留空陣列 []
 - confidence 為 0-1 的信心度分數
-- 對應窗口人員通常在「收件人/TO/敬啟/ATTN」欄位
 - 即使不是訂單，仍要盡量抽取客戶名稱、聯絡人等資訊
 - action_required 要根據文件類型給出具體建議
 - urgency: 訂單/品質問題=high, 漲價/報價=medium, 其他=low
 - special_notes 放入所有未被其他欄位涵蓋的重要資訊`
+}
+
+// Server-side fuzzy match — verify AI's choice against the actual contact list
+function fuzzyMatchContact(
+  candidate: string | null | undefined,
+  contacts: { id: string; name: string; aliases: string[] | null }[]
+): { id: string; name: string } | null {
+  if (!candidate || typeof candidate !== 'string') return null
+  const c = candidate.replace(/\s/g, '').toLowerCase()
+  if (!c) return null
+
+  // Exact / substring match first
+  for (const contact of contacts) {
+    const namesToCheck = [contact.name, ...(contact.aliases || [])].filter(Boolean)
+    for (const n of namesToCheck) {
+      const norm = n.replace(/\s/g, '').toLowerCase()
+      if (norm === c || c.includes(norm) || norm.includes(c)) {
+        return { id: contact.id, name: contact.name }
+      }
+    }
+  }
+
+  // Character overlap match (handles OCR typos in Chinese names)
+  let best: { id: string; name: string; score: number } | null = null
+  for (const contact of contacts) {
+    const namesToCheck = [contact.name, ...(contact.aliases || [])].filter(Boolean)
+    for (const n of namesToCheck) {
+      const norm = n.replace(/\s/g, '').toLowerCase()
+      if (norm.length < 2) continue
+      // Count common characters
+      const set1 = new Set(c.split(''))
+      const set2 = new Set(norm.split(''))
+      let common = 0
+      set1.forEach(ch => { if (set2.has(ch)) common++ })
+      const overlap = common / Math.max(set1.size, set2.size)
+      // Threshold: >=60% character overlap and at least 2 common chars
+      if (overlap >= 0.6 && common >= 2) {
+        if (!best || overlap > best.score) {
+          best = { id: contact.id, name: contact.name, score: overlap }
+        }
+      }
+    }
+  }
+  return best ? { id: best.id, name: best.name } : null
+}
 
 export async function GET() {
   return NextResponse.json({
@@ -81,6 +160,14 @@ export async function POST(request: NextRequest) {
     }
 
     await supabase.from('faxes').update({ status: 'analyzing' }).eq('id', fax_id)
+
+    // Fetch internal contacts list for fuzzy matching
+    const { data: contactsData } = await supabase
+      .from('fax_internal_contacts')
+      .select('id, name, aliases')
+      .eq('active', true)
+    const internalContacts: { id: string; name: string; aliases: string[] | null }[] = contactsData || []
+    const FAX_ANALYSIS_PROMPT = buildFaxPrompt(internalContacts)
 
     if (!GEMINI_API_KEY) {
       await supabase
@@ -227,13 +314,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Match our_contact_person to profiles
+    // ============================================
+    // Verify our_contact_person against internal contacts
+    // (server-side fuzzy match to defend against AI hallucination)
+    // ============================================
+    let matchedContactId: string | null = null
+    let matchedContactName: string | null = null
+    let isUncertain = !!analysis.our_contact_uncertain
+    const rawText = analysis.our_contact_raw || analysis.our_contact_person || null
+
+    if (internalContacts.length > 0) {
+      // First check what AI claimed
+      const aiPick = analysis.our_contact_person
+      const matched = fuzzyMatchContact(aiPick, internalContacts)
+        || fuzzyMatchContact(rawText, internalContacts)
+      if (matched) {
+        matchedContactId = matched.id
+        matchedContactName = matched.name
+        isUncertain = false
+      } else {
+        // AI's pick wasn't in the list — flag as uncertain
+        matchedContactName = null
+        isUncertain = true
+      }
+    } else {
+      // No contact list yet — accept AI's answer as-is, no matching done
+      matchedContactName = analysis.our_contact_person || null
+      isUncertain = !!analysis.our_contact_uncertain
+    }
+
+    // Also try to match to profiles table for assignment / LINE notification (legacy)
     let contactUserId: string | null = null
-    if (analysis.our_contact_person) {
+    if (matchedContactName) {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name')
-        .ilike('full_name', `%${analysis.our_contact_person}%`)
+        .ilike('full_name', `%${matchedContactName}%`)
         .limit(1)
       if (profiles && profiles.length > 0) {
         contactUserId = profiles[0].id
@@ -252,8 +368,11 @@ export async function POST(request: NextRequest) {
         customer_phone: analysis.customer_phone || null,
         order_number: analysis.order_number || null,
         order_items: analysis.order_items || [],
-        our_contact_person: analysis.our_contact_person || null,
+        our_contact_person: matchedContactName,
         our_contact_user_id: contactUserId,
+        our_contact_matched_id: matchedContactId,
+        our_contact_raw: rawText,
+        our_contact_uncertain: isUncertain,
         ai_confidence: analysis.confidence || null,
         ai_raw_response: analysis,
         delivery_date: analysis.delivery_date || null,

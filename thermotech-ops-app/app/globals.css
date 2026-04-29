@@ -501,34 +501,50 @@ body {
 /* Mobile - 設計給手機的思維 */
 @media (max-width: 767px) {
   body {
-    font-size: 12px;
+    font-size: 11px;
   }
-  
+
   .grid-2,
   .grid-3,
   .grid-4 {
     grid-template-columns: 1fr;
   }
-  
+
   .layout-full {
-    display: block;
+    display: flex;
+    flex-direction: row;
   }
-  
+
+  /* Keep sidebar visible but compact — never hide it */
   .sidebar {
-    display: none;
+    width: 90px !important;
+    min-width: 90px !important;
+    font-size: 9px !important;
   }
-  
+
   .main-content {
     padding: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
   }
-  
+
   .window {
     border-radius: 0;
   }
-  
+
   .titlebar {
-    padding: 6px 8px;
-    font-size: 12px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+}
+
+/* Very small screens - even more compact but still functional */
+@media (max-width: 480px) {
+  .sidebar {
+    width: 70px !important;
+    min-width: 70px !important;
+    font-size: 8px !important;
   }
 }
 

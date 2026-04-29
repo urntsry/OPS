@@ -20,6 +20,9 @@ export interface Fax {
   order_items: OrderItem[]
   our_contact_person: string | null
   our_contact_user_id: string | null
+  our_contact_matched_id: string | null
+  our_contact_raw: string | null
+  our_contact_uncertain: boolean
   ai_confidence: number | null
   ai_raw_response: any
   reviewed_by: string | null
