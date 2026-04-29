@@ -14,8 +14,26 @@ interface FaxPageProps {
   userProfile: any
 }
 
+interface AgentStatus {
+  connected: boolean
+  age_minutes?: number
+  last_heartbeat?: string
+  last_uploaded_at?: string
+  last_uploaded_file?: string
+  last_error?: string
+  last_error_at?: string
+  watch_folder?: string
+  files_in_folder?: number
+  files_processed_total?: number
+  hostname?: string
+  agent_version?: string
+  scan_count?: number
+  message?: string
+}
+
 export default function FaxPage({ isAdmin, userProfile }: FaxPageProps) {
   const [aiStatus, setAiStatus] = useState<'checking' | 'connected' | 'no_key' | 'error'>('checking')
+  const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null)
   const [totalPending, setTotalPending] = useState(0)
 
   useEffect(() => {
@@ -26,17 +44,28 @@ export default function FaxPage({ isAdmin, userProfile }: FaxPageProps) {
         setAiStatus(d.ai_available ? 'connected' : 'no_key')
       } catch { setAiStatus('error') }
     }
+    const checkAgent = async () => {
+      try {
+        const res = await fetch('/api/fax/heartbeat')
+        const d = await res.json()
+        setAgentStatus(d)
+      } catch { setAgentStatus({ connected: false, message: 'Cannot reach OPS' }) }
+    }
     checkAi()
+    checkAgent()
+    const interval = setInterval(checkAgent, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const tabs: DepartmentTab[] = [
-    { id: 'inbox', label: 'INBOX', show: true, badge: totalPending > 0 ? totalPending : undefined, component: <InboxTab onPendingChange={setTotalPending} userProfile={userProfile} isAdmin={isAdmin} /> },
+    { id: 'inbox', label: 'INBOX', show: true, badge: totalPending > 0 ? totalPending : undefined, component: <InboxTab onPendingChange={setTotalPending} userProfile={userProfile} isAdmin={isAdmin} agentStatus={agentStatus} /> },
     { id: 'upload', label: 'UPLOAD', show: isAdmin, component: <UploadTab /> },
     { id: 'search', label: 'SEARCH', show: true, component: <SearchTab userProfile={userProfile} /> },
     { id: 'stats', label: 'STATS', show: true, component: <StatsTab /> },
   ]
 
-  const statusText = aiStatus === 'connected' ? 'AI: ONLINE' : aiStatus === 'no_key' ? 'AI: NO KEY' : aiStatus === 'error' ? 'AI: ERROR' : 'AI: ...'
+  const aiText = aiStatus === 'connected' ? 'AI:OK' : aiStatus === 'no_key' ? 'AI:NOKEY' : aiStatus === 'error' ? 'AI:ERR' : 'AI:...'
+  const agentText = agentStatus === null ? 'AGENT:...' : agentStatus.connected ? `AGENT:OK (${agentStatus.age_minutes}m)` : 'AGENT:OFFLINE'
 
   return (
     <DepartmentShell
@@ -44,7 +73,7 @@ export default function FaxPage({ isAdmin, userProfile }: FaxPageProps) {
       departmentName="FAX - 傳真中心"
       tabs={tabs}
       defaultTab="inbox"
-      statusInfo={statusText}
+      statusInfo={`${agentText} | ${aiText}`}
     />
   )
 }
@@ -99,7 +128,7 @@ function UrgencyBadge({ level }: { level?: string }) {
 // ============================================
 // INBOX TAB — Enhanced with handled status & doc type filter
 // ============================================
-function InboxTab({ onPendingChange, userProfile, isAdmin }: { onPendingChange: (n: number) => void; userProfile: any; isAdmin: boolean }) {
+function InboxTab({ onPendingChange, userProfile, isAdmin, agentStatus }: { onPendingChange: (n: number) => void; userProfile: any; isAdmin: boolean; agentStatus: AgentStatus | null }) {
   const [faxes, setFaxes] = useState<Fax[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedFax, setSelectedFax] = useState<Fax | null>(null)
@@ -179,6 +208,9 @@ function InboxTab({ onPendingChange, userProfile, isAdmin }: { onPendingChange: 
   return (
     <div>
       {toast && <div style={{ padding: '3px 8px', marginBottom: '4px', background: 'var(--accent-teal)', color: '#FFF', fontSize: '9px' }}>{toast}</div>}
+
+      {/* Agent connection status */}
+      <AgentStatusBanner status={agentStatus} />
 
       {/* Summary bar */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -826,6 +858,80 @@ function StatsTab() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ============================================
+// AGENT STATUS BANNER
+// ============================================
+function AgentStatusBanner({ status }: { status: AgentStatus | null }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (!status) {
+    return (
+      <div style={{ padding: '3px 8px', marginBottom: '4px', background: '#E0E0E0', color: '#666', fontSize: '8px', border: '1px solid #999' }}>
+        AGENT: 檢查中...
+      </div>
+    )
+  }
+
+  const isConnected = status.connected
+  const hasError = !!status.last_error
+  const ageText = status.age_minutes != null
+    ? status.age_minutes < 1 ? '剛剛' : status.age_minutes < 60 ? `${status.age_minutes} 分鐘前` : `${Math.floor(status.age_minutes / 60)} 小時前`
+    : '從未'
+
+  // Banner colors based on status
+  const bg = !isConnected || hasError ? '#FFE0E0' : '#D0FFD0'
+  const border = !isConnected || hasError ? '#C00000' : '#008000'
+  const color = !isConnected || hasError ? '#800000' : '#006000'
+  const label = !isConnected ? 'AGENT 離線' : hasError ? 'AGENT 連線中（有錯誤）' : 'AGENT 連線正常'
+  const icon = !isConnected ? '!' : hasError ? '!' : 'V'
+
+  return (
+    <div
+      onClick={() => setExpanded(!expanded)}
+      style={{
+        padding: '4px 8px', marginBottom: '4px', background: bg, color,
+        fontSize: '9px', border: `1px solid ${border}`, fontFamily: 'monospace',
+        cursor: 'pointer', userSelect: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 'bold' }}>
+          [{icon}] {label} - 最後上報：{ageText}
+        </span>
+        <span style={{ fontSize: '7px', opacity: 0.7 }}>{expanded ? '[收起]' : '[詳情]'}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: `1px dashed ${border}`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 12px', fontSize: '8px' }}>
+          <div><b>主機：</b>{status.hostname || '—'}</div>
+          <div><b>版本：</b>{status.agent_version || '—'}</div>
+          <div style={{ gridColumn: '1 / -1' }}><b>監控資料夾：</b>{status.watch_folder || '—'}</div>
+          <div><b>資料夾內檔案數：</b>{status.files_in_folder ?? '—'}</div>
+          <div><b>累計掃描次數：</b>{status.scan_count ?? '—'}</div>
+          <div><b>累計上傳：</b>{status.files_processed_total ?? 0} 份</div>
+          <div><b>最後上傳檔案：</b>{status.last_uploaded_file || '—'}</div>
+          {status.last_uploaded_at && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <b>最後上傳時間：</b>{new Date(status.last_uploaded_at).toLocaleString('zh-TW')}
+            </div>
+          )}
+          {status.last_error && (
+            <div style={{ gridColumn: '1 / -1', color: '#800000', wordBreak: 'break-all' }}>
+              <b>最近錯誤：</b>{status.last_error}
+              {status.last_error_at && ` (${new Date(status.last_error_at).toLocaleString('zh-TW')})`}
+            </div>
+          )}
+          {!isConnected && status.message && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <b>狀況：</b>{status.message}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
