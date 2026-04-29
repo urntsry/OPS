@@ -218,17 +218,12 @@ export default function Calendar({
                           {/* Events — scrollable */}
                           <div style={{ overflow: 'hidden auto', maxHeight: isEditing ? `calc(${eventAreaHeight} - 26px)` : eventAreaHeight }}>
                             {dayEvents.map((event, idx) => {
-                              const isPureEvent = PURE_EVENT_TYPES.has(event.type)
+                              // 統一行為：所有事件點擊 → 彈出資訊小窗（含標記完成按鈕）
+                              // 避免同事誤點直接完成的安全性問題
                               const handleEventClick = (e: React.MouseEvent) => {
                                 if (isEditing) return
                                 e.stopPropagation()
-                                if (isPureEvent) {
-                                  // Open info popup near click position
-                                  setPopupEvent({ event, x: e.clientX, y: e.clientY })
-                                } else if (event.id && onToggleEvent) {
-                                  // Task types: toggle completion
-                                  onToggleEvent(event.id)
-                                }
+                                setPopupEvent({ event, x: e.clientX, y: e.clientY })
                               }
                               return (
                               <div
@@ -256,12 +251,12 @@ export default function Calendar({
                                   alignItems: 'center',
                                   gap: '2px',
                                   opacity: event.done ? 0.45 : 1,
-                                  cursor: isEditing ? 'default' : (isPureEvent || event.id) ? 'pointer' : 'default',
+                                  cursor: isEditing ? 'default' : 'pointer',
                                   padding: '1px 2px',
                                   borderRadius: '1px',
                                   transition: 'background 0.08s, transform 0.08s',
                                 }}
-                                title={`${getEventLabel(event.type)}: ${event.title}${isPureEvent ? '（點擊查看詳情）' : event.id ? '（點擊切換完成）' : ''}`}
+                                title={`${getEventLabel(event.type)}: ${event.title}（點擊查看詳情）`}
                               >
                                 <span style={{ width: '3px', height: '10px', backgroundColor: getEventColor(event.type), flexShrink: 0, display: 'inline-block' }} />
                                 <span style={{
@@ -374,6 +369,7 @@ export default function Calendar({
           month={month}
           onClose={() => setPopupEvent(null)}
           onDelete={onDeleteEvent}
+          onToggle={onToggleEvent}
           onOpenDetail={onOpenDetail}
         />
       )}
@@ -385,7 +381,7 @@ export default function Calendar({
 // EVENT INFO POPUP
 // 純事件 (event/meeting/visit/training/public) 點擊後顯示的小窗
 // ============================================
-function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onOpenDetail }: {
+function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle, onOpenDetail }: {
   event: CalendarEvent
   x: number
   y: number
@@ -393,8 +389,10 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onOpenDet
   month: number
   onClose: () => void
   onDelete?: (id: number) => void
+  onToggle?: (id: number) => void
   onOpenDetail?: (event: CalendarEvent) => void
 }) {
+  const isTaskType = !PURE_EVENT_TYPES.has(event.type)
   const popupRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -459,10 +457,30 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onOpenDet
 
       {/* Body */}
       <div style={{ padding: '8px 10px' }}>
-        <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 'bold' }}>
-          {dateStr}
+        <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+          <span>{dateStr}</span>
+          {isTaskType && (
+            <span style={{
+              padding: '0 5px',
+              fontSize: '8px',
+              background: event.done ? 'var(--status-success)' : 'var(--status-warning)',
+              color: '#FFF',
+              fontWeight: 'bold',
+              letterSpacing: '0.3px',
+            }}>
+              {event.done ? '✓ 已完成' : '○ 未完成'}
+            </span>
+          )}
         </div>
-        <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '6px', wordBreak: 'break-word' }}>
+        <div style={{
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: 'var(--text-primary)',
+          marginBottom: '6px',
+          wordBreak: 'break-word',
+          textDecoration: event.done ? 'line-through' : 'none',
+          opacity: event.done ? 0.6 : 1,
+        }}>
           {event.title}
         </div>
         <div style={{
@@ -488,7 +506,27 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onOpenDet
         display: 'flex',
         gap: '4px',
         background: 'var(--bg-secondary)',
+        flexWrap: 'wrap',
       }}>
+        {/* Task action: mark complete / undo */}
+        {isTaskType && event.id && onToggle && (
+          <button
+            onClick={() => { onToggle(event.id!); onClose() }}
+            style={{
+              fontSize: '10px',
+              padding: '3px 10px',
+              border: `1px solid ${event.done ? 'var(--border-mid-dark)' : '#003F7F'}`,
+              background: event.done ? 'var(--bg-window)' : '#005FAF',
+              color: event.done ? 'var(--text-primary)' : '#FFF',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontWeight: 'bold',
+            }}
+          >
+            {event.done ? '↶ 取消完成' : '✓ 標記完成'}
+          </button>
+        )}
+
         {(event.scheduledMeetingId || event.detailLink) && onOpenDetail && (
           <button
             onClick={() => { onOpenDetail(event); onClose() }}
@@ -513,7 +551,7 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onOpenDet
         )}
         <button
           onClick={onClose}
-          style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 'bold' }}
+          style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'monospace' }}
         >
           關閉
         </button>
