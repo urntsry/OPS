@@ -61,7 +61,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     ai_available: !!GEMINI_API_KEY,
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
   })
 }
 
@@ -91,9 +91,9 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
-    // Try gemini-2.0-flash first, fall back to gemini-1.5-flash if quota hit
-    const PRIMARY_MODEL = 'gemini-2.0-flash'
-    const FALLBACK_MODEL = 'gemini-1.5-flash'
+    // Try gemini-2.5-flash first (newest, best accuracy), fall back to 2.0-flash on rate limit
+    const PRIMARY_MODEL = 'gemini-2.5-flash'
+    const FALLBACK_MODEL = 'gemini-2.0-flash'
 
     const ext = (file_name || file_url || '').split('.').pop()?.toLowerCase() || ''
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'tif', 'tiff', 'bmp'].includes(ext)

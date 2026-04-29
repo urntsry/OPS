@@ -50,7 +50,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     ai_available: !!GEMINI_API_KEY,
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
   })
 }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     let result
     let extractedText = raw_content || ''
