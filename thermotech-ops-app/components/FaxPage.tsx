@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import DepartmentShell, { type DepartmentTab } from './DepartmentShell'
-import { getFaxes, getFaxById, updateFax, deleteFax, searchFaxes, getFaxStats, subscribeFaxUpdates, type Fax, type OrderItem } from '@/lib/faxApi'
+import {
+  getFaxes, getFaxById, updateFax, deleteFax, markFaxHandled,
+  searchFaxes, getFaxStats, subscribeFaxUpdates, getFaxFileSignedUrl,
+  getDocTypeStyle, DOCUMENT_TYPES,
+  type Fax, type OrderItem,
+} from '@/lib/faxApi'
 
 interface FaxPageProps {
   isAdmin: boolean
@@ -25,13 +30,13 @@ export default function FaxPage({ isAdmin, userProfile }: FaxPageProps) {
   }, [])
 
   const tabs: DepartmentTab[] = [
-    { id: 'inbox', label: 'INBOX', show: true, badge: totalPending > 0 ? totalPending : undefined, component: <InboxTab onPendingChange={setTotalPending} userProfile={userProfile} /> },
+    { id: 'inbox', label: 'INBOX', show: true, badge: totalPending > 0 ? totalPending : undefined, component: <InboxTab onPendingChange={setTotalPending} userProfile={userProfile} isAdmin={isAdmin} /> },
     { id: 'upload', label: 'UPLOAD', show: isAdmin, component: <UploadTab /> },
-    { id: 'search', label: 'SEARCH', show: true, component: <SearchTab /> },
+    { id: 'search', label: 'SEARCH', show: true, component: <SearchTab userProfile={userProfile} /> },
     { id: 'stats', label: 'STATS', show: true, component: <StatsTab /> },
   ]
 
-  const statusText = aiStatus === 'connected' ? 'AI: ONLINE' : aiStatus === 'no_key' ? 'AI: NO KEY' : aiStatus === 'error' ? 'AI: ERROR' : 'AI: CHECKING...'
+  const statusText = aiStatus === 'connected' ? 'AI: ONLINE' : aiStatus === 'no_key' ? 'AI: NO KEY' : aiStatus === 'error' ? 'AI: ERROR' : 'AI: ...'
 
   return (
     <DepartmentShell
@@ -45,8 +50,22 @@ export default function FaxPage({ isAdmin, userProfile }: FaxPageProps) {
 }
 
 // ============================================
-// STATUS BADGE
+// DOC TYPE BADGE
 // ============================================
+function DocTypeBadge({ type }: { type: string | null }) {
+  const style = getDocTypeStyle(type)
+  return (
+    <span style={{
+      fontSize: '7px', padding: '0 4px', lineHeight: '14px',
+      backgroundColor: style.bg, color: style.color,
+      fontWeight: 'bold', letterSpacing: '0.3px', whiteSpace: 'nowrap',
+      border: `1px solid ${style.color}40`,
+    }}>
+      {style.label}
+    </span>
+  )
+}
+
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, { bg: string; text: string }> = {
     pending: { bg: '#FF8C00', text: '#FFF' },
@@ -62,21 +81,39 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function UrgencyBadge({ level }: { level?: string }) {
+  if (!level) return null
+  const styles: Record<string, { bg: string; text: string; label: string }> = {
+    high: { bg: '#C00000', text: '#FFF', label: 'URGENT' },
+    medium: { bg: '#B06000', text: '#FFF', label: 'MEDIUM' },
+    low: { bg: '#606060', text: '#DDD', label: 'LOW' },
+  }
+  const s = styles[level] || styles.low
+  return (
+    <span style={{ fontSize: '7px', padding: '0 3px', backgroundColor: s.bg, color: s.text, fontWeight: 'bold', letterSpacing: '0.3px' }}>
+      {s.label}
+    </span>
+  )
+}
+
 // ============================================
-// INBOX TAB
+// INBOX TAB — Enhanced with handled status & doc type filter
 // ============================================
-function InboxTab({ onPendingChange, userProfile }: { onPendingChange: (n: number) => void; userProfile: any }) {
+function InboxTab({ onPendingChange, userProfile, isAdmin }: { onPendingChange: (n: number) => void; userProfile: any; isAdmin: boolean }) {
   const [faxes, setFaxes] = useState<Fax[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedFax, setSelectedFax] = useState<Fax | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [filterType, setFilterType] = useState<string>('all')
+  const [filterHandled, setFilterHandled] = useState<string>('unhandled')
 
   const loadFaxes = useCallback(async () => {
     try {
-      const data = await getFaxes(100)
+      const data = await getFaxes(200)
       setFaxes(data)
+      const unhandled = data.filter(f => !f.is_handled && f.status === 'analyzed').length
       const pending = data.filter(f => f.status === 'pending' || f.status === 'analyzing').length
-      onPendingChange(pending)
+      onPendingChange(unhandled + pending)
     } catch (e) { console.error(e) }
     setLoading(false)
   }, [onPendingChange])
@@ -87,32 +124,48 @@ function InboxTab({ onPendingChange, userProfile }: { onPendingChange: (n: numbe
     return unsub
   }, [loadFaxes])
 
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
   const handleDelete = async (id: string) => {
     if (!confirm('確定刪除此傳真記錄？')) return
     try {
       await deleteFax(id)
       setFaxes(prev => prev.filter(f => f.id !== id))
       if (selectedFax?.id === id) setSelectedFax(null)
-      setToast('Deleted')
-      setTimeout(() => setToast(null), 2000)
-    } catch { setToast('Delete failed') }
+      showToast('已刪除')
+    } catch { showToast('刪除失敗') }
+  }
+
+  const handleToggleHandled = async (fax: Fax, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const updated = await markFaxHandled(fax.id, userProfile?.id || '', !fax.is_handled)
+      setFaxes(prev => prev.map(f => f.id === fax.id ? updated : f))
+      showToast(updated.is_handled ? '已標記處理' : '已取消處理')
+    } catch { showToast('更新失敗') }
   }
 
   const handleReanalyze = async (fax: Fax) => {
     try {
-      await updateFax(fax.id, { status: 'pending' } as any)
-      const res = await fetch('/api/fax/analyze', {
+      const res = await fetch('/api/fax/reanalyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fax_id: fax.id, file_url: fax.file_url, file_name: fax.file_name }),
+        body: JSON.stringify({ fax_id: fax.id }),
       })
-      if (res.ok) {
-        setToast('Re-analysis triggered')
-        loadFaxes()
-      }
-    } catch { setToast('Failed') }
-    setTimeout(() => setToast(null), 2000)
+      if (res.ok) { showToast('重新分析中...'); loadFaxes() }
+      else { showToast('分析失敗') }
+    } catch { showToast('分析失敗') }
   }
+
+  // Apply filters
+  const filteredFaxes = faxes.filter(f => {
+    if (filterType !== 'all' && (f.document_type || 'unknown') !== filterType) return false
+    if (filterHandled === 'unhandled' && f.is_handled) return false
+    if (filterHandled === 'handled' && !f.is_handled) return false
+    return true
+  })
+
+  const typeOptions = ['all', ...DOCUMENT_TYPES.map(d => d.value)]
 
   if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>LOADING...</div>
 
@@ -120,63 +173,123 @@ function InboxTab({ onPendingChange, userProfile }: { onPendingChange: (n: numbe
     return <FaxDetail fax={selectedFax} onBack={() => { setSelectedFax(null); loadFaxes() }} onReanalyze={handleReanalyze} userProfile={userProfile} />
   }
 
+  const unhandledCount = faxes.filter(f => !f.is_handled && f.status === 'analyzed').length
+  const analyzingCount = faxes.filter(f => f.status === 'pending' || f.status === 'analyzing').length
+
   return (
     <div>
       {toast && <div style={{ padding: '3px 8px', marginBottom: '4px', background: 'var(--accent-teal)', color: '#FFF', fontSize: '9px' }}>{toast}</div>}
 
-      <div style={{ marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)' }}>
-        Total: {faxes.length} | Pending: {faxes.filter(f => f.status === 'pending' || f.status === 'analyzing').length} | Analyzed: {faxes.filter(f => f.status === 'analyzed').length}
+      {/* Summary bar */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span>Total: <b style={{ color: 'var(--text-primary)' }}>{faxes.length}</b></span>
+        {unhandledCount > 0 && <span style={{ color: '#C00000', fontWeight: 'bold' }}>UNHANDLED: {unhandledCount}</span>}
+        {analyzingCount > 0 && <span style={{ color: '#000080' }}>Analyzing: {analyzingCount}</span>}
+        <span>Handled: {faxes.filter(f => f.is_handled).length}</span>
+        <div style={{ flex: 1 }} />
+        {/* Filters */}
+        <select
+          value={filterHandled}
+          onChange={e => setFilterHandled(e.target.value)}
+          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 2px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}
+        >
+          <option value="all">ALL</option>
+          <option value="unhandled">UNHANDLED</option>
+          <option value="handled">HANDLED</option>
+        </select>
+        <select
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 2px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}
+        >
+          {typeOptions.map(t => (
+            <option key={t} value={t}>{t === 'all' ? 'ALL TYPES' : t}</option>
+          ))}
+        </select>
       </div>
 
+      {/* Table */}
       <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '420px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
           <thead>
             <tr style={{ background: 'var(--bg-window)' }}>
-              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '110px' }}>TIME</th>
-              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>FILE</th>
-              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '90px' }}>CUSTOMER</th>
-              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '70px' }}>ORDER#</th>
-              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '60px' }}>CONTACT</th>
-              <th style={{ padding: '3px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '55px' }}>STATUS</th>
-              <th style={{ padding: '3px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '30px' }}>DEL</th>
+              <th style={{ ...thStyle, width: '24px', textAlign: 'center' }} title="處理狀態">OK</th>
+              <th style={{ ...thStyle, width: '55px' }}>TYPE</th>
+              <th style={{ ...thStyle, width: '85px' }}>TIME</th>
+              <th style={{ ...thStyle, width: '95px' }}>CUSTOMER</th>
+              <th style={thStyle}>SUMMARY</th>
+              <th style={{ ...thStyle, width: '55px' }}>CONTACT</th>
+              <th style={{ ...thStyle, width: '50px', textAlign: 'center' }}>STATUS</th>
+              <th style={{ ...thStyle, width: '24px', textAlign: 'center' }}>X</th>
             </tr>
           </thead>
           <tbody>
-            {faxes.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No faxes received yet</td></tr>
-            ) : faxes.map(fax => (
-              <tr
-                key={fax.id}
-                className="eventlist-row"
-                style={{ borderBottom: '1px solid var(--table-border)', cursor: 'pointer' }}
-                onClick={() => setSelectedFax(fax)}
-              >
-                <td style={{ padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>
-                  {new Date(fax.received_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                </td>
-                <td style={{ padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {fax.file_name}
-                </td>
-                <td style={{ padding: '2px 4px', fontWeight: fax.customer_name ? 'bold' : 'normal', color: fax.customer_name ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                  {fax.customer_name || '—'}
-                </td>
-                <td style={{ padding: '2px 4px', fontSize: '8px' }}>
-                  {fax.order_number || '—'}
-                </td>
-                <td style={{ padding: '2px 4px', fontSize: '8px', color: fax.our_contact_user_id ? 'var(--status-success)' : 'var(--text-muted)' }}>
-                  {fax.our_contact_person || '—'}
-                </td>
-                <td style={{ padding: '2px', textAlign: 'center' }}>
-                  <StatusBadge status={fax.status} />
-                </td>
-                <td style={{ padding: '2px', textAlign: 'center' }}>
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDelete(fax.id) }}
-                    style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', padding: '0 3px', outline: 'none' }}
-                  >×</button>
-                </td>
-              </tr>
-            ))}
+            {filteredFaxes.length === 0 ? (
+              <tr><td colSpan={8} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                {faxes.length === 0 ? '尚無傳真記錄' : '目前篩選條件下無結果'}
+              </td></tr>
+            ) : filteredFaxes.map(fax => {
+              const raw = fax.ai_raw_response
+              const isUrgent = raw?.urgency === 'high' && !fax.is_handled
+              return (
+                <tr
+                  key={fax.id}
+                  className="eventlist-row"
+                  style={{
+                    borderBottom: '1px solid var(--table-border)',
+                    cursor: 'pointer',
+                    background: isUrgent ? '#FFE8E8' : fax.is_handled ? 'transparent' : undefined,
+                    opacity: fax.is_handled ? 0.65 : 1,
+                  }}
+                  onClick={() => setSelectedFax(fax)}
+                >
+                  <td style={{ padding: '2px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={fax.is_handled}
+                      onClick={e => handleToggleHandled(fax, e)}
+                      readOnly
+                      style={{ cursor: 'pointer', width: '12px', height: '12px' }}
+                      title={fax.is_handled ? `已處理 ${fax.handled_at ? new Date(fax.handled_at).toLocaleString('zh-TW') : ''}` : '標記為已處理'}
+                    />
+                  </td>
+                  <td style={{ padding: '2px 3px' }}>
+                    <DocTypeBadge type={fax.document_type} />
+                  </td>
+                  <td style={{ padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>
+                    {new Date(fax.received_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td style={{
+                    padding: '2px 4px', fontWeight: fax.customer_name ? 'bold' : 'normal',
+                    color: fax.customer_name ? 'var(--text-primary)' : 'var(--text-muted)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {fax.customer_name || '—'}
+                  </td>
+                  <td style={{
+                    padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    textDecoration: fax.is_handled ? 'line-through' : 'none',
+                  }}>
+                    {raw?.summary || fax.file_name}
+                  </td>
+                  <td style={{ padding: '2px 4px', fontSize: '8px', color: fax.our_contact_user_id ? 'var(--status-success)' : 'var(--text-muted)' }}>
+                    {fax.our_contact_person || '—'}
+                  </td>
+                  <td style={{ padding: '2px', textAlign: 'center' }}>
+                    <StatusBadge status={fax.status} />
+                  </td>
+                  <td style={{ padding: '2px', textAlign: 'center' }}>
+                    {isAdmin && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDelete(fax.id) }}
+                        style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', padding: '0 3px', outline: 'none' }}
+                      >×</button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -184,22 +297,43 @@ function InboxTab({ onPendingChange, userProfile }: { onPendingChange: (n: numbe
   )
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold',
+}
+
 // ============================================
-// FAX DETAIL VIEW
+// FAX DETAIL VIEW — Full structured display
 // ============================================
-function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: { fax: Fax; onBack: () => void; onReanalyze: (f: Fax) => void; userProfile: any }) {
+function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: {
+  fax: Fax; onBack: () => void; onReanalyze: (f: Fax) => void; userProfile: any
+}) {
   const [fax, setFax] = useState(initialFax)
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState({
     customer_name: fax.customer_name || '',
     customer_address: fax.customer_address || '',
     customer_contact: fax.customer_contact || '',
+    customer_phone: fax.customer_phone || '',
     order_number: fax.order_number || '',
     our_contact_person: fax.our_contact_person || '',
+    delivery_date: fax.delivery_date || '',
+    total_amount: fax.total_amount || '',
+    currency: fax.currency || '',
+    special_notes: fax.special_notes || '',
     notes: fax.notes || '',
+    document_type: fax.document_type || 'unknown',
   })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [signedUrl, setSignedUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (fax.file_url) {
+      getFaxFileSignedUrl(fax.file_url).then(url => setSignedUrl(url || fax.file_url))
+    }
+  }, [fax.file_url])
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   const handleSave = async () => {
     setSaving(true)
@@ -208,85 +342,171 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: { fax:
         customer_name: editData.customer_name || null,
         customer_address: editData.customer_address || null,
         customer_contact: editData.customer_contact || null,
+        customer_phone: editData.customer_phone || null,
         order_number: editData.order_number || null,
         our_contact_person: editData.our_contact_person || null,
+        delivery_date: editData.delivery_date || null,
+        total_amount: editData.total_amount || null,
+        currency: editData.currency || null,
+        special_notes: editData.special_notes || null,
         notes: editData.notes || null,
+        document_type: editData.document_type || null,
         reviewed_by: userProfile?.id || null,
         reviewed_at: new Date().toISOString(),
       } as any)
       setFax(updated)
       setEditing(false)
-      setToast('Saved')
-    } catch { setToast('Save failed') }
+      showToast('已儲存')
+    } catch { showToast('儲存失敗') }
     setSaving(false)
-    setTimeout(() => setToast(null), 2000)
   }
 
-  const rawAnalysis = fax.ai_raw_response
+  const handleToggleHandled = async () => {
+    try {
+      const updated = await markFaxHandled(fax.id, userProfile?.id || '', !fax.is_handled)
+      setFax(updated)
+      showToast(updated.is_handled ? '已標記為處理完成' : '已取消處理狀態')
+    } catch { showToast('更新失敗') }
+  }
+
+  const raw = fax.ai_raw_response
+  const fileUrl = signedUrl || fax.file_url
 
   return (
     <div>
       {toast && <div style={{ padding: '3px 8px', marginBottom: '4px', background: 'var(--accent-teal)', color: '#FFF', fontSize: '9px' }}>{toast}</div>}
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={onBack} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>BACK</button>
         <button onClick={() => setEditing(!editing)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>{editing ? 'CANCEL' : 'EDIT'}</button>
         {editing && <button onClick={handleSave} className="btn" disabled={saving} style={{ fontSize: '9px', padding: '2px 8px', fontWeight: 'bold' }}>{saving ? '...' : 'SAVE'}</button>}
         <button onClick={() => onReanalyze(fax)} className="btn" style={{ fontSize: '9px', padding: '2px 8px' }}>RE-ANALYZE</button>
-        {fax.file_url && <a href={fax.file_url} target="_blank" rel="noreferrer" className="btn" style={{ fontSize: '9px', padding: '2px 8px', textDecoration: 'none', color: 'var(--text-primary)' }}>VIEW FILE</a>}
+        {fileUrl && (
+          <a href={fileUrl} target="_blank" rel="noreferrer" className="btn" style={{ fontSize: '9px', padding: '2px 8px', textDecoration: 'none', color: 'var(--text-primary)' }}>
+            VIEW FILE
+          </a>
+        )}
         <div style={{ flex: 1 }} />
+        <button
+          onClick={handleToggleHandled}
+          className="btn"
+          style={{
+            fontSize: '9px', padding: '2px 10px', fontWeight: 'bold',
+            background: fax.is_handled ? 'var(--status-success)' : '#C00000',
+            color: '#FFF', border: 'none',
+          }}
+        >
+          {fax.is_handled ? 'HANDLED' : 'MARK HANDLED'}
+        </button>
         <StatusBadge status={fax.status} />
       </div>
 
+      {/* Handled banner */}
+      {fax.is_handled && fax.handled_at && (
+        <div style={{ padding: '3px 8px', marginBottom: '4px', background: '#D0FFD0', color: '#006000', fontSize: '8px', border: '1px solid #008000', fontWeight: 'bold' }}>
+          HANDLED — {new Date(fax.handled_at).toLocaleString('zh-TW')}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '6px' }}>
         {/* Left: File preview */}
-        <div className="inset" style={{ width: '45%', minHeight: '300px', background: 'var(--bg-inset)', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {fax.file_url ? (
+        <div className="inset" style={{ width: '42%', minHeight: '300px', background: 'var(--bg-inset)', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, flexDirection: 'column' }}>
+          {fileUrl ? (
             isImageFile(fax.file_name) ? (
-              <img src={fax.file_url} alt={fax.file_name} style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain' }} />
+              <img src={fileUrl} alt={fax.file_name} style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain' }} />
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>
                 <div style={{ fontSize: '24px', marginBottom: '8px' }}>PDF</div>
                 <div>{fax.file_name}</div>
-                <a href={fax.file_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', fontSize: '8px' }}>Open in new tab</a>
+                <a href={fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', fontSize: '8px' }}>Open in new tab</a>
               </div>
             )
           ) : (
             <div style={{ color: 'var(--text-muted)', fontSize: '9px' }}>No file</div>
           )}
+          <div style={{ marginTop: '6px', fontSize: '7px', color: 'var(--text-muted)', textAlign: 'center' }}>
+            {fax.file_name} ({fax.file_size ? `${(fax.file_size / 1024).toFixed(1)} KB` : '?'})
+          </div>
         </div>
 
         {/* Right: Analysis data */}
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: 'auto', maxHeight: '450px' }}>
+          {/* Document classification */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
+            <DocTypeBadge type={fax.document_type} />
+            {raw?.urgency && <UrgencyBadge level={raw.urgency} />}
+            {fax.ai_confidence != null && (
+              <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
+                AI Confidence: {Math.round(fax.ai_confidence * 100)}%
+              </span>
+            )}
+          </div>
+
+          {/* AI Summary card */}
+          {raw?.summary && (
+            <div style={{ padding: '4px 6px', marginBottom: '4px', background: '#FFFFF0', border: '1px solid #CCC060', fontSize: '9px', fontWeight: 'bold', color: '#333' }}>
+              {raw.summary}
+            </div>
+          )}
+
+          {/* Action Required */}
+          {raw?.action_required && (
+            <div style={{ padding: '3px 6px', marginBottom: '4px', background: '#FFF0F0', border: '1px solid #C00000', fontSize: '8px', color: '#800000' }}>
+              Action: {raw.action_required}
+            </div>
+          )}
+
+          {/* Main info card */}
           <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px', marginBottom: '4px' }}>
-            <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>AI ANALYSIS RESULT</div>
+            <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              EXTRACTED DATA
+            </div>
             {editing ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '9px' }}>
-                <FieldRow label="Customer" value={editData.customer_name} onChange={v => setEditData(p => ({ ...p, customer_name: v }))} />
-                <FieldRow label="Address" value={editData.customer_address} onChange={v => setEditData(p => ({ ...p, customer_address: v }))} />
-                <FieldRow label="Contact" value={editData.customer_contact} onChange={v => setEditData(p => ({ ...p, customer_contact: v }))} />
-                <FieldRow label="Order#" value={editData.order_number} onChange={v => setEditData(p => ({ ...p, order_number: v }))} />
-                <FieldRow label="Our Staff" value={editData.our_contact_person} onChange={v => setEditData(p => ({ ...p, our_contact_person: v }))} />
-                <FieldRow label="Notes" value={editData.notes} onChange={v => setEditData(p => ({ ...p, notes: v }))} multiline />
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <span style={{ width: '60px', flexShrink: 0, color: 'var(--text-muted)', fontSize: '8px', fontWeight: 'bold' }}>分類</span>
+                  <select
+                    value={editData.document_type}
+                    onChange={e => setEditData(p => ({ ...p, document_type: e.target.value }))}
+                    className="inset"
+                    style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                  >
+                    {DOCUMENT_TYPES.map(d => (
+                      <option key={d.value} value={d.value}>{d.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <FieldRow label="客戶名稱" value={editData.customer_name} onChange={v => setEditData(p => ({ ...p, customer_name: v }))} />
+                <FieldRow label="客戶地址" value={editData.customer_address} onChange={v => setEditData(p => ({ ...p, customer_address: v }))} />
+                <FieldRow label="聯絡人" value={editData.customer_contact} onChange={v => setEditData(p => ({ ...p, customer_contact: v }))} />
+                <FieldRow label="電話" value={editData.customer_phone} onChange={v => setEditData(p => ({ ...p, customer_phone: v }))} />
+                <FieldRow label="訂單編號" value={editData.order_number} onChange={v => setEditData(p => ({ ...p, order_number: v }))} />
+                <FieldRow label="交期" value={editData.delivery_date} onChange={v => setEditData(p => ({ ...p, delivery_date: v }))} />
+                <FieldRow label="金額" value={editData.total_amount} onChange={v => setEditData(p => ({ ...p, total_amount: v }))} />
+                <FieldRow label="幣別" value={editData.currency} onChange={v => setEditData(p => ({ ...p, currency: v }))} />
+                <FieldRow label="我方窗口" value={editData.our_contact_person} onChange={v => setEditData(p => ({ ...p, our_contact_person: v }))} />
+                <FieldRow label="特殊備註" value={editData.special_notes} onChange={v => setEditData(p => ({ ...p, special_notes: v }))} multiline />
+                <FieldRow label="內部備註" value={editData.notes} onChange={v => setEditData(p => ({ ...p, notes: v }))} multiline />
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '9px' }}>
-                <InfoRow label="Customer" value={fax.customer_name} />
-                <InfoRow label="Address" value={fax.customer_address} />
-                <InfoRow label="Contact" value={fax.customer_contact} />
-                <InfoRow label="Order#" value={fax.order_number} bold />
-                <InfoRow label="Our Staff" value={fax.our_contact_person} highlight={!!fax.our_contact_user_id} />
-                <InfoRow label="Doc Type" value={rawAnalysis?.document_type} />
-                <InfoRow label="Summary" value={rawAnalysis?.summary} />
-                {rawAnalysis?.total_amount && <InfoRow label="Amount" value={`${rawAnalysis.currency || ''} ${rawAnalysis.total_amount}`} />}
-                {rawAnalysis?.delivery_date && <InfoRow label="Delivery" value={rawAnalysis.delivery_date} />}
-                {rawAnalysis?.special_notes && <InfoRow label="Special" value={rawAnalysis.special_notes} />}
-                {fax.ai_confidence != null && (
-                  <InfoRow label="Confidence" value={`${Math.round(fax.ai_confidence * 100)}%`} />
+                <InfoRow label="客戶名稱" value={fax.customer_name} bold />
+                <InfoRow label="客戶地址" value={fax.customer_address} />
+                <InfoRow label="聯絡人" value={fax.customer_contact} />
+                <InfoRow label="電話" value={fax.customer_phone} />
+                <InfoRow label="訂單編號" value={fax.order_number} bold />
+                <InfoRow label="交期" value={fax.delivery_date} highlight={!!fax.delivery_date} />
+                {(fax.total_amount || fax.currency) && (
+                  <InfoRow label="金額" value={`${fax.currency || ''} ${fax.total_amount || ''}`} />
                 )}
-                {fax.notes && <InfoRow label="Notes" value={fax.notes} />}
-                {fax.reviewed_at && <InfoRow label="Reviewed" value={new Date(fax.reviewed_at).toLocaleString('zh-TW')} />}
+                <InfoRow label="我方窗口" value={fax.our_contact_person} highlight={!!fax.our_contact_user_id} />
+                {fax.special_notes && <InfoRow label="特殊備註" value={fax.special_notes} />}
+                {fax.notes && <InfoRow label="內部備註" value={fax.notes} />}
+                {raw?.payment_terms && <InfoRow label="付款條件" value={raw.payment_terms} />}
+                {fax.reviewed_at && (
+                  <InfoRow label="已審閱" value={new Date(fax.reviewed_at).toLocaleString('zh-TW')} />
+                )}
               </div>
             )}
           </div>
@@ -294,23 +514,29 @@ function FaxDetail({ fax: initialFax, onBack, onReanalyze, userProfile }: { fax:
           {/* Order items */}
           {fax.order_items && fax.order_items.length > 0 && (
             <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px' }}>
-              <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>ORDER ITEMS ({fax.order_items.length})</div>
+              <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                ORDER ITEMS ({fax.order_items.length})
+              </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8px', fontFamily: 'monospace' }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-window)' }}>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>Item</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '40px' }}>QTY</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '40px' }}>Unit</th>
-                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>Spec</th>
+                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '18px' }}>#</th>
+                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>品項</th>
+                    <th style={{ padding: '2px 3px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', width: '40px' }}>數量</th>
+                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '35px' }}>單位</th>
+                    <th style={{ padding: '2px 3px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>規格/備註</th>
                   </tr>
                 </thead>
                 <tbody>
                   {fax.order_items.map((item: OrderItem, i: number) => (
                     <tr key={i} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
-                      <td style={{ padding: '2px 3px' }}>{item.name}</td>
+                      <td style={{ padding: '2px 3px', color: 'var(--text-muted)' }}>{i + 1}</td>
+                      <td style={{ padding: '2px 3px', fontWeight: 'bold' }}>{item.name}</td>
                       <td style={{ padding: '2px 3px', textAlign: 'center' }}>{item.quantity || '—'}</td>
                       <td style={{ padding: '2px 3px' }}>{item.unit || '—'}</td>
-                      <td style={{ padding: '2px 3px', fontSize: '7px', color: 'var(--text-muted)' }}>{item.spec || item.note || '—'}</td>
+                      <td style={{ padding: '2px 3px', fontSize: '7px', color: 'var(--text-muted)' }}>
+                        {[item.spec, item.note].filter(Boolean).join(' | ') || '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -365,7 +591,7 @@ function UploadTab() {
   return (
     <div>
       <div style={{ marginBottom: '6px', fontSize: '9px', color: 'var(--text-muted)' }}>
-        Upload fax files manually (for testing or manual import). The Watcher Agent handles automatic uploads.
+        手動上傳傳真（測試用或手動匯入）。Watcher Agent 會自動上傳新檔案。
       </div>
 
       <div className="inset" style={{ padding: '8px', background: 'var(--bg-inset)', marginBottom: '6px' }}>
@@ -392,7 +618,7 @@ function UploadTab() {
           <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '3px' }}>RESULTS</div>
           {results.map((r, i) => (
             <div key={i} style={{ fontSize: '8px', padding: '2px 0', borderBottom: '1px solid var(--table-border)', display: 'flex', gap: '6px' }}>
-              <span style={{ color: r.status === 'ok' ? 'var(--status-success)' : 'var(--accent-red)', fontWeight: 'bold' }}>{r.status === 'ok' ? '✓' : '✗'}</span>
+              <span style={{ color: r.status === 'ok' ? 'var(--status-success)' : 'var(--accent-red)', fontWeight: 'bold' }}>{r.status === 'ok' ? 'V' : 'X'}</span>
               <span>{r.name}</span>
               <span style={{ color: 'var(--text-muted)' }}>{r.msg}</span>
             </div>
@@ -406,11 +632,12 @@ function UploadTab() {
 // ============================================
 // SEARCH TAB
 // ============================================
-function SearchTab() {
+function SearchTab({ userProfile }: { userProfile: any }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Fax[]>([])
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [selectedFax, setSelectedFax] = useState<Fax | null>(null)
 
   const handleSearch = async () => {
     if (!query.trim()) return
@@ -423,6 +650,15 @@ function SearchTab() {
     setLoading(false)
   }
 
+  if (selectedFax) {
+    return <FaxDetail
+      fax={selectedFax}
+      onBack={() => setSelectedFax(null)}
+      onReanalyze={() => {}}
+      userProfile={userProfile}
+    />
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
@@ -431,7 +667,7 @@ function SearchTab() {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          placeholder="Search by customer, order#, contact..."
+          placeholder="搜尋客戶、訂單、窗口、文件類型..."
           className="inset"
           style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '3px 6px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         />
@@ -443,26 +679,30 @@ function SearchTab() {
       {searched && (
         <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '380px' }}>
           {results.length === 0 ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>No results found</div>
+            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>查無結果</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-window)' }}>
-                  <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>Time</th>
-                  <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>Customer</th>
-                  <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>Order#</th>
-                  <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>Contact</th>
-                  <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>File</th>
+                  <th style={{ ...thStyle, width: '24px', textAlign: 'center' }}>OK</th>
+                  <th style={{ ...thStyle, width: '55px' }}>TYPE</th>
+                  <th style={thStyle}>TIME</th>
+                  <th style={thStyle}>CUSTOMER</th>
+                  <th style={thStyle}>ORDER#</th>
+                  <th style={thStyle}>CONTACT</th>
                 </tr>
               </thead>
               <tbody>
                 {results.map(fax => (
-                  <tr key={fax.id} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
+                  <tr key={fax.id} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)', cursor: 'pointer', opacity: fax.is_handled ? 0.6 : 1 }} onClick={() => setSelectedFax(fax)}>
+                    <td style={{ padding: '2px', textAlign: 'center' }}>
+                      {fax.is_handled ? <span style={{ color: 'var(--status-success)', fontWeight: 'bold' }}>V</span> : <span style={{ color: '#C00' }}>-</span>}
+                    </td>
+                    <td style={{ padding: '2px 3px' }}><DocTypeBadge type={fax.document_type} /></td>
                     <td style={{ padding: '2px 4px', fontSize: '8px' }}>{new Date(fax.received_at).toLocaleDateString('zh-TW')}</td>
                     <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{fax.customer_name || '—'}</td>
                     <td style={{ padding: '2px 4px' }}>{fax.order_number || '—'}</td>
                     <td style={{ padding: '2px 4px' }}>{fax.our_contact_person || '—'}</td>
-                    <td style={{ padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>{fax.file_name}</td>
                   </tr>
                 ))}
               </tbody>
@@ -475,10 +715,14 @@ function SearchTab() {
 }
 
 // ============================================
-// STATS TAB
+// STATS TAB — Enhanced with type breakdown + handled ratio
 // ============================================
 function StatsTab() {
-  const [stats, setStats] = useState<{ total: number; pending: number; analyzed: number; error: number; todayCount: number } | null>(null)
+  const [stats, setStats] = useState<{
+    total: number; pending: number; analyzed: number; error: number;
+    todayCount: number; unhandled: number; handled: number;
+    byType: Record<string, number>
+  } | null>(null)
   const [recentCustomers, setRecentCustomers] = useState<{ name: string; count: number }[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -508,37 +752,65 @@ function StatsTab() {
   if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>LOADING...</div>
   if (!stats) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>Failed to load stats</div>
 
+  const sortedTypes = Object.entries(stats.byType).sort((a, b) => b[1] - a[1])
+
   return (
     <div>
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', marginBottom: '8px' }}>
         <StatCard label="TOTAL" value={stats.total} color="var(--text-primary)" />
         <StatCard label="TODAY" value={stats.todayCount} color="var(--accent-blue)" />
-        <StatCard label="PENDING" value={stats.pending} color="#FF8C00" />
+        <StatCard label="UNHANDLED" value={stats.unhandled} color="#C00000" />
+        <StatCard label="HANDLED" value={stats.handled} color="var(--status-success)" />
         <StatCard label="ERROR" value={stats.error} color="var(--accent-red)" />
       </div>
 
-      {/* Top customers */}
-      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px' }}>
-        <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>TOP CUSTOMERS</div>
-        {recentCustomers.length === 0 ? (
-          <div style={{ fontSize: '9px', color: 'var(--text-muted)', padding: '8px 0', textAlign: 'center' }}>No data yet</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace' }}>
-            <tbody>
-              {recentCustomers.map((c, i) => (
-                <tr key={c.name} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
-                  <td style={{ padding: '2px 4px', width: '20px', color: 'var(--text-muted)', fontSize: '8px' }}>#{i + 1}</td>
-                  <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{c.name}</td>
-                  <td style={{ padding: '2px 4px', textAlign: 'right', width: '40px' }}>{c.count}</td>
-                  <td style={{ padding: '2px 4px', width: '80px' }}>
-                    <div style={{ height: '8px', background: 'var(--accent-teal)', width: `${Math.min(100, (c.count / (recentCustomers[0]?.count || 1)) * 100)}%`, opacity: 0.7 }} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div style={{ display: 'flex', gap: '6px' }}>
+        {/* Document type breakdown */}
+        <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px', flex: 1 }}>
+          <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>BY DOCUMENT TYPE</div>
+          {sortedTypes.length === 0 ? (
+            <div style={{ fontSize: '9px', color: 'var(--text-muted)', padding: '8px 0', textAlign: 'center' }}>No data</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {sortedTypes.map(([type, count]) => {
+                const style = getDocTypeStyle(type)
+                return (
+                  <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px' }}>
+                    <DocTypeBadge type={type} />
+                    <div style={{ flex: 1, height: '8px', background: 'var(--bg-window)', position: 'relative' }}>
+                      <div style={{ height: '100%', background: style.color, width: `${(count / stats.total) * 100}%`, opacity: 0.5 }} />
+                    </div>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 'bold', minWidth: '20px', textAlign: 'right' }}>{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Top customers */}
+        <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px', flex: 1 }}>
+          <div style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '4px' }}>TOP CUSTOMERS</div>
+          {recentCustomers.length === 0 ? (
+            <div style={{ fontSize: '9px', color: 'var(--text-muted)', padding: '8px 0', textAlign: 'center' }}>No data</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace' }}>
+              <tbody>
+                {recentCustomers.map((c, i) => (
+                  <tr key={c.name} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
+                    <td style={{ padding: '2px 4px', width: '18px', color: 'var(--text-muted)', fontSize: '8px' }}>#{i + 1}</td>
+                    <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{c.name}</td>
+                    <td style={{ padding: '2px 4px', textAlign: 'right', width: '30px' }}>{c.count}</td>
+                    <td style={{ padding: '2px 4px', width: '60px' }}>
+                      <div style={{ height: '8px', background: 'var(--accent-teal)', width: `${Math.min(100, (c.count / (recentCustomers[0]?.count || 1)) * 100)}%`, opacity: 0.7 }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -549,9 +821,9 @@ function StatsTab() {
 // ============================================
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px 8px', textAlign: 'center' }}>
-      <div style={{ fontSize: '18px', fontWeight: 'bold', color, fontFamily: 'monospace' }}>{value}</div>
-      <div style={{ fontSize: '7px', color: 'var(--text-muted)', fontWeight: 'bold', letterSpacing: '0.5px' }}>{label}</div>
+    <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px 4px', textAlign: 'center' }}>
+      <div style={{ fontSize: '16px', fontWeight: 'bold', color, fontFamily: 'monospace' }}>{value}</div>
+      <div style={{ fontSize: '7px', color: 'var(--text-muted)', fontWeight: 'bold', letterSpacing: '0.3px' }}>{label}</div>
     </div>
   )
 }
@@ -559,8 +831,8 @@ function StatCard({ label, value, color }: { label: string; value: number; color
 function InfoRow({ label, value, bold, highlight }: { label: string; value?: string | null; bold?: boolean; highlight?: boolean }) {
   return (
     <div style={{ display: 'flex', gap: '6px', padding: '1px 0', borderBottom: '1px solid var(--table-border)' }}>
-      <span style={{ width: '65px', flexShrink: 0, color: 'var(--text-muted)', fontSize: '8px', fontWeight: 'bold' }}>{label}</span>
-      <span style={{ fontWeight: bold ? 'bold' : 'normal', color: highlight ? 'var(--status-success)' : value ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+      <span style={{ width: '60px', flexShrink: 0, color: 'var(--text-muted)', fontSize: '8px', fontWeight: 'bold' }}>{label}</span>
+      <span style={{ fontWeight: bold ? 'bold' : 'normal', color: highlight ? 'var(--status-success)' : value ? 'var(--text-primary)' : 'var(--text-muted)', wordBreak: 'break-all' }}>
         {value || '—'}
       </span>
     </div>
@@ -570,7 +842,7 @@ function InfoRow({ label, value, bold, highlight }: { label: string; value?: str
 function FieldRow({ label, value, onChange, multiline }: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean }) {
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: multiline ? 'flex-start' : 'center' }}>
-      <span style={{ width: '65px', flexShrink: 0, color: 'var(--text-muted)', fontSize: '8px', fontWeight: 'bold', paddingTop: multiline ? '2px' : 0 }}>{label}</span>
+      <span style={{ width: '60px', flexShrink: 0, color: 'var(--text-muted)', fontSize: '8px', fontWeight: 'bold', paddingTop: multiline ? '2px' : 0 }}>{label}</span>
       {multiline ? (
         <textarea value={value} onChange={e => onChange(e.target.value)} className="inset" rows={2} style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', resize: 'vertical' }} />
       ) : (

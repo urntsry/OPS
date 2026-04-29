@@ -39,13 +39,13 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
 
   const checkFaxes = useCallback(async () => {
     try {
-      const faxes = await getFaxes(50)
-      const pending = faxes.filter(f => f.status === 'pending' || f.status === 'analyzing').length
-      if (pending > faxPending && faxPending >= 0) {
+      const faxes = await getFaxes(100)
+      const unhandled = faxes.filter(f => !f.is_handled && (f.status === 'analyzed' || f.status === 'pending' || f.status === 'analyzing')).length
+      if (unhandled > faxPending && faxPending >= 0) {
         setFaxFlash(true)
         setTimeout(() => setFaxFlash(false), 5000)
       }
-      setFaxPending(pending)
+      setFaxPending(unhandled)
     } catch { /* ignore */ }
   }, [faxPending])
 

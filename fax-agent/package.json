@@ -1,0 +1,14 @@
+{
+  "name": "fax-watcher-agent",
+  "version": "1.0.0",
+  "description": "Watches a local folder for new fax files and uploads them to OPS system",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "watch": "node index.js --watch"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0",
+    "form-data": "^4.0.0"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "watchFolder": "D:\\FAX\\Incoming",
+  "apiUrl": "https://your-ops-domain.vercel.app/api/fax/upload",
+  "extensions": [".pdf", ".tif", ".tiff", ".jpg", ".jpeg", ".png", ".bmp"],
+  "processedFile": "./processed.json"
+}

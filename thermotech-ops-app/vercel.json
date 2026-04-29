@@ -3,6 +3,11 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/fax/notify",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }
-
