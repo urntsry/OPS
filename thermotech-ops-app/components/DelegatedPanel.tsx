@@ -16,13 +16,10 @@ interface Props {
   onCreateRequest?: () => void
 }
 
-type TabKey = 'received' | 'issued'
-
-export default function DelegatedPanel({ userId, userRole, userName, onCreateRequest }: Props) {
+export default function DelegatedPanel({ userId, userRole, userName: _userName, onCreateRequest }: Props) {
   const [received, setReceived] = useState<Delegation[]>([])
   const [issued, setIssued] = useState<Delegation[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabKey>('received')
   // 點列展開的目標 id（一次只展開一列）
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -44,9 +41,7 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
     }
   }, [userId, isIssuer])
 
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  useEffect(() => { refresh() }, [refresh])
 
   // Realtime
   useEffect(() => {
@@ -55,14 +50,13 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
     return unsub
   }, [userId, refresh])
 
-  // Auto-tab switch: 如果有承接但沒交辦過 → 預設我承接的；反之亦然
-  useEffect(() => {
-    if (received.length > 0 && issued.length === 0) setActiveTab('received')
-    else if (received.length === 0 && issued.length > 0 && isIssuer) setActiveTab('issued')
-  }, [received.length, issued.length, isIssuer])
-
-  const list = activeTab === 'received' ? received : issued
-  const title = userName ? `${userName} 的交辦看板` : '交辦看板'
+  // 合併、去重、依到期日排序
+  const list = useMemo(() => {
+    const map = new Map<string, Delegation>()
+    for (const d of received) map.set(d.id, d)
+    for (const d of issued) map.set(d.id, d)
+    return Array.from(map.values()).sort((a, b) => a.due_date.localeCompare(b.due_date))
+  }, [received, issued])
 
   // Auto-hide: 沒承接、沒交辦、也不是 issuer → 不顯示
   const shouldHide = received.length === 0 && issued.length === 0 && !isIssuer
@@ -92,11 +86,11 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
     <div className="window" style={{ overflow: 'hidden' }}>
       {/* Titlebar */}
       <div className="titlebar" style={{ padding: '2px 6px', fontSize: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>📋 DELEGATED · 交辦事項</span>
+        <span>📋 DELEGATED ({list.length})</span>
         {isIssuer && onCreateRequest && (
           <button
             onClick={onCreateRequest}
-            title={title}
+            title="新增交辦事項"
             style={{ padding: '0 6px', fontSize: '10px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', height: '16px' }}
           >
             + 新增
@@ -104,57 +98,26 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
         )}
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-mid-dark)', background: 'var(--bg-inset)' }}>
-        <TabButton
-          active={activeTab === 'received'}
-          onClick={() => setActiveTab('received')}
-          label={`我承接的 (${received.length})`}
-        />
-        {isIssuer && (
-          <TabButton
-            active={activeTab === 'issued'}
-            onClick={() => setActiveTab('issued')}
-            label={`我交辦的 (${issued.length})`}
-          />
-        )}
-      </div>
-
-      {/* Table — 清單視圖 */}
-      <div style={{ maxHeight: '220px', overflowY: 'auto', overflowX: 'auto' }}>
+      {/* List */}
+      <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
         {loading ? (
           <div style={{ padding: '12px', textAlign: 'center', fontSize: '9px', color: 'var(--text-muted)' }}>載入中...</div>
         ) : list.length === 0 ? (
           <div style={{ padding: '12px', textAlign: 'center', fontSize: '9px', color: 'var(--text-muted)' }}>
-            {activeTab === 'received' ? '目前沒有承接的交辦事項' : '尚未交辦任何事項'}
+            目前無交辦事項
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: '9px', tableLayout: 'auto' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-inset)', position: 'sticky', top: 0, zIndex: 1 }}>
-                <th style={{ ...th, width: '20px' }}></th>
-                <th style={th}>交辦人</th>
-                <th style={th}>承接人</th>
-                <th style={{ ...th, textAlign: 'left' }}>項目</th>
-                <th style={th}>起</th>
-                <th style={th}>訖</th>
-                <th style={th}>狀態</th>
-                <th style={th}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map(d => (
-                <DelegationRow
-                  key={d.id}
-                  delegation={d}
-                  expanded={expandedId === d.id}
-                  onToggleExpand={() => setExpandedId(prev => prev === d.id ? null : d.id)}
-                  onMarkDone={activeTab === 'received' ? () => handleMarkDone(d.id) : undefined}
-                  onDelete={activeTab === 'issued' ? () => handleDelete(d.id) : undefined}
-                />
-              ))}
-            </tbody>
-          </table>
+          list.map(d => (
+            <DelegationRow
+              key={d.id}
+              delegation={d}
+              currentUserId={userId}
+              expanded={expandedId === d.id}
+              onToggleExpand={() => setExpandedId(prev => prev === d.id ? null : d.id)}
+              onMarkDone={() => handleMarkDone(d.id)}
+              onDelete={() => handleDelete(d.id)}
+            />
+          ))
         )}
       </div>
     </div>
@@ -162,61 +125,20 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
 }
 
 // =============================================================
-const th: React.CSSProperties = {
-  padding: '3px 4px',
-  fontSize: '9px',
-  fontWeight: 'bold',
-  color: 'var(--text-primary)',
-  borderBottom: '1px solid var(--border-mid-dark)',
-  textAlign: 'center',
-  whiteSpace: 'nowrap',
-  background: 'var(--bg-inset)',
-}
-
-const td: React.CSSProperties = {
-  padding: '3px 4px',
-  fontSize: '10px',
-  borderBottom: '1px solid var(--table-border)',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  color: 'var(--text-primary)',
-}
-
-function TabButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        padding: '4px 6px',
-        fontSize: '10px',
-        fontFamily: 'monospace',
-        border: 'none',
-        borderBottom: active ? '2px solid var(--accent-blue)' : '2px solid transparent',
-        background: active ? 'var(--bg-window)' : 'transparent',
-        color: active ? 'var(--accent-blue)' : 'var(--text-muted)',
-        fontWeight: active ? 'bold' : 'normal',
-        cursor: 'pointer',
-      }}
-    >
-      {label}
-    </button>
-  )
-}
-
-// =============================================================
 function DelegationRow({
-  delegation: d, expanded, onToggleExpand, onMarkDone, onDelete,
+  delegation: d, currentUserId, expanded, onToggleExpand, onMarkDone, onDelete,
 }: {
   delegation: Delegation
+  currentUserId: string
   expanded: boolean
   onToggleExpand: () => void
-  onMarkDone?: () => void
-  onDelete?: () => void
+  onMarkDone: () => void
+  onDelete: () => void
 }) {
   const overdue = isOverdue(d)
   const daysLeft = daysUntilDue(d)
+  const iAmAssignee = d.assignee_id === currentUserId
+  const iAmIssuer = d.issuer_id === currentUserId
 
   const statusInfo = useMemo(() => {
     if (d.status === 'done') return { text: '✓ 完成', color: 'var(--text-muted)' }
@@ -233,11 +155,10 @@ function DelegationRow({
   }, [d.priority])
 
   const fmtDate = (s: string) => s.slice(5).replace('-', '/')  // MM/DD
-  const fmtFull = (s: string) => s  // YYYY-MM-DD
   const fmtDateTime = (iso: string | null) => {
     if (!iso) return '—'
-    const d = new Date(iso)
-    return `${d.toLocaleDateString()} ${d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
+    const dt = new Date(iso)
+    return `${dt.toLocaleDateString()} ${dt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
   }
   const totalDays = useMemo(() => {
     const s = new Date(d.start_date).getTime()
@@ -245,109 +166,144 @@ function DelegationRow({
     return Math.round((e - s) / 86400000) + 1
   }, [d.start_date, d.due_date])
 
-  // 阻止點擊操作按鈕時觸發列展開
-  const stopExpand = (e: React.MouseEvent) => e.stopPropagation()
+  // 方向指示：來自 → 我 / 我 → 給誰
+  // 這樣即使欄位窄也能一眼看出角色
+  const dirLabel = iAmAssignee
+    ? <><span style={{ color: 'var(--text-muted)' }}>{d.issuer_name || '?'}</span><span style={{ margin: '0 3px', color: 'var(--accent-blue)' }}>→</span><span style={{ color: 'var(--accent-blue)', fontWeight: 'bold' }}>我</span></>
+    : <><span style={{ color: 'var(--accent-blue)', fontWeight: 'bold' }}>我</span><span style={{ margin: '0 3px', color: 'var(--accent-blue)' }}>→</span><span style={{ color: 'var(--text-muted)' }}>{d.assignee_name || '?'}</span></>
+
+  const borderLeftColor = overdue ? 'var(--accent-red)' : (iAmAssignee ? 'var(--accent-blue)' : 'var(--accent-orange)')
 
   return (
     <>
-      <tr
-        className="eventlist-row"
+      {/* Row — 兩行緊湊版面，適合窄欄位 */}
+      <div
         onClick={onToggleExpand}
+        className="eventlist-row"
         style={{
-          background: expanded ? 'var(--bg-inset)' : (overdue ? 'rgba(178,34,34,0.06)' : 'transparent'),
+          padding: '4px 5px',
+          borderBottom: '1px solid var(--table-border)',
+          borderLeft: `3px solid ${borderLeftColor}`,
+          background: expanded ? 'var(--bg-inset)' : (overdue ? 'rgba(178,34,34,0.06)' : 'var(--bg-window)'),
           cursor: 'pointer',
+          fontSize: '10px',
+          fontFamily: 'monospace',
         }}
-        title={expanded ? '點擊收起' : '點擊展開詳細資訊'}
+        title={expanded ? '點擊收起' : '點擊展開詳情'}
       >
-        <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)', fontWeight: 'bold' }}>{expanded ? '▼' : '▶'}</td>
-        <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>{d.issuer_name || '—'}</td>
-        <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>{d.assignee_name || '—'}</td>
-        <td style={{ ...td, fontWeight: 'bold' }}>
+        {/* Line 1: 展開符號 + 優先度 + 標題 + 狀態 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+          <span style={{ fontSize: '8px', color: 'var(--text-muted)', flexShrink: 0 }}>{expanded ? '▼' : '▶'}</span>
           {priorityBadge && (
-            <span style={{ display: 'inline-block', fontSize: '8px', padding: '0 3px', marginRight: '3px', background: priorityBadge.color, color: '#FFF', fontWeight: 'bold', verticalAlign: 'middle' }}>
+            <span style={{ fontSize: '8px', padding: '0 3px', background: priorityBadge.color, color: '#FFF', fontWeight: 'bold', flexShrink: 0 }}>
               {priorityBadge.text}
             </span>
           )}
-          {d.title}
-        </td>
-        <td style={{ ...td, textAlign: 'center' }}>{fmtDate(d.start_date)}</td>
-        <td style={{ ...td, textAlign: 'center', color: overdue ? 'var(--accent-red)' : 'var(--text-primary)', fontWeight: overdue ? 'bold' : 'normal' }}>{fmtDate(d.due_date)}</td>
-        <td style={{ ...td, textAlign: 'center', color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</td>
-        <td style={{ ...td, textAlign: 'center' }} onClick={stopExpand}>
-          {onMarkDone && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onMarkDone() }}
-              style={{ fontSize: '9px', padding: '1px 4px', border: '1px solid var(--accent-green)', background: 'var(--bg-window)', color: 'var(--accent-green)', cursor: 'pointer', fontFamily: 'monospace' }}
-              title="標記完成（會通知交辦人）"
-            >
-              ✓
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete() }}
-              style={{ fontSize: '9px', padding: '1px 4px', border: '1px solid var(--accent-red)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', fontFamily: 'monospace' }}
-              title="刪除"
-            >
-              ×
-            </button>
-          )}
-        </td>
-      </tr>
+          <span style={{ flex: 1, fontWeight: 'bold', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {d.title}
+          </span>
+          <span style={{ fontSize: '9px', color: statusInfo.color, fontWeight: 'bold', flexShrink: 0 }}>
+            {statusInfo.text}
+          </span>
+        </div>
 
-      {/* 展開：詳細資訊列 */}
+        {/* Line 2: 交辦人→承接人 + 期間 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', color: 'var(--text-muted)' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dirLabel}
+          </span>
+          <span style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            {fmtDate(d.start_date)}~{fmtDate(d.due_date)}
+          </span>
+        </div>
+      </div>
+
+      {/* Expanded detail */}
       {expanded && (
-        <tr style={{ background: 'var(--bg-inset)' }}>
-          <td colSpan={8} style={{ padding: '8px 14px', borderBottom: '2px solid var(--accent-blue)', borderLeft: '3px solid var(--accent-blue)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px 16px', fontSize: '10px' }}>
-              <Field label="完整標題">{d.title}</Field>
-              <Field label="交辦人">{d.issuer_name || '—'}</Field>
-              <Field label="承接人">{d.assignee_name || '—'}</Field>
-              <Field label="期間">
-                {fmtFull(d.start_date)} → {fmtFull(d.due_date)}
-                <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>(共 {totalDays} 天)</span>
-              </Field>
-              <Field label="優先度">
-                <span style={{ color: priorityBadge?.color || 'var(--text-primary)', fontWeight: 'bold' }}>
-                  {d.priority === 'urgent' ? '🔴 緊急' : d.priority === 'high' ? '🟠 重要' : '⚪ 普通'}
-                </span>
-              </Field>
-              <Field label="狀態">
-                <span style={{ color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</span>
-              </Field>
-              <Field label="建立時間">{fmtDateTime(d.created_at)}</Field>
-              {d.completed_at && <Field label="完成時間">{fmtDateTime(d.completed_at)}</Field>}
+        <div
+          style={{
+            padding: '8px 10px',
+            background: 'var(--bg-inset)',
+            borderLeft: '3px solid var(--accent-blue)',
+            borderBottom: '2px solid var(--accent-blue)',
+            fontSize: '10px',
+            fontFamily: 'monospace',
+          }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 8px', marginBottom: '6px' }}>
+            <DLabel>交辦人</DLabel><DValue>{d.issuer_name || '—'}</DValue>
+            <DLabel>承接人</DLabel><DValue>{d.assignee_name || '—'}</DValue>
+            <DLabel>項目</DLabel><DValue style={{ fontWeight: 'bold' }}>{d.title}</DValue>
+            <DLabel>起始</DLabel><DValue>{d.start_date}</DValue>
+            <DLabel>結束</DLabel>
+            <DValue style={{ color: overdue ? 'var(--accent-red)' : undefined, fontWeight: overdue ? 'bold' : 'normal' }}>
+              {d.due_date} <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(共 {totalDays} 天)</span>
+            </DValue>
+            <DLabel>優先度</DLabel>
+            <DValue>
+              <span style={{ color: priorityBadge?.color || 'var(--text-primary)', fontWeight: 'bold' }}>
+                {d.priority === 'urgent' ? '🔴 緊急' : d.priority === 'high' ? '🟠 重要' : '⚪ 普通'}
+              </span>
+            </DValue>
+            <DLabel>狀態</DLabel>
+            <DValue><span style={{ color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</span></DValue>
+            <DLabel>建立</DLabel><DValue style={{ color: 'var(--text-muted)' }}>{fmtDateTime(d.created_at)}</DValue>
+            {d.completed_at && (
+              <>
+                <DLabel>完成於</DLabel>
+                <DValue style={{ color: 'var(--accent-green)' }}>{fmtDateTime(d.completed_at)}</DValue>
+              </>
+            )}
+          </div>
+
+          {d.description && (
+            <div style={{ marginTop: '6px' }}>
+              <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '2px' }}>內容說明</div>
+              <div style={{ padding: '5px 7px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text-primary)' }}>
+                {d.description}
+              </div>
             </div>
+          )}
 
-            {d.description && (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '3px' }}>內容說明</div>
-                <div style={{ padding: '6px 8px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text-primary)' }}>
-                  {d.description}
-                </div>
+          {d.completed_note && (
+            <div style={{ marginTop: '6px' }}>
+              <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '2px' }}>完成備註</div>
+              <div style={{ padding: '5px 7px', background: 'var(--bg-window)', border: '1px solid var(--accent-green)', whiteSpace: 'pre-wrap', color: 'var(--accent-green)' }}>
+                ✓ {d.completed_note}
               </div>
-            )}
+            </div>
+          )}
 
-            {d.completed_note && (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '3px' }}>完成備註</div>
-                <div style={{ padding: '6px 8px', background: 'var(--bg-window)', border: '1px solid var(--accent-green)', fontSize: '10px', whiteSpace: 'pre-wrap', color: 'var(--accent-green)' }}>
-                  ✓ {d.completed_note}
-                </div>
-              </div>
+          {/* Action buttons — 依角色顯示 */}
+          <div style={{ marginTop: '8px', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+            {iAmAssignee && d.status === 'pending' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMarkDone() }}
+                style={{ fontSize: '10px', padding: '3px 10px', border: '1px solid var(--accent-green)', background: 'var(--bg-window)', color: 'var(--accent-green)', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 'bold' }}
+                title="標記完成（會通知交辦人）"
+              >
+                ✓ 標記完成
+              </button>
             )}
-          </td>
-        </tr>
+            {iAmIssuer && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                style={{ fontSize: '10px', padding: '3px 10px', border: '1px solid var(--accent-red)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', fontFamily: 'monospace' }}
+                title="刪除此交辦事項"
+              >
+                × 刪除
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '2px' }}>{label}</div>
-      <div style={{ color: 'var(--text-primary)' }}>{children}</div>
-    </div>
-  )
+function DLabel({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{children}</div>
+}
+function DValue({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <div style={{ color: 'var(--text-primary)', wordBreak: 'break-word', ...style }}>{children}</div>
 }

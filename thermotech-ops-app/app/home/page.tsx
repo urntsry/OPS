@@ -1155,18 +1155,14 @@ function HomePageInner() {
             </div>
 
             {/* Bottom panels — responsive: auto-fit, narrow → 1 col, wide → 5 cols */}
-            {/* DELEGATED — full-width row (table needs more horizontal space) */}
-            <div style={{ marginBottom: '6px' }}>
+            {/* Bottom panels — 5 columns: DELEGATED + ROUTINE + TASKS + PUBLIC + NOTICE */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px' }}>
               <DelegatedPanel
                 userId={userId}
                 userRole={userRole}
                 userName={userProfile?.full_name || ''}
                 onCreateRequest={() => setDelegationModalOpen(true)}
               />
-            </div>
-
-            {/* Bottom panels — responsive: auto-fit, narrow → 1 col, wide → 4 cols */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px' }}>
               <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
               <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
               <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
