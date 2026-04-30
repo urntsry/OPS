@@ -23,6 +23,8 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
   const [issued, setIssued] = useState<Delegation[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('received')
+  // 點列展開的目標 id（一次只展開一列）
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const isIssuer = canIssueDelegation(userId, userRole)
 
@@ -130,6 +132,7 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'monospace', fontSize: '9px', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ background: 'var(--bg-inset)', position: 'sticky', top: 0, zIndex: 1 }}>
+                <th style={{ ...th, width: '20px' }}></th>
                 <th style={th}>交辦人</th>
                 <th style={th}>承接人</th>
                 <th style={{ ...th, textAlign: 'left' }}>項目</th>
@@ -144,6 +147,8 @@ export default function DelegatedPanel({ userId, userRole, userName, onCreateReq
                 <DelegationRow
                   key={d.id}
                   delegation={d}
+                  expanded={expandedId === d.id}
+                  onToggleExpand={() => setExpandedId(prev => prev === d.id ? null : d.id)}
                   onMarkDone={activeTab === 'received' ? () => handleMarkDone(d.id) : undefined}
                   onDelete={activeTab === 'issued' ? () => handleDelete(d.id) : undefined}
                 />
@@ -202,9 +207,11 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
 
 // =============================================================
 function DelegationRow({
-  delegation: d, onMarkDone, onDelete,
+  delegation: d, expanded, onToggleExpand, onMarkDone, onDelete,
 }: {
   delegation: Delegation
+  expanded: boolean
+  onToggleExpand: () => void
   onMarkDone?: () => void
   onDelete?: () => void
 }) {
@@ -226,48 +233,121 @@ function DelegationRow({
   }, [d.priority])
 
   const fmtDate = (s: string) => s.slice(5).replace('-', '/')  // MM/DD
+  const fmtFull = (s: string) => s  // YYYY-MM-DD
+  const fmtDateTime = (iso: string | null) => {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    return `${d.toLocaleDateString()} ${d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
+  }
+  const totalDays = useMemo(() => {
+    const s = new Date(d.start_date).getTime()
+    const e = new Date(d.due_date).getTime()
+    return Math.round((e - s) / 86400000) + 1
+  }, [d.start_date, d.due_date])
+
+  // 阻止點擊操作按鈕時觸發列展開
+  const stopExpand = (e: React.MouseEvent) => e.stopPropagation()
 
   return (
-    <tr
-      className="eventlist-row"
-      style={{
-        background: overdue ? 'rgba(178,34,34,0.06)' : 'transparent',
-      }}
-      title={d.description || d.title}
-    >
-      <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>{d.issuer_name || '—'}</td>
-      <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>{d.assignee_name || '—'}</td>
-      <td style={{ ...td, fontWeight: 'bold' }}>
-        {priorityBadge && (
-          <span style={{ display: 'inline-block', fontSize: '8px', padding: '0 3px', marginRight: '3px', background: priorityBadge.color, color: '#FFF', fontWeight: 'bold', verticalAlign: 'middle' }}>
-            {priorityBadge.text}
-          </span>
-        )}
-        {d.title}
-      </td>
-      <td style={{ ...td, textAlign: 'center' }}>{fmtDate(d.start_date)}</td>
-      <td style={{ ...td, textAlign: 'center', color: overdue ? 'var(--accent-red)' : 'var(--text-primary)', fontWeight: overdue ? 'bold' : 'normal' }}>{fmtDate(d.due_date)}</td>
-      <td style={{ ...td, textAlign: 'center', color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</td>
-      <td style={{ ...td, textAlign: 'center' }}>
-        {onMarkDone && (
-          <button
-            onClick={onMarkDone}
-            style={{ fontSize: '9px', padding: '1px 4px', border: '1px solid var(--accent-green)', background: 'var(--bg-window)', color: 'var(--accent-green)', cursor: 'pointer', fontFamily: 'monospace' }}
-            title="標記完成（會通知交辦人）"
-          >
-            ✓
-          </button>
-        )}
-        {onDelete && (
-          <button
-            onClick={onDelete}
-            style={{ fontSize: '9px', padding: '1px 4px', border: '1px solid var(--accent-red)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', fontFamily: 'monospace' }}
-            title="刪除"
-          >
-            ×
-          </button>
-        )}
-      </td>
-    </tr>
+    <>
+      <tr
+        className="eventlist-row"
+        onClick={onToggleExpand}
+        style={{
+          background: expanded ? 'var(--bg-inset)' : (overdue ? 'rgba(178,34,34,0.06)' : 'transparent'),
+          cursor: 'pointer',
+        }}
+        title={expanded ? '點擊收起' : '點擊展開詳細資訊'}
+      >
+        <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)', fontWeight: 'bold' }}>{expanded ? '▼' : '▶'}</td>
+        <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>{d.issuer_name || '—'}</td>
+        <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>{d.assignee_name || '—'}</td>
+        <td style={{ ...td, fontWeight: 'bold' }}>
+          {priorityBadge && (
+            <span style={{ display: 'inline-block', fontSize: '8px', padding: '0 3px', marginRight: '3px', background: priorityBadge.color, color: '#FFF', fontWeight: 'bold', verticalAlign: 'middle' }}>
+              {priorityBadge.text}
+            </span>
+          )}
+          {d.title}
+        </td>
+        <td style={{ ...td, textAlign: 'center' }}>{fmtDate(d.start_date)}</td>
+        <td style={{ ...td, textAlign: 'center', color: overdue ? 'var(--accent-red)' : 'var(--text-primary)', fontWeight: overdue ? 'bold' : 'normal' }}>{fmtDate(d.due_date)}</td>
+        <td style={{ ...td, textAlign: 'center', color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</td>
+        <td style={{ ...td, textAlign: 'center' }} onClick={stopExpand}>
+          {onMarkDone && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onMarkDone() }}
+              style={{ fontSize: '9px', padding: '1px 4px', border: '1px solid var(--accent-green)', background: 'var(--bg-window)', color: 'var(--accent-green)', cursor: 'pointer', fontFamily: 'monospace' }}
+              title="標記完成（會通知交辦人）"
+            >
+              ✓
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              style={{ fontSize: '9px', padding: '1px 4px', border: '1px solid var(--accent-red)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', fontFamily: 'monospace' }}
+              title="刪除"
+            >
+              ×
+            </button>
+          )}
+        </td>
+      </tr>
+
+      {/* 展開：詳細資訊列 */}
+      {expanded && (
+        <tr style={{ background: 'var(--bg-inset)' }}>
+          <td colSpan={8} style={{ padding: '8px 14px', borderBottom: '2px solid var(--accent-blue)', borderLeft: '3px solid var(--accent-blue)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px 16px', fontSize: '10px' }}>
+              <Field label="完整標題">{d.title}</Field>
+              <Field label="交辦人">{d.issuer_name || '—'}</Field>
+              <Field label="承接人">{d.assignee_name || '—'}</Field>
+              <Field label="期間">
+                {fmtFull(d.start_date)} → {fmtFull(d.due_date)}
+                <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>(共 {totalDays} 天)</span>
+              </Field>
+              <Field label="優先度">
+                <span style={{ color: priorityBadge?.color || 'var(--text-primary)', fontWeight: 'bold' }}>
+                  {d.priority === 'urgent' ? '🔴 緊急' : d.priority === 'high' ? '🟠 重要' : '⚪ 普通'}
+                </span>
+              </Field>
+              <Field label="狀態">
+                <span style={{ color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</span>
+              </Field>
+              <Field label="建立時間">{fmtDateTime(d.created_at)}</Field>
+              {d.completed_at && <Field label="完成時間">{fmtDateTime(d.completed_at)}</Field>}
+            </div>
+
+            {d.description && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '3px' }}>內容說明</div>
+                <div style={{ padding: '6px 8px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'var(--text-primary)' }}>
+                  {d.description}
+                </div>
+              </div>
+            )}
+
+            {d.completed_note && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '3px' }}>完成備註</div>
+                <div style={{ padding: '6px 8px', background: 'var(--bg-window)', border: '1px solid var(--accent-green)', fontSize: '10px', whiteSpace: 'pre-wrap', color: 'var(--accent-green)' }}>
+                  ✓ {d.completed_note}
+                </div>
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '2px' }}>{label}</div>
+      <div style={{ color: 'var(--text-primary)' }}>{children}</div>
+    </div>
   )
 }
