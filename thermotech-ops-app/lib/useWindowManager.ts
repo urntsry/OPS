@@ -55,14 +55,12 @@ const TASKBAR_HEIGHT = 28
 
 let globalZCounter = 10
 
-function getCascadePosition(existingWindows: Record<string, WindowState>): { x: number; y: number } {
-  const openCount = Object.values(existingWindows).filter(w => w.isOpen).length
-  const baseX = 60
-  const baseY = 40
-  const offset = 30
+function getCenterPosition(width: number, height: number): { x: number; y: number } {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
   return {
-    x: baseX + (openCount * offset),
-    y: baseY + (openCount * offset),
+    x: Math.max(0, Math.round((vw - width) / 2)),
+    y: Math.max(0, Math.round((vh - height - TASKBAR_HEIGHT) / 2)),
   }
 }
 
@@ -102,18 +100,16 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
     }
 
     globalZCounter++
-    const pos = getCascadePosition(windows)
 
-    // Clamp window to viewport so default sizes don't exceed the screen
-    // (important when the browser window itself is small)
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     const maxW = Math.max(320, vw - 20)
     const maxH = Math.max(240, vh - TASKBAR_HEIGHT - 20)
     const w = Math.min(config.defaultWidth, maxW)
     const h = Math.min(config.defaultHeight, maxH)
-    const x = Math.min(pos.x, Math.max(0, vw - w - 10))
-    const y = Math.min(pos.y, Math.max(0, vh - h - TASKBAR_HEIGHT - 10))
+    const pos = getCenterPosition(w, h)
+    const x = pos.x
+    const y = pos.y
 
     set({
       windows: {

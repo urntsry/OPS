@@ -6,7 +6,7 @@ import AnnouncementManagementPage from './AnnouncementManagementPage'
 import AnnouncementReviewPage from './AnnouncementReviewPage'
 import HRNotificationPage from './HRNotificationPage'
 import { getPendingBulletins } from '@/lib/bulletinApi'
-import { getHRProfiles, getHREvents, getUpcomingExpirations, updateHRProfile, createHREvent, getLineBindingStatus, unbindLineUser, type HRProfile, type HREvent, type ExpirationAlert, type LineBindingEntry } from '@/lib/hrApi'
+import { getHRProfiles, getHREvents, getUpcomingExpirations, updateHRProfile, createHREvent, unbindLineUser, type HRProfile, type HREvent, type ExpirationAlert } from '@/lib/hrApi'
 
 interface HRPageProps {
   isAdmin?: boolean
@@ -133,15 +133,23 @@ function HRDashboard() {
 }
 
 // ============================================
-// HR Records — employee data management
+// HR Records — employee data + LINE binding (merged)
 // ============================================
+type SortKey = 'employee_id' | 'full_name' | 'department' | 'hire_date' | 'line_status' | 'line_bound_at'
+type SortDir = 'asc' | 'desc'
+
 function HRRecords() {
   const [profiles, setProfiles] = useState<HRProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const [filter, setFilter] = useState('')
+  const [lineFilter, setLineFilter] = useState<'all' | 'bound' | 'unbound'>('all')
+  const [deptFilter, setDeptFilter] = useState<string>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('employee_id')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<HRProfile>>({})
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => { loadProfiles() }, [showAll])
 
@@ -157,10 +165,41 @@ function HRRecords() {
     }
   }
 
+  const departments = Array.from(new Set(profiles.map(p => p.department).filter(Boolean))) as string[]
+
   const filtered = profiles.filter(p => {
-    if (!filter) return true
-    return p.full_name.includes(filter) || p.employee_id.includes(filter) || (p.department && p.department.includes(filter))
+    if (lineFilter === 'bound' && !p.line_user_id) return false
+    if (lineFilter === 'unbound' && p.line_user_id) return false
+    if (deptFilter !== 'all' && p.department !== deptFilter) return false
+    if (filter) {
+      const q = filter.toLowerCase()
+      return p.full_name.toLowerCase().includes(q) || p.employee_id.toLowerCase().includes(q)
+    }
+    return true
   })
+
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0
+    switch (sortKey) {
+      case 'employee_id': cmp = a.employee_id.localeCompare(b.employee_id); break
+      case 'full_name': cmp = a.full_name.localeCompare(b.full_name); break
+      case 'department': cmp = (a.department || '').localeCompare(b.department || ''); break
+      case 'hire_date': cmp = (a.hire_date || '').localeCompare(b.hire_date || ''); break
+      case 'line_status': cmp = (a.line_user_id ? 0 : 1) - (b.line_user_id ? 0 : 1); break
+      case 'line_bound_at': cmp = (a.line_bound_at || '').localeCompare(b.line_bound_at || ''); break
+    }
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) { setSortDir(d => d === 'asc' ? 'desc' : 'asc') }
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  function sortIndicator(key: SortKey) {
+    if (sortKey !== key) return ''
+    return sortDir === 'asc' ? ' ▲' : ' ▼'
+  }
 
   function startEdit(profile: HRProfile) {
     setEditingId(profile.id)
@@ -189,53 +228,102 @@ function HRRecords() {
     }
   }
 
+  async function handleUnbind(p: HRProfile) {
+    if (!confirm(`確定解除 ${p.full_name}（${p.employee_id}）的 LINE 綁定？`)) return
+    try {
+      await unbindLineUser(p.id)
+      setToast(`已解除 ${p.full_name} 的 LINE 綁定`)
+      setTimeout(() => setToast(null), 3000)
+      loadProfiles()
+    } catch (err) {
+      setToast('解除綁定失敗')
+      setTimeout(() => setToast(null), 3000)
+    }
+  }
+
+  const boundCount = profiles.filter(p => p.line_user_id).length
+
   if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
 
+  const thClickStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none' }
+
   return (
-    <div>
-      {/* Controls */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Stats + Filters */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center' }}>
+        <span>人員: <b style={{ color: 'var(--text-primary)' }}>{profiles.length}</b></span>
+        <span>LINE: <b style={{ color: 'var(--status-success)' }}>{boundCount}</b>/<b style={{ color: 'var(--status-error)' }}>{profiles.length - boundCount}</b></span>
+        {toast && <span style={{ marginLeft: 'auto', color: 'var(--status-success)' }}>{toast}</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', fontSize: '8px', alignItems: 'center' }}>
         <input
           type="text"
-          placeholder="搜尋..."
+          placeholder="搜尋姓名/編號..."
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', width: '100px' }}
+          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', width: '110px' }}
         />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+        <select
+          value={lineFilter}
+          onChange={e => setLineFilter(e.target.value as 'all' | 'bound' | 'unbound')}
+          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}
+        >
+          <option value="all">LINE 全部</option>
+          <option value="bound">已綁定</option>
+          <option value="unbound">未綁定</option>
+        </select>
+        <select
+          value={deptFilter}
+          onChange={e => setDeptFilter(e.target.value)}
+          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}
+        >
+          <option value="all">全部部門</option>
+          {departments.sort().map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', color: 'var(--text-muted)' }}>
           <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} style={{ width: '10px', height: '10px' }} />
           含離職
         </label>
-        <span style={{ marginLeft: 'auto' }}>顯示 <b style={{ color: 'var(--text-primary)' }}>{filtered.length}</b> 筆</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>篩選: <b style={{ color: 'var(--text-primary)' }}>{sorted.length}</b> 筆</span>
       </div>
 
       {/* Table */}
-      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', maxHeight: '420px', overflow: 'hidden auto' }}>
+      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', flex: 1, minHeight: 0, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
           <thead>
-            <tr style={{ background: 'var(--bg-window)' }}>
-              <th style={{ ...hrThStyle, width: '50px' }}>編號</th>
-              <th style={{ ...hrThStyle, width: '60px' }}>姓名</th>
-              <th style={{ ...hrThStyle, width: '55px' }}>部門</th>
-              <th style={{ ...hrThStyle, width: '70px' }}>到職日</th>
-              <th style={{ ...hrThStyle, width: '70px' }}>勞保到期</th>
-              <th style={{ ...hrThStyle, width: '70px' }}>健保到期</th>
-              <th style={{ ...hrThStyle, width: '70px' }}>合約到期</th>
-              <th style={{ ...hrThStyle, width: '35px', textAlign: 'center' }}>OP</th>
+            <tr style={{ background: 'var(--bg-window)', position: 'sticky', top: 0, zIndex: 1 }}>
+              <th style={{ ...hrThStyle, ...thClickStyle, width: '50px' }} onClick={() => toggleSort('employee_id')}>編號{sortIndicator('employee_id')}</th>
+              <th style={{ ...hrThStyle, ...thClickStyle, width: '58px' }} onClick={() => toggleSort('full_name')}>姓名{sortIndicator('full_name')}</th>
+              <th style={{ ...hrThStyle, ...thClickStyle, width: '50px' }} onClick={() => toggleSort('department')}>部門{sortIndicator('department')}</th>
+              <th style={{ ...hrThStyle, ...thClickStyle, width: '68px' }} onClick={() => toggleSort('hire_date')}>到職日{sortIndicator('hire_date')}</th>
+              <th style={{ ...hrThStyle, width: '68px' }}>合約到期</th>
+              <th style={{ ...hrThStyle, ...thClickStyle, width: '42px', textAlign: 'center' }} onClick={() => toggleSort('line_status')}>LINE{sortIndicator('line_status')}</th>
+              <th style={{ ...hrThStyle, ...thClickStyle, width: '85px' }} onClick={() => toggleSort('line_bound_at')}>綁定時間{sortIndicator('line_bound_at')}</th>
+              <th style={{ ...hrThStyle, width: '52px', textAlign: 'center' }}>操作</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)', opacity: p.is_active ? 1 : 0.5 }}>
-                <td style={{ padding: '2px 4px' }}>{p.employee_id}</td>
-                <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{p.full_name}</td>
-                <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>{p.department || '--'}</td>
-                <td style={{ padding: '2px 4px' }}>{p.hire_date || '--'}</td>
-                <td style={{ padding: '2px 4px', color: p.labor_insurance_date ? 'inherit' : 'var(--text-muted)' }}>{p.labor_insurance_date || '--'}</td>
-                <td style={{ padding: '2px 4px', color: p.health_insurance_date ? 'inherit' : 'var(--text-muted)' }}>{p.health_insurance_date || '--'}</td>
-                <td style={{ padding: '2px 4px', color: p.contract_expiry ? 'inherit' : 'var(--text-muted)' }}>{p.contract_expiry || '--'}</td>
-                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
-                  <button onClick={() => startEdit(p)} className="btn" style={{ fontSize: '7px', padding: '1px 4px' }}>EDIT</button>
+            {sorted.map(p => (
+              <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)', height: '20px', opacity: p.is_active ? 1 : 0.5 }}>
+                <td style={{ padding: '3px 4px', lineHeight: '14px' }}>{p.employee_id}</td>
+                <td style={{ padding: '3px 4px', fontWeight: 'bold', lineHeight: '14px' }}>{p.full_name}</td>
+                <td style={{ padding: '3px 4px', color: 'var(--text-muted)', lineHeight: '14px' }}>{p.department || '--'}</td>
+                <td style={{ padding: '3px 4px', lineHeight: '14px' }}>{p.hire_date || '--'}</td>
+                <td style={{ padding: '3px 4px', lineHeight: '14px', color: p.contract_expiry ? 'inherit' : 'var(--text-muted)' }}>{p.contract_expiry || '--'}</td>
+                <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
+                  {p.line_user_id
+                    ? <span style={{ color: 'var(--status-success)', fontWeight: 'bold' }}>●</span>
+                    : <span style={{ color: 'var(--status-error)' }}>○</span>
+                  }
+                </td>
+                <td style={{ padding: '3px 4px', fontSize: '8px', color: 'var(--text-muted)', lineHeight: '14px' }}>
+                  {p.line_bound_at ? new Date(p.line_bound_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '--'}
+                </td>
+                <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
+                  <button onClick={() => startEdit(p)} className="btn" style={{ fontSize: '7px', padding: '0px 3px', lineHeight: '14px', marginRight: '2px' }}>ED</button>
+                  {p.line_user_id && (
+                    <button onClick={() => handleUnbind(p)} className="btn" style={{ fontSize: '7px', padding: '0px 3px', lineHeight: '14px', color: 'var(--status-error)' }}>×</button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -298,150 +386,6 @@ function FieldInput({ label, value, onChange, type = 'text' }: { label: string; 
 }
 
 // ============================================
-// LINE Binding Status — 全公司 LINE 綁定狀態管理
-// ============================================
-function LineBindingTab() {
-  const [entries, setEntries] = useState<LineBindingEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'bound' | 'unbound'>('all')
-  const [deptFilter, setDeptFilter] = useState<string>('all')
-  const [showInactive, setShowInactive] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => { loadData() }, [showInactive])
-
-  async function loadData() {
-    setLoading(true)
-    try {
-      const data = await getLineBindingStatus(!showInactive)
-      setEntries(data)
-    } catch (err) {
-      console.error('[LineBinding] Load error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleUnbind(entry: LineBindingEntry) {
-    if (!confirm(`確定解除 ${entry.full_name}（${entry.employee_id}）的 LINE 綁定？`)) return
-    try {
-      await unbindLineUser(entry.id)
-      setToast(`已解除 ${entry.full_name} 的 LINE 綁定`)
-      setTimeout(() => setToast(null), 3000)
-      loadData()
-    } catch (err) {
-      setToast('解除綁定失敗')
-      setTimeout(() => setToast(null), 3000)
-    }
-  }
-
-  const departments = Array.from(new Set(entries.map(e => e.department).filter(Boolean))) as string[]
-
-  const filtered = entries.filter(e => {
-    if (statusFilter === 'bound' && !e.line_user_id) return false
-    if (statusFilter === 'unbound' && e.line_user_id) return false
-    if (deptFilter !== 'all' && e.department !== deptFilter) return false
-    if (filter) {
-      const q = filter.toLowerCase()
-      return e.full_name.toLowerCase().includes(q) || e.employee_id.toLowerCase().includes(q)
-    }
-    return true
-  })
-
-  const boundCount = entries.filter(e => e.line_user_id).length
-  const unboundCount = entries.filter(e => !e.line_user_id).length
-
-  if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Stats bar */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center' }}>
-        <span>總計: <b style={{ color: 'var(--text-primary)' }}>{entries.length}</b></span>
-        <span>已綁定: <b style={{ color: 'var(--status-success)' }}>{boundCount}</b></span>
-        <span>未綁定: <b style={{ color: 'var(--status-error)' }}>{unboundCount}</b></span>
-        <span>綁定率: <b style={{ color: 'var(--accent-blue)' }}>{entries.length ? Math.round(boundCount / entries.length * 100) : 0}%</b></span>
-        {toast && <span style={{ color: 'var(--status-success)', marginLeft: 'auto' }}>{toast}</span>}
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', fontSize: '8px', alignItems: 'center' }}>
-        <input
-          type="text"
-          placeholder="搜尋姓名/編號..."
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', width: '110px' }}
-        />
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as 'all' | 'bound' | 'unbound')}
-          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}
-        >
-          <option value="all">全部狀態</option>
-          <option value="bound">已綁定</option>
-          <option value="unbound">未綁定</option>
-        </select>
-        <select
-          value={deptFilter}
-          onChange={e => setDeptFilter(e.target.value)}
-          style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}
-        >
-          <option value="all">全部部門</option>
-          {departments.sort().map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} style={{ width: '10px', height: '10px' }} />
-          含離職
-        </label>
-        <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>篩選: <b style={{ color: 'var(--text-primary)' }}>{filtered.length}</b> 筆</span>
-      </div>
-
-      {/* Table — fills remaining space */}
-      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-window)', position: 'sticky', top: 0, zIndex: 1 }}>
-              <th style={{ ...hrThStyle, width: '50px' }}>編號</th>
-              <th style={{ ...hrThStyle, width: '60px' }}>姓名</th>
-              <th style={{ ...hrThStyle, width: '55px' }}>部門</th>
-              <th style={{ ...hrThStyle, width: '45px', textAlign: 'center' }}>狀態</th>
-              <th style={{ ...hrThStyle, width: '110px' }}>綁定時間</th>
-              <th style={{ ...hrThStyle, width: '40px', textAlign: 'center' }}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(e => (
-              <tr key={e.id} style={{ borderBottom: '1px solid var(--border-light)', opacity: e.is_active ? 1 : 0.5, height: '20px' }}>
-                <td style={{ padding: '3px 4px', lineHeight: '14px' }}>{e.employee_id}</td>
-                <td style={{ padding: '3px 4px', fontWeight: 'bold', lineHeight: '14px' }}>{e.full_name}</td>
-                <td style={{ padding: '3px 4px', color: 'var(--text-muted)', lineHeight: '14px' }}>{e.department || '--'}</td>
-                <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
-                  {e.line_user_id
-                    ? <span style={{ color: 'var(--status-success)', fontWeight: 'bold' }}>已綁定</span>
-                    : <span style={{ color: 'var(--status-error)' }}>未綁定</span>
-                  }
-                </td>
-                <td style={{ padding: '3px 4px', fontSize: '8px', color: 'var(--text-muted)', lineHeight: '14px' }}>
-                  {e.line_bound_at ? new Date(e.line_bound_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '--'}
-                </td>
-                <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
-                  {e.line_user_id
-                    ? <button onClick={() => handleUnbind(e)} className="btn" style={{ fontSize: '7px', padding: '0px 4px', lineHeight: '14px', color: 'var(--status-error)' }}>解綁</button>
-                    : <span style={{ fontSize: '7px', color: 'var(--text-muted)' }}>--</span>
-                  }
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-// ============================================
 // HR Tools — file utilities
 // ============================================
 function HRTools() {
@@ -480,7 +424,6 @@ export default function HRPage({ isAdmin = false, userProfile }: HRPageProps) {
   const tabs: DepartmentTab[] = [
     { id: 'dashboard', label: 'DASHBOARD', show: true,    component: <HRDashboard /> },
     { id: 'records',   label: 'RECORDS',   show: isAdmin, component: <HRRecords /> },
-    { id: 'linebind',  label: 'LINE BIND', show: isAdmin, component: <LineBindingTab /> },
     { id: 'bulletin',  label: 'BULLETIN',  show: true,    component: <AnnouncementManagementPage isAdmin={isAdmin} /> },
     { id: 'line',      label: 'LINE PUSH', show: isAdmin, component: <HRNotificationPage /> },
     { id: 'tools',     label: 'TOOLS',     show: isAdmin, component: <HRTools /> },

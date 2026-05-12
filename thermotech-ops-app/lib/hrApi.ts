@@ -20,6 +20,8 @@ export interface HRProfile {
   is_active: boolean
   notes: string | null
   points_balance: number
+  line_user_id: string | null
+  line_bound_at: string | null
   created_at: string
 }
 
@@ -50,7 +52,7 @@ export interface AttendanceRecord {
 export async function getHRProfiles(activeOnly = true): Promise<HRProfile[]> {
   let query = supabase
     .from('profiles')
-    .select('id, employee_id, full_name, department, job_title, role, phone, hire_date, birthday, emergency_contact, emergency_phone, address, labor_insurance_date, health_insurance_date, contract_expiry, nationality, is_active, notes, points_balance, created_at')
+    .select('id, employee_id, full_name, department, job_title, role, phone, hire_date, birthday, emergency_contact, emergency_phone, address, labor_insurance_date, health_insurance_date, contract_expiry, nationality, is_active, notes, points_balance, line_user_id, line_bound_at, created_at')
     .order('department')
     .order('employee_id')
 
