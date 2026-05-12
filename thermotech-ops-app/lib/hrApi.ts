@@ -136,6 +136,42 @@ export async function importAttendanceRecords(records: Omit<AttendanceRecord, 'i
   return data?.length || 0
 }
 
+// ---- LINE Binding Status ----
+
+export interface LineBindingEntry {
+  id: string
+  employee_id: string
+  full_name: string
+  department: string | null
+  line_user_id: string | null
+  line_bound_at: string | null
+  is_active: boolean
+}
+
+export async function getLineBindingStatus(activeOnly = true): Promise<LineBindingEntry[]> {
+  let query = supabase
+    .from('profiles')
+    .select('id, employee_id, full_name, department, line_user_id, line_bound_at, is_active')
+    .order('department')
+    .order('employee_id')
+
+  if (activeOnly) {
+    query = query.eq('is_active', true)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data || []) as LineBindingEntry[]
+}
+
+export async function unbindLineUser(profileId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ line_user_id: null, line_bound_at: null })
+    .eq('id', profileId)
+  if (error) throw error
+}
+
 // ---- Upcoming Expirations ----
 
 export interface ExpirationAlert {
