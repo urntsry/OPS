@@ -16,6 +16,7 @@ export interface PointsReward {
   name: string
   description: string | null
   points_cost: number
+  stock: number | null
   is_active: boolean
 }
 
