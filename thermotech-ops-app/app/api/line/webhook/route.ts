@@ -173,16 +173,23 @@ async function handleBinding(ops: SupabaseClient, capacity: SupabaseClient, line
 
   // Step 3: Sync to Capacity company_personnel
   let capacitySyncOk = true
+  let capacityErrorMsg = ''
   try {
-    const { error } = await capacity
-      .from('company_personnel')
-      .update({ line_user_id: lineUserId, updated_at: new Date().toISOString() })
-      .eq('employee_code', employeeCode)
+    if (!process.env.CAPACITY_SUPABASE_URL || !process.env.CAPACITY_SUPABASE_SERVICE_KEY) {
+      capacitySyncOk = false
+      capacityErrorMsg = 'ENV未設定'
+    } else {
+      const { error } = await capacity
+        .from('company_personnel')
+        .update({ line_user_id: lineUserId, updated_at: new Date().toISOString() })
+        .eq('employee_code', employeeCode)
 
-    if (error) { console.error('[Sync to Capacity] Error:', error); capacitySyncOk = false }
+      if (error) { console.error('[Sync to Capacity] Error:', error); capacitySyncOk = false; capacityErrorMsg = error.message }
+    }
   } catch (err) {
     console.error('[Sync to Capacity] Error:', err)
     capacitySyncOk = false
+    capacityErrorMsg = String(err)
   }
 
   // Step 4: Also sync to Capacity report_personnel + sales_personnel if applicable
@@ -218,7 +225,7 @@ async function handleBinding(ops: SupabaseClient, capacity: SupabaseClient, line
       `✅ 綁定成功！\n\n姓名：${profile.full_name}\n代碼：${employeeCode}\n\n已連結振禹系統（OPS + Capacity）。`)
   } else {
     await sendLineMessage(lineUserId,
-      `✅ OPS 綁定成功！\n\n姓名：${profile.full_name}\n代碼：${employeeCode}\n\n⚠️ Capacity 同步失敗，請聯繫管理員。`)
+      `✅ OPS 綁定成功！\n\n姓名：${profile.full_name}\n代碼：${employeeCode}\n\n⚠️ Capacity 同步失敗：${capacityErrorMsg}`)
   }
 }
 
