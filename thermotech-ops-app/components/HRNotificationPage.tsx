@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Button from '@/components/Button'
-import Card from '@/components/Card'
 
 export default function HRNotificationPage() {
   const [selectedMode, setSelectedMode] = useState<'all' | 'site' | 'dept' | 'manual'>('all')
@@ -11,11 +9,12 @@ export default function HRNotificationPage() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [template, setTemplate] = useState('')
   const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
 
   const sites = ['316', '310', '高獅']
   const depts = ['廠務部', '管理部', '業務部']
   const users = [
-    '張庭憲', '潘育昌', '黎文祥', '王啟典', '李家榮', 
+    '張庭憲', '潘育昌', '黎文祥', '王啟典', '李家榮',
     '白思恩', '林珠華', '林怡彣', '張麗卿', '阮慧喬'
   ]
 
@@ -32,163 +31,117 @@ export default function HRNotificationPage() {
     if (t) setMessage(t.content)
   }
 
-  const handleToggleSite = (site: string) => {
-    setSelectedSites(prev => 
-      prev.includes(site) ? prev.filter(s => s !== site) : [...prev, site]
-    )
-  }
-
-  const handleToggleDept = (dept: string) => {
-    setSelectedDepts(prev => 
-      prev.includes(dept) ? prev.filter(d => d !== dept) : [...prev, dept]
-    )
-  }
-
-  const handleToggleUser = (user: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(user) ? prev.filter(u => u !== user) : [...prev, user]
-    )
-  }
+  const toggle = (arr: string[], item: string) =>
+    arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item]
 
   const handleSend = () => {
-    console.log('Sending notification:', {
-      mode: selectedMode,
-      sites: selectedSites,
-      depts: selectedDepts,
-      users: selectedUsers,
-      message
-    })
-    alert('通知已發送！（Demo）')
+    if (!message.trim()) { alert('請輸入訊息內容'); return }
+    setSending(true)
+    console.log('Sending notification:', { mode: selectedMode, sites: selectedSites, depts: selectedDepts, users: selectedUsers, message })
+    setTimeout(() => { setSending(false); alert('通知已發送！（Demo）') }, 500)
   }
 
+  const recipientCount = selectedMode === 'all' ? '全公司'
+    : selectedMode === 'site' ? `${selectedSites.length} 廠區`
+    : selectedMode === 'dept' ? `${selectedDepts.length} 部門`
+    : `${selectedUsers.length} 人`
+
+  const inputStyle: React.CSSProperties = { fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', boxSizing: 'border-box' }
+  const labelStyle: React.CSSProperties = { fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }
+
   return (
-    <div className="window">
-      <div className="titlebar">人事管理 - Line 通知推播</div>
-      
-      <div className="p-4 bg-grey-200">
-        {/* 選擇對象 */}
-        <Card title="選擇對象">
-          <div className="mb-2">
-            <label className="flex items-center gap-2 mb-1">
-              <input
-                type="radio"
-                checked={selectedMode === 'all'}
-                onChange={() => setSelectedMode('all')}
-              />
-              <span className="text-11 text-bold">全公司</span>
-            </label>
-          </div>
+    <div>
+      {/* Summary */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '6px', fontSize: '8px', color: 'var(--text-muted)' }}>
+        <span>對象: <b style={{ color: 'var(--text-primary)' }}>{recipientCount}</b></span>
+        <span>範本: <b style={{ color: 'var(--text-primary)' }}>{template ? templates.find(t => t.id === template)?.label || '--' : '--'}</b></span>
+        <span>訊息: <b style={{ color: message.trim() ? 'var(--text-primary)' : 'var(--text-muted)' }}>{message.trim() ? `${message.length} 字` : '未填寫'}</b></span>
+      </div>
 
-          <div className="mb-2">
-            <label className="flex items-center gap-2 mb-1">
-              <input
-                type="radio"
-                checked={selectedMode === 'site'}
-                onChange={() => setSelectedMode('site')}
-              />
-              <span className="text-11 text-bold">依廠區選擇</span>
-            </label>
-            {selectedMode === 'site' && (
-              <div className="ml-6 flex gap-2">
-                {sites.map(site => (
-                  <label key={site} className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedSites.includes(site)}
-                      onChange={() => handleToggleSite(site)}
-                    />
-                    <span className="text-11">{site}</span>
-                  </label>
-                ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+        {/* Left: Target selection */}
+        <div>
+          <label style={labelStyle}>推播對象</label>
+          <div className="inset" style={{ background: 'var(--bg-inset)', padding: '6px', maxHeight: '320px', overflowY: 'auto' }}>
+            {/* Mode selection */}
+            {[
+              { key: 'all' as const, label: '全公司' },
+              { key: 'site' as const, label: '依廠區' },
+              { key: 'dept' as const, label: '依部門' },
+              { key: 'manual' as const, label: '手動選擇' },
+            ].map(mode => (
+              <div key={mode.key} style={{ marginBottom: '6px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '9px', fontFamily: 'monospace' }}>
+                  <input type="radio" checked={selectedMode === mode.key} onChange={() => setSelectedMode(mode.key)} style={{ width: '10px', height: '10px' }} />
+                  <span style={{ fontWeight: selectedMode === mode.key ? 'bold' : 'normal' }}>{mode.label}</span>
+                </label>
+
+                {/* Sub-options */}
+                {selectedMode === 'site' && mode.key === 'site' && (
+                  <div style={{ marginLeft: '18px', marginTop: '3px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {sites.map(site => (
+                      <label key={site} style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', fontSize: '9px', fontFamily: 'monospace' }}>
+                        <input type="checkbox" checked={selectedSites.includes(site)} onChange={() => setSelectedSites(toggle(selectedSites, site))} style={{ width: '10px', height: '10px' }} />
+                        {site}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {selectedMode === 'dept' && mode.key === 'dept' && (
+                  <div style={{ marginLeft: '18px', marginTop: '3px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {depts.map(dept => (
+                      <label key={dept} style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', fontSize: '9px', fontFamily: 'monospace' }}>
+                        <input type="checkbox" checked={selectedDepts.includes(dept)} onChange={() => setSelectedDepts(toggle(selectedDepts, dept))} style={{ width: '10px', height: '10px' }} />
+                        {dept}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {selectedMode === 'manual' && mode.key === 'manual' && (
+                  <div style={{ marginLeft: '18px', marginTop: '3px', maxHeight: '120px', overflowY: 'auto', background: 'var(--bg-input)', padding: '4px', border: '1px solid var(--border-light)' }}>
+                    {users.map(user => (
+                      <label key={user} style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', fontSize: '9px', fontFamily: 'monospace', marginBottom: '2px' }}>
+                        <input type="checkbox" checked={selectedUsers.includes(user)} onChange={() => setSelectedUsers(toggle(selectedUsers, user))} style={{ width: '10px', height: '10px' }} />
+                        {user}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          <div className="mb-2">
-            <label className="flex items-center gap-2 mb-1">
-              <input
-                type="radio"
-                checked={selectedMode === 'dept'}
-                onChange={() => setSelectedMode('dept')}
-              />
-              <span className="text-11 text-bold">依部門選擇</span>
-            </label>
-            {selectedMode === 'dept' && (
-              <div className="ml-6 flex gap-2">
-                {depts.map(dept => (
-                  <label key={dept} className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedDepts.includes(dept)}
-                      onChange={() => handleToggleDept(dept)}
-                    />
-                    <span className="text-11">{dept}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mb-2">
-            <label className="flex items-center gap-2 mb-1">
-              <input
-                type="radio"
-                checked={selectedMode === 'manual'}
-                onChange={() => setSelectedMode('manual')}
-              />
-              <span className="text-11 text-bold">手動選擇</span>
-            </label>
-            {selectedMode === 'manual' && (
-              <div className="ml-6 inset p-2 bg-white" style={{ maxHeight: '100px', overflowY: 'auto' }}>
-                {users.map(user => (
-                  <label key={user} className="flex items-center gap-1 mb-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.includes(user)}
-                      onChange={() => handleToggleUser(user)}
-                    />
-                    <span className="text-11">{user}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* 訊息範本 */}
-        <Card title="訊息範本" className="mt-2">
-          <select 
-            className="input w-full mb-2"
-            value={template}
-            onChange={(e) => handleTemplateChange(e.target.value)}
-          >
-            <option value="">請選擇範本</option>
-            {templates.map(t => (
-              <option key={t.id} value={t.id}>{t.label}</option>
             ))}
-          </select>
-        </Card>
+          </div>
+        </div>
 
-        {/* 訊息內容 */}
-        <Card title="訊息內容" className="mt-2">
-          <textarea
-            className="input w-full text-mono"
-            rows={6}
-            placeholder="請輸入訊息內容..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-        </Card>
+        {/* Right: Template + Message */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div>
+            <label style={labelStyle}>訊息範本</label>
+            <select value={template} onChange={e => handleTemplateChange(e.target.value)} style={{ ...inputStyle, width: '100%' }}>
+              <option value="">-- 請選擇範本 --</option>
+              {templates.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
 
-        {/* 操作按鈕 */}
-        <div className="flex gap-2 mt-4">
-          <Button className="flex-1">預覽</Button>
-          <Button onClick={handleSend} className="flex-1">立即發送</Button>
-          <Button className="flex-1">排程發送</Button>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <label style={labelStyle}>訊息內容</label>
+            <textarea
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="請輸入訊息內容..."
+              rows={8}
+              style={{ ...inputStyle, width: '100%', flex: 1, resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+            <button className="btn" style={{ fontSize: '8px', padding: '2px 8px' }}>預覽</button>
+            <button className="btn" onClick={handleSend} disabled={sending} style={{ fontSize: '8px', padding: '2px 8px', fontWeight: 'bold' }}>
+              {sending ? 'SENDING...' : '立即發送'}
+            </button>
+            <button className="btn" style={{ fontSize: '8px', padding: '2px 8px' }}>排程發送</button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
-
-

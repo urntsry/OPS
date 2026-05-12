@@ -124,36 +124,36 @@ export default function AnnouncementManagementPage({ isAdmin = false }: Announce
           <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>DETAILS</div>
           <div style={{ padding: '6px', background: 'var(--bg-inset)' }}>
             <div style={{ marginBottom: '4px' }}>
-              <label style={{ fontSize: '9px', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>TITLE</label>
-              <input className="inset" value={editingBulletin.title || ''} onChange={e => setEditingBulletin({ ...editingBulletin, title: e.target.value })} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
+              <label style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>TITLE</label>
+              <input value={editingBulletin.title || ''} onChange={e => setEditingBulletin({ ...editingBulletin, title: e.target.value })} style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', boxSizing: 'border-box' }} />
             </div>
             <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '9px', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>TYPE</label>
-                <select className="inset" value={editingBulletin.bulletin_type || 'notice'} onChange={e => setEditingBulletin({ ...editingBulletin, bulletin_type: e.target.value as any })} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}>
+                <label style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>TYPE</label>
+                <select value={editingBulletin.bulletin_type || 'notice'} onChange={e => setEditingBulletin({ ...editingBulletin, bulletin_type: e.target.value as any })} style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}>
                   <option value="notice">NOTICE (公告)</option>
                   <option value="public">PUBLIC (公共事項)</option>
                 </select>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '9px', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>PRIORITY</label>
-                <select className="inset" value={editingBulletin.priority || 'normal'} onChange={e => setEditingBulletin({ ...editingBulletin, priority: e.target.value as any })} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}>
+                <label style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>PRIORITY</label>
+                <select value={editingBulletin.priority || 'normal'} onChange={e => setEditingBulletin({ ...editingBulletin, priority: e.target.value as any })} style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }}>
                   <option value="normal">NORMAL</option>
                   <option value="important">IMPORTANT</option>
                   <option value="urgent">URGENT</option>
                 </select>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '9px', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>EVENT DATE</label>
-                <input className="inset" type="date" value={editingBulletin.event_date || ''} onChange={e => setEditingBulletin({ ...editingBulletin, event_date: e.target.value || undefined })} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
+                <label style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>EVENT DATE</label>
+                <input type="date" value={editingBulletin.event_date || ''} onChange={e => setEditingBulletin({ ...editingBulletin, event_date: e.target.value || undefined })} style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)' }} />
               </div>
             </div>
             <div style={{ marginBottom: '4px' }}>
-              <label style={{ fontSize: '9px', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>CONTENT</label>
-              <textarea className="inset" value={editingBulletin.content || ''} onChange={e => setEditingBulletin({ ...editingBulletin, content: e.target.value })} rows={6} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '4px', resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
+              <label style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>CONTENT</label>
+              <textarea value={editingBulletin.content || ''} onChange={e => setEditingBulletin({ ...editingBulletin, content: e.target.value })} rows={6} style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', boxSizing: 'border-box' }} />
             </div>
             <div style={{ marginBottom: '4px' }}>
-              <label style={{ fontSize: '9px', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>ATTACHMENTS</label>
+              <label style={{ fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>ATTACHMENTS</label>
               {(editingBulletin.attachments || []).map((att, idx) => (
                 <div key={idx} style={{ fontSize: '9px', display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px' }}>
                   <span>{att.name}</span>

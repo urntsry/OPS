@@ -33,16 +33,18 @@ export const WINDOW_CONFIGS: WindowConfig[] = [
   { id: 'meeting', title: 'MEETING - 會議', defaultWidth: 800, defaultHeight: 550, type: 'internal' },
   { id: 'fax', title: 'FAX - 傳真中心', defaultWidth: 1100, defaultHeight: 720, type: 'internal' },
   { id: 'settings', title: 'CONFIG - SETTINGS', defaultWidth: 750, defaultHeight: 500, type: 'internal' },
+  { id: 'manager', title: 'MANAGER - 管理監控', defaultWidth: 900, defaultHeight: 600, type: 'internal' },
+  { id: 'points', title: 'POINTS - 積分中心', defaultWidth: 550, defaultHeight: 450, type: 'internal' },
+  { id: 'appcenter', title: 'APP CENTER - 軟體中心', defaultWidth: 700, defaultHeight: 500, type: 'internal' },
 
   // Hidden — under construction
   { id: 'operations', title: 'OPS - FACTORY', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
   { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
   { id: 'reports', title: 'REPORT - ANALYTICS', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
-  { id: 'points', title: 'POINTS - 積分中心', defaultWidth: 500, defaultHeight: 400, type: 'internal', hidden: true },
   { id: 'devtracker', title: 'DEV TRACKER', defaultWidth: 800, defaultHeight: 500, type: 'internal', hidden: true },
 
   // External Apps
-  // { id: 'capacity', title: 'CAPACITY - 產能系統', defaultWidth: 900, defaultHeight: 600, type: 'external', externalUrl: 'https://capacity.vercel.app', fullscreenDefault: true },
+  { id: 'capacity', title: 'CAPACITY - 產能系統', defaultWidth: 900, defaultHeight: 600, type: 'external', externalUrl: 'https://ca-chi.vercel.app', fullscreenDefault: false },
 ]
 
 export function getWindowConfig(id: string): WindowConfig | undefined {

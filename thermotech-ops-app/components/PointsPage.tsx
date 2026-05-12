@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import DepartmentShell, { type DepartmentTab } from './DepartmentShell'
+import { getPointsHistory, getLeaderboard, getPointsStats, getRewards, type PointsTransaction, type LeaderboardEntry, type PointsStats, type PointsReward } from '@/lib/pointsApi'
 
 interface PointsPageProps {
   userProfile: {
@@ -12,259 +14,189 @@ interface PointsPageProps {
   } | null
 }
 
-// 模擬積分歷史資料（之後會從資料庫讀取）
-const mockPointsHistory = [
-  { id: 1, points: 1, source_type: 'announcement_read', description: '閱讀公告: 消防演練通知', created_at: '2025/12/18 10:15' },
-  { id: 2, points: 10, source_type: 'task_complete', description: '完成任務: 環境清潔督導', created_at: '2025/12/17 16:30' },
-  { id: 3, points: 1, source_type: 'announcement_read', description: '閱讀公告: 12月排班表', created_at: '2025/12/17 09:00' },
-  { id: 4, points: 50, source_type: 'task_complete', description: '完成任務: 設備保養', created_at: '2025/12/16 14:20' },
-  { id: 5, points: 1, source_type: 'announcement_read', description: '閱讀公告: 上週完成率', created_at: '2025/12/16 08:45' },
-  { id: 6, points: 10, source_type: 'task_complete', description: '完成任務: 生產進度回報', created_at: '2025/12/15 17:00' },
-  { id: 7, points: 100, source_type: 'bonus', description: '月度優秀員工獎勵', created_at: '2025/12/01 09:00' },
-]
-
-// 模擬排行榜資料
-const mockLeaderboard = [
-  { rank: 1, name: '温玲怡', department: '管理部', points: 230 },
-  { rank: 2, name: '曾世聞', department: '管理部', points: 198 },
-  { rank: 3, name: '張庭憲', department: '廠務部', points: 156 },
-  { rank: 4, name: '范姜群皓', department: '廠務部', points: 145 },
-  { rank: 5, name: '林珠華', department: '廠務部', points: 132 },
-  { rank: 6, name: '吳春珠', department: '廠務部', points: 128 },
-  { rank: 7, name: '阮慧喬', department: '廠務部', points: 115 },
-  { rank: 8, name: '古志禹', department: '管理部', points: 0 },
-]
-
 export default function PointsPage({ userProfile }: PointsPageProps) {
-  const [activeTab, setActiveTab] = useState<'history' | 'leaderboard'>('history')
+  const [history, setHistory] = useState<PointsTransaction[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [rewards, setRewards] = useState<PointsReward[]>([])
+  const [stats, setStats] = useState<PointsStats>({ announcement: 0, task: 0, bonus: 0, redemption: 0, penalty: 0 })
+  const [loading, setLoading] = useState(true)
 
-  // 計算統計資料
-  const stats = {
-    announcement: mockPointsHistory.filter(h => h.source_type === 'announcement_read').reduce((sum, h) => sum + h.points, 0),
-    task: mockPointsHistory.filter(h => h.source_type === 'task_complete').reduce((sum, h) => sum + h.points, 0),
-    bonus: mockPointsHistory.filter(h => h.source_type === 'bonus').reduce((sum, h) => sum + h.points, 0),
-    redemption: mockPointsHistory.filter(h => h.source_type === 'redemption').reduce((sum, h) => sum + h.points, 0),
-  }
+  useEffect(() => {
+    if (userProfile?.id) loadData()
+  }, [userProfile?.id])
 
-  const getSourceIcon = (type: string) => {
-    switch (type) {
-      case 'announcement_read': return '[公告]'
-      case 'task_complete': return '[任務]'
-      case 'bonus': return '[獎勵]'
-      case 'redemption': return '[兌換]'
-      default: return '[--]'
+  async function loadData() {
+    setLoading(true)
+    try {
+      const [historyData, leaderData, statsData, rewardsData] = await Promise.all([
+        getPointsHistory(userProfile!.id),
+        getLeaderboard(),
+        getPointsStats(userProfile!.id),
+        getRewards(),
+      ])
+      setHistory(historyData)
+      setLeaderboard(leaderData)
+      setStats(statsData)
+      setRewards(rewardsData)
+    } catch (err) {
+      console.error('[Points] Load error:', err)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getSourceColor = (type: string) => {
-    switch (type) {
-      case 'announcement_read': return '#000080'
-      case 'task_complete': return '#008080'
-      case 'bonus': return '#008000'
-      case 'redemption': return '#800000'
-      default: return '#000'
-    }
-  }
+  const myRank = leaderboard.findIndex(e => e.id === userProfile?.id) + 1
+
+  const tabs: DepartmentTab[] = [
+    { id: 'history', label: 'HISTORY', show: true, component: <HistoryTab history={history} stats={stats} loading={loading} /> },
+    { id: 'leaderboard', label: 'LEADERBOARD', show: true, component: <LeaderboardTab leaderboard={leaderboard} userId={userProfile?.id} loading={loading} /> },
+    { id: 'rewards', label: 'REWARDS', show: true, badge: rewards.length > 0 ? rewards.length : undefined, component: <RewardsTab rewards={rewards} balance={userProfile?.points_balance || 0} loading={loading} /> },
+  ]
 
   return (
-    <div style={{ fontFamily: 'monospace' }}>
-      {/* 用戶積分摘要 */}
-      <div className="window" style={{ marginBottom: '8px' }}>
-        <div className="titlebar" style={{ padding: '4px 8px', fontSize: '11px' }}>
-          POINTS - 積分中心
-        </div>
-        <div className="inset" style={{ padding: '12px', background: '#FFF' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                {userProfile?.full_name || '---'} ({userProfile?.employee_id || '---'})
-              </div>
-              <div style={{ fontSize: '10px', color: '#808080' }}>
-                {userProfile?.department || '---'}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ 
-                fontSize: '24px', 
-                fontWeight: 'bold', 
-                color: '#008000',
-                fontFamily: 'monospace'
-              }}>
-                {userProfile?.points_balance || 0} PT
-              </div>
-              <div style={{ fontSize: '10px', color: '#808080' }}>
-                目前積分
-              </div>
-            </div>
-          </div>
-        </div>
+    <DepartmentShell
+      departmentId="points"
+      departmentName="POINTS - 積分中心"
+      tabs={tabs}
+      defaultTab="history"
+      statusInfo={`BALANCE: ${userProfile?.points_balance || 0} PT | RANK: #${myRank || '--'} | 公告:+${stats.announcement} 任務:+${stats.task} 獎勵:+${stats.bonus}`}
+    />
+  )
+}
+
+const thStyle: React.CSSProperties = {
+  padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold',
+}
+
+function getSourceLabel(type: string): { label: string; color: string } {
+  switch (type) {
+    case 'announcement_read': return { label: '公告', color: 'var(--accent-blue)' }
+    case 'task_complete': return { label: '任務', color: '#008080' }
+    case 'bonus': return { label: '獎勵', color: '#008000' }
+    case 'redemption': return { label: '兌換', color: '#800000' }
+    case 'penalty': return { label: '扣分', color: '#800000' }
+    default: return { label: '--', color: 'var(--text-primary)' }
+  }
+}
+
+// ---- HISTORY TAB ----
+function HistoryTab({ history, stats, loading }: { history: PointsTransaction[]; stats: PointsStats; loading: boolean }) {
+  if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)' }}>
+        <span>公告: <b style={{ color: 'var(--accent-blue)' }}>+{stats.announcement}</b></span>
+        <span>任務: <b style={{ color: '#008080' }}>+{stats.task}</b></span>
+        <span>獎勵: <b style={{ color: '#008000' }}>+{stats.bonus}</b></span>
+        <span>兌換: <b style={{ color: '#800000' }}>{stats.redemption}</b></span>
       </div>
 
-      {/* 統計區塊 */}
-      <div className="window" style={{ marginBottom: '8px' }}>
-        <div className="titlebar" style={{ padding: '2px 8px', fontSize: '10px' }}>
-          STATS - 積分來源統計
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', padding: '4px' }}>
-          <div className="inset" style={{ padding: '8px', background: '#FFF', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: 'var(--accent-blue)' }}>[公告]</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--accent-blue)' }}>+{stats.announcement}</div>
-          </div>
-          <div className="inset" style={{ padding: '8px', background: '#FFF', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#008080' }}>[任務]</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#008080' }}>+{stats.task}</div>
-          </div>
-          <div className="inset" style={{ padding: '8px', background: '#FFF', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#008000' }}>[獎勵]</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#008000' }}>+{stats.bonus}</div>
-          </div>
-          <div className="inset" style={{ padding: '8px', background: '#FFF', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#800000' }}>[兌換]</div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#800000' }}>{stats.redemption}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 分頁切換 */}
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
-        <button
-          onClick={() => setActiveTab('history')}
-          style={{
-            padding: '4px 12px',
-            fontSize: '10px',
-            fontFamily: 'monospace',
-            fontWeight: 'bold',
-            background: activeTab === 'history' ? '#000080' : '#C0C0C0',
-            color: activeTab === 'history' ? '#FFF' : 'var(--text-primary)',
-            border: activeTab === 'history' ? '2px inset #808080' : '2px outset #FFF',
-            cursor: 'pointer'
-          }}
-        >
-          HISTORY 歷史紀錄
-        </button>
-        <button
-          onClick={() => setActiveTab('leaderboard')}
-          style={{
-            padding: '4px 12px',
-            fontSize: '10px',
-            fontFamily: 'monospace',
-            fontWeight: 'bold',
-            background: activeTab === 'leaderboard' ? '#000080' : '#C0C0C0',
-            color: activeTab === 'leaderboard' ? '#FFF' : 'var(--text-primary)',
-            border: activeTab === 'leaderboard' ? '2px inset #808080' : '2px outset #FFF',
-            cursor: 'pointer'
-          }}
-        >
-          LEADERBOARD 排行榜
-        </button>
-      </div>
-
-      {/* 內容區 */}
-      <div className="window">
-        <div className="titlebar" style={{ padding: '2px 8px', fontSize: '10px' }}>
-          {activeTab === 'history' ? 'HISTORY - 積分歷史' : 'LEADERBOARD - 積分排行榜'}
-        </div>
-        <div className="inset" style={{ background: '#FFF', maxHeight: '300px', overflowY: 'auto' }}>
-          {activeTab === 'history' ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-              <thead>
-                <tr style={{ background: '#C0C0C0' }}>
-                  <th style={{ padding: '4px', textAlign: 'left', borderBottom: '1px solid #808080' }}>時間</th>
-                  <th style={{ padding: '4px', textAlign: 'center', borderBottom: '1px solid #808080', width: '60px' }}>積分</th>
-                  <th style={{ padding: '4px', textAlign: 'left', borderBottom: '1px solid #808080' }}>來源</th>
-                  <th style={{ padding: '4px', textAlign: 'left', borderBottom: '1px solid #808080' }}>說明</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockPointsHistory.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #E0E0E0' }}>
-                    <td style={{ padding: '4px', color: '#808080' }}>{item.created_at}</td>
-                    <td style={{ 
-                      padding: '4px', 
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      color: item.points > 0 ? '#008000' : '#800000'
-                    }}>
+      {history.length === 0 ? (
+        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>尚無積分紀錄</div>
+      ) : (
+        <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', maxHeight: '400px', overflow: 'hidden auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-window)' }}>
+                <th style={{ ...thStyle, width: '85px' }}>時間</th>
+                <th style={{ ...thStyle, width: '45px', textAlign: 'center' }}>積分</th>
+                <th style={{ ...thStyle, width: '40px', textAlign: 'center' }}>來源</th>
+                <th style={thStyle}>說明</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map(item => {
+                const src = getSourceLabel(item.source_type)
+                return (
+                  <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                    <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>
+                      {new Date(item.created_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 'bold', color: item.points > 0 ? '#008000' : '#800000' }}>
                       {item.points > 0 ? '+' : ''}{item.points}
                     </td>
-                    <td style={{ padding: '4px', color: getSourceColor(item.source_type) }}>
-                      {getSourceIcon(item.source_type)}
-                    </td>
-                    <td style={{ padding: '4px' }}>{item.description}</td>
+                    <td style={{ padding: '2px 4px', textAlign: 'center', color: src.color, fontSize: '8px' }}>{src.label}</td>
+                    <td style={{ padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-              <thead>
-                <tr style={{ background: '#C0C0C0' }}>
-                  <th style={{ padding: '4px', textAlign: 'center', borderBottom: '1px solid #808080', width: '40px' }}>排名</th>
-                  <th style={{ padding: '4px', textAlign: 'left', borderBottom: '1px solid #808080' }}>姓名</th>
-                  <th style={{ padding: '4px', textAlign: 'left', borderBottom: '1px solid #808080' }}>部門</th>
-                  <th style={{ padding: '4px', textAlign: 'right', borderBottom: '1px solid #808080', width: '80px' }}>積分</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockLeaderboard.map((item) => (
-                  <tr 
-                    key={item.rank} 
-                    style={{ 
-                      borderBottom: '1px solid #E0E0E0',
-                      background: item.name === userProfile?.full_name ? '#FFFFCC' : 'transparent'
-                    }}
-                  >
-                    <td style={{ 
-                      padding: '4px', 
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      color: item.rank <= 3 ? 'var(--accent-red)' : 'var(--text-primary)'
-                    }}>
-                      {item.rank <= 3 ? `★${item.rank}` : item.rank}
-                    </td>
-                    <td style={{ padding: '4px', fontWeight: item.name === userProfile?.full_name ? 'bold' : 'normal' }}>
-                      {item.name}
-                      {item.name === userProfile?.full_name && ' (YOU)'}
-                    </td>
-                    <td style={{ padding: '4px', color: '#808080' }}>{item.department}</td>
-                    <td style={{ 
-                      padding: '4px', 
-                      textAlign: 'right',
-                      fontWeight: 'bold',
-                      color: '#008000'
-                    }}>
-                      {item.points} PT
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      {/* 說明區塊 */}
-      <div className="window" style={{ marginTop: '8px' }}>
-        <div className="titlebar" style={{ padding: '2px 8px', fontSize: '10px' }}>
-          INFO - 積分說明
-        </div>
-        <div className="inset" style={{ padding: '8px', background: '#FFF', fontSize: '10px' }}>
-          <div style={{ marginBottom: '4px' }}><span style={{ color: 'var(--accent-blue)' }}>[公告]</span> 閱讀公告可獲得 1 PT（每則公告限一次）</div>
-          <div style={{ marginBottom: '4px' }}><span style={{ color: '#008080' }}>[任務]</span> 完成任務依難度獲得 10-100 PT</div>
-          <div style={{ marginBottom: '4px' }}><span style={{ color: '#008000' }}>[獎勵]</span> 特殊表現或活動獎勵</div>
-          <div><span style={{ color: '#800000' }}>[兌換]</span> 使用積分兌換福利（開發中）</div>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
 
+// ---- LEADERBOARD TAB ----
+function LeaderboardTab({ leaderboard, userId, loading }: { leaderboard: LeaderboardEntry[]; userId?: string; loading: boolean }) {
+  if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
 
+  return (
+    <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', maxHeight: '420px', overflow: 'hidden auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+        <thead>
+          <tr style={{ background: 'var(--bg-window)' }}>
+            <th style={{ ...thStyle, width: '35px', textAlign: 'center' }}>#</th>
+            <th style={thStyle}>姓名</th>
+            <th style={{ ...thStyle, width: '60px' }}>部門</th>
+            <th style={{ ...thStyle, width: '55px', textAlign: 'right' }}>總積分</th>
+            <th style={{ ...thStyle, width: '50px', textAlign: 'right' }}>本月</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leaderboard.map((entry, idx) => (
+            <tr key={entry.id} style={{ borderBottom: '1px solid var(--border-light)', background: entry.id === userId ? 'rgba(0,0,128,0.05)' : 'transparent' }}>
+              <td style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 'bold', color: idx < 3 ? 'var(--status-error)' : 'var(--text-muted)' }}>{idx + 1}</td>
+              <td style={{ padding: '2px 4px', fontWeight: entry.id === userId ? 'bold' : 'normal' }}>
+                {entry.full_name}{entry.id === userId ? ' ◄' : ''}
+              </td>
+              <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>{entry.department || '--'}</td>
+              <td style={{ padding: '2px 4px', textAlign: 'right', fontWeight: 'bold', color: '#008000' }}>{entry.total_points}</td>
+              <td style={{ padding: '2px 4px', textAlign: 'right', color: '#008080' }}>+{entry.month_points}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
+// ---- REWARDS TAB ----
+function RewardsTab({ rewards, balance, loading }: { rewards: PointsReward[]; balance: number; loading: boolean }) {
+  if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
+  if (rewards.length === 0) return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>尚無可兌換獎勵</div>
 
-
-
-
-
-
-
+  return (
+    <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', maxHeight: '420px', overflow: 'hidden auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+        <thead>
+          <tr style={{ background: 'var(--bg-window)' }}>
+            <th style={thStyle}>獎勵名稱</th>
+            <th style={thStyle}>說明</th>
+            <th style={{ ...thStyle, width: '55px', textAlign: 'center' }}>所需積分</th>
+            <th style={{ ...thStyle, width: '50px', textAlign: 'center' }}>庫存</th>
+            <th style={{ ...thStyle, width: '45px', textAlign: 'center' }}>兌換</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rewards.map(r => {
+            const canRedeem = balance >= r.points_cost && (r.stock === null || r.stock > 0)
+            return (
+              <tr key={r.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{r.name}</td>
+                <td style={{ padding: '2px 4px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description || '--'}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center', fontWeight: 'bold', color: '#800000' }}>{r.points_cost}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center', color: 'var(--text-muted)' }}>{r.stock ?? '∞'}</td>
+                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                  <button className="btn" style={{ fontSize: '8px', padding: '1px 4px' }} disabled={!canRedeem}>兌換</button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}

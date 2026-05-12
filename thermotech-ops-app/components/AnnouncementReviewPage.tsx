@@ -57,7 +57,7 @@ export default function AnnouncementReviewPage() {
         <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
           <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>BULLETIN DETAILS</div>
           <div style={{ padding: '6px', background: 'var(--bg-inset)' }}>
-            <table style={{ fontSize: '10px', fontFamily: 'monospace', borderCollapse: 'collapse' }}>
+            <table style={{ fontSize: '9px', fontFamily: 'monospace', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr><td style={{ padding: '2px 8px 2px 0', fontWeight: 'bold', color: 'var(--text-muted)' }}>TYPE</td><td>{selectedBulletin.bulletin_type === 'public' ? 'PUBLIC' : 'NOTICE'}</td></tr>
                 <tr><td style={{ padding: '2px 8px 2px 0', fontWeight: 'bold', color: 'var(--text-muted)' }}>PRIORITY</td><td>{selectedBulletin.priority.toUpperCase()}</td></tr>
@@ -70,7 +70,7 @@ export default function AnnouncementReviewPage() {
 
         <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
           <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>CONTENT</div>
-          <div style={{ padding: '8px', background: 'var(--bg-inset)', fontSize: '10px', whiteSpace: 'pre-wrap', minHeight: '60px', lineHeight: 1.4 }}>
+          <div style={{ padding: '6px', background: 'var(--bg-inset)', fontSize: '9px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', minHeight: '60px', lineHeight: 1.4 }}>
             {selectedBulletin.content || '(no content)'}
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function AnnouncementReviewPage() {
           <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
             <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>REJECT REASON</div>
             <div style={{ padding: '6px', background: 'var(--bg-inset)' }}>
-              <textarea className="inset" value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={3} placeholder="請輸入駁回原因..." style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '4px', resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-primary)', marginBottom: '4px' }} />
+              <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={3} placeholder="請輸入駁回原因..." style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', marginBottom: '4px', boxSizing: 'border-box' }} />
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button className="btn" onClick={handleReject} style={{ fontSize: '9px', padding: '2px 10px', color: 'var(--accent-red)', fontWeight: 'bold' }}>CONFIRM REJECT</button>
                 <button className="btn" onClick={() => { setShowReject(false); setRejectReason('') }} style={{ fontSize: '9px', padding: '2px 10px' }}>CANCEL</button>
@@ -121,7 +121,7 @@ export default function AnnouncementReviewPage() {
       )}
 
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
-        <span style={{ fontWeight: 'bold', fontSize: '10px' }}>PENDING REVIEW</span>
+        <span style={{ fontWeight: 'bold', fontSize: '9px' }}>PENDING REVIEW</span>
         <span style={{ background: 'var(--status-warning)', color: '#FFF', padding: '0 5px', fontSize: '9px', fontWeight: 'bold', borderRadius: '2px' }}>{pending.length}</span>
         <div style={{ flex: 1 }} />
         <button className="btn" onClick={loadData} style={{ fontSize: '9px', padding: '1px 6px' }}>RELOAD</button>

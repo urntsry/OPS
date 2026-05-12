@@ -28,6 +28,8 @@ import OPSPage from '@/components/OPSPage'
 import SalesPage from '@/components/SalesPage'
 import ReportPage from '@/components/ReportPage'
 import ExternalAppFrame from '@/components/ExternalAppFrame'
+import ManagerDashboard from '@/components/ManagerDashboard'
+import AppCenterPage from '@/components/AppCenterPage'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
 import { getMeetingsForMonth as fetchMeetingsForMonth, subscribeScheduledMeetings } from '@/lib/meetingsApi'
@@ -1203,7 +1205,7 @@ function HomePageInner() {
       </Win95Window>
 
       <Win95Window windowId="settings">
-        <SettingsPage isAdmin={isAdmin} />
+        <SettingsPage isAdmin={isAdmin} userId={userId} />
       </Win95Window>
 
       <Win95Window windowId="points">
@@ -1214,14 +1216,19 @@ function HomePageInner() {
         <DevTrackerPage />
       </Win95Window>
 
+      <Win95Window windowId="manager">
+        <ManagerDashboard userProfile={userProfile} />
+      </Win95Window>
+
+      <Win95Window windowId="appcenter">
+        <AppCenterPage isAdmin={isAdmin} userDepartment={userProfile?.department} />
+      </Win95Window>
+
       {/* External App Windows — dynamically rendered from WINDOW_CONFIGS */}
       {WINDOW_CONFIGS.filter(c => c.type === 'external' && c.externalUrl).map(config => (
-        <React.Fragment key={config.id}>
-          <Win95Window windowId={config.id}>
-            <ExternalAppFrame windowId={config.id} url={config.externalUrl!} title={config.title} />
-          </Win95Window>
+        <Win95Window key={config.id} windowId={config.id}>
           <ExternalAppFrame windowId={config.id} url={config.externalUrl!} title={config.title} />
-        </React.Fragment>
+        </Win95Window>
       ))}
 
       {/* Modals */}

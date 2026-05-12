@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/Button'
-import { supabase } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -25,45 +24,34 @@ export default function LoginPage() {
 
     setLoading(true)
     setError('')
-    console.log('[Login] 嘗試登入:', employeeId)
 
     try {
-      // 查詢員工資料（暫時不檢查密碼）
-      const { data, error: dbError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .single()
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: employeeId, password }),
+      })
 
-      if (dbError || !data) {
-        console.error('[Login] 登入失敗:', dbError)
-        setError('找不到此員工編號')
-        setLoading(false)
-        return
-      }
-      
-      // 檢查密碼（如果有 password 欄位）
-      if (data.password && data.password !== password) {
-        console.error('[Login] 密碼錯誤')
-        setError('密碼錯誤')
+      const result = await res.json()
+
+      if (!res.ok) {
+        setError(result.error || '登入失敗')
         setLoading(false)
         return
       }
 
-      console.log('[Login] 登入成功:', data.full_name)
+      const profile = result.profile
 
-      // 儲存登入資訊到 localStorage
       localStorage.setItem('currentUser', JSON.stringify({
-        id: data.id,
-        employeeId: data.employee_id,
-        fullName: data.full_name,
-        role: data.role,
-        department: data.department,
-        jobTitle: data.job_title,
-        siteCode: data.site_code
+        id: profile.id,
+        employeeId: profile.employee_id,
+        fullName: profile.full_name,
+        role: profile.role,
+        department: profile.department,
+        jobTitle: profile.job_title,
+        siteCode: profile.site_code
       }))
 
-      // 導向首頁
       router.push('/home')
     } catch (err) {
       console.error('[Login] 錯誤:', err)

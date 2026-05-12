@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useRef } from 'react'
-import { useWindowManager, getWindowConfig, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
+import React, { useRef, useState } from 'react'
+import { useWindowManager, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 
 interface Win95WindowProps {
   windowId: string
@@ -12,18 +12,16 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
   const {
     windows, activeWindowId,
     focusWindow, closeWindow, minimizeWindow,
-    toggleMaximize, toggleFullscreen, moveWindow, resizeWindow,
+    toggleMaximize, moveWindow, resizeWindow,
   } = useWindowManager()
 
   const win = windows[windowId]
-  const config = getWindowConfig(windowId)
-  const isExternal = config?.type === 'external'
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null)
   const windowRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
-  // Don't render Win95 chrome when in fullscreen — ExternalAppFrame handles it
-  if (!win || !win.isOpen || win.isMinimized || win.isFullscreen) return null
+  if (!win || !win.isOpen || win.isMinimized) return null
 
   const isActive = activeWindowId === windowId
   const isMax = win.isMaximized
@@ -62,16 +60,35 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
       origX: win.x,
       origY: win.y,
     }
+    setIsDragging(true)
+
+    let rafId = 0
+    let lastX = win.x
+    let lastY = win.y
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!dragRef.current) return
       const dx = ev.clientX - dragRef.current.startX
       const dy = ev.clientY - dragRef.current.startY
-      moveWindow(windowId, dragRef.current.origX + dx, Math.max(0, dragRef.current.origY + dy))
+      lastX = dragRef.current.origX + dx
+      lastY = Math.max(0, dragRef.current.origY + dy)
+
+      if (!rafId) {
+        rafId = requestAnimationFrame(() => {
+          if (windowRef.current) {
+            windowRef.current.style.left = `${lastX}px`
+            windowRef.current.style.top = `${lastY}px`
+          }
+          rafId = 0
+        })
+      }
     }
 
     const onMouseUp = () => {
+      if (rafId) cancelAnimationFrame(rafId)
       dragRef.current = null
+      setIsDragging(false)
+      moveWindow(windowId, lastX, lastY)
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
     }
@@ -94,6 +111,13 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
       origY: win.y,
       edge,
     }
+    setIsDragging(true)
+
+    let rafId = 0
+    let finalW = win.width
+    let finalH = win.height
+    let finalX = win.x
+    let finalY = win.y
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!resizeRef.current) return
@@ -108,25 +132,35 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
 
       if (r.edge.includes('e')) newW = r.origW + dx
       if (r.edge.includes('s')) newH = r.origH + dy
-      if (r.edge.includes('w')) {
-        newW = r.origW - dx
-        newX = r.origX + dx
-      }
-      if (r.edge.includes('n')) {
-        newH = r.origH - dy
-        newY = r.origY + dy
-      }
+      if (r.edge.includes('w')) { newW = r.origW - dx; newX = r.origX + dx }
+      if (r.edge.includes('n')) { newH = r.origH - dy; newY = r.origY + dy }
 
       if (newW >= 280 && newH >= 200) {
-        resizeWindow(windowId, newW, newH)
-        if (r.edge.includes('w') || r.edge.includes('n')) {
-          moveWindow(windowId, newX, newY)
+        finalW = newW; finalH = newH; finalX = newX; finalY = newY
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            if (windowRef.current) {
+              windowRef.current.style.width = `${finalW}px`
+              windowRef.current.style.height = `${finalH}px`
+              if (r.edge.includes('w') || r.edge.includes('n')) {
+                windowRef.current.style.left = `${finalX}px`
+                windowRef.current.style.top = `${finalY}px`
+              }
+            }
+            rafId = 0
+          })
         }
       }
     }
 
     const onMouseUp = () => {
+      if (rafId) cancelAnimationFrame(rafId)
       resizeRef.current = null
+      setIsDragging(false)
+      resizeWindow(windowId, finalW, finalH)
+      if (edge.includes('w') || edge.includes('n')) {
+        moveWindow(windowId, finalX, finalY)
+      }
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
     }
@@ -224,9 +258,6 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
         <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
           <button style={ctrlBtnStyle} onClick={(e) => { e.stopPropagation(); minimizeWindow(windowId) }} title="最小化">_</button>
           <button style={ctrlBtnStyle} onClick={(e) => { e.stopPropagation(); toggleMaximize(windowId) }} title={isMax ? '還原' : '最大化'}>{isMax ? '❐' : '□'}</button>
-          {isExternal && (
-            <button style={{...ctrlBtnStyle, fontSize: '8px'}} onClick={(e) => { e.stopPropagation(); toggleFullscreen(windowId) }} title="全螢幕">⛶</button>
-          )}
           <button style={{...ctrlBtnStyle, color: 'var(--accent-red)'}} onClick={(e) => { e.stopPropagation(); closeWindow(windowId) }} title="關閉">×</button>
         </div>
       </div>
@@ -236,7 +267,8 @@ export default function Win95Window({ windowId, children }: Win95WindowProps) {
         flex: 1,
         overflow: 'auto',
         backgroundColor: 'var(--bg-window)',
-        userSelect: 'text',
+        userSelect: isDragging ? 'none' : 'text',
+        pointerEvents: isDragging ? 'none' : 'auto',
       }}>
         {children}
       </div>

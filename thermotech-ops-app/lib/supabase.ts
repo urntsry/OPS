@@ -16,6 +16,24 @@ export interface Profile {
   points_balance: number
   site_code: string | null
   avatar_url: string | null
+  phone: string | null
+  hire_date: string | null
+  birthday: string | null
+  emergency_contact: string | null
+  emergency_phone: string | null
+  address: string | null
+  labor_insurance_date: string | null
+  health_insurance_date: string | null
+  contract_expiry: string | null
+  nationality: string | null
+  is_active: boolean
+  line_user_id: string | null
+  line_bound_at: string | null
+  notification_prefs: Record<string, string[]> | null
+  notes: string | null
+  sales_code: string | null
+  shift_type: string | null
+  is_supervisor: boolean
   created_at: string
 }
 

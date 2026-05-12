@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import DepartmentShell, { type DepartmentTab } from './DepartmentShell'
 import DevTrackerPage from './DevTrackerPage'
+import LineSettingsTab from './LineSettingsTab'
 import {
   getAllProfiles, getAllTaskDefinitions, updateTaskDefinitionAssignee,
   type Profile, type TaskDefinition
@@ -15,6 +16,7 @@ import { getIssuerOverrides, setIssuerOverrides } from '@/lib/delegationsApi'
 
 interface SettingsPageProps {
   isAdmin?: boolean
+  userId?: string
 }
 
 // ============================================
@@ -455,79 +457,64 @@ function DelegationTab() {
   const issuerCount = users.filter(u => isIssuer(u)).length
 
   if (loading) {
-    return <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px' }}>LOADING...</div>
+    return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
   }
 
   return (
-    <div style={{ padding: '8px', fontFamily: 'monospace', fontSize: '11px' }}>
-      <div style={{ marginBottom: '8px', padding: '6px', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)', fontSize: '10px', lineHeight: 1.5 }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>※ 交辦權限說明</div>
-        <div>•「具交辦權限」者可建立正式「交辦事項」（含起訖日、承辦人、追蹤）</div>
-        <div>• 預設：admin (管理) 角色具有此權限</div>
-        <div>• 此處可個別 開啟/關閉 — 不影響原本的角色設定</div>
-        <div>• 目前共 <span style={{ fontWeight: 'bold', color: 'var(--accent-blue)' }}>{issuerCount}</span> 人具交辦權限</div>
+    <div>
+      {/* Info + summary */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)' }}>
+        <span>具交辦權限: <b style={{ color: 'var(--accent-blue)' }}>{issuerCount}</b> 人</span>
+        <span>預設: admin 角色</span>
+        <span>可個別覆寫</span>
+        <div style={{ flex: 1 }} />
+        {toast && <span style={{ color: 'var(--status-success)' }}>{toast}</span>}
+        <button onClick={handleSave} className="btn" style={{ fontSize: '8px', padding: '1px 8px', fontWeight: 'bold' }}>SAVE</button>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', gap: '6px', alignItems: 'center' }}>
-        {toast && <span style={{ fontSize: '10px', color: 'var(--accent-green)' }}>{toast}</span>}
-        <button
-          onClick={handleSave}
-          style={{ padding: '3px 12px', fontSize: '11px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--accent-blue)', color: '#FFF', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          ✓ 儲存
-        </button>
+      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', maxHeight: '420px', overflow: 'hidden auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-window)' }}>
+              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold', width: '60px' }}>姓名</th>
+              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold', width: '50px' }}>員編</th>
+              <th style={{ padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold', width: '55px' }}>部門</th>
+              <th style={{ padding: '3px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold', width: '40px' }}>角色</th>
+              <th style={{ padding: '3px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold', width: '40px' }}>權限</th>
+              <th style={{ padding: '3px 4px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold', width: '50px' }}>狀態</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.sort((a, b) => a.employee_id.localeCompare(b.employee_id)).map(u => {
+              const allowed = isIssuer(u)
+              const overridden = u.id in overrides
+              return (
+                <tr key={u.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{u.full_name}</td>
+                  <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>{u.employee_id}</td>
+                  <td style={{ padding: '2px 4px' }}>{u.department}</td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: '8px', color: u.role === 'admin' ? 'var(--status-error)' : u.role === 'supervisor' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
+                    {u.role === 'admin' ? '管理' : u.role === 'supervisor' ? '行政' : '作業員'}
+                  </td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                    <input type="checkbox" checked={allowed} onChange={() => toggleIssuer(u)} style={{ width: '12px', height: '12px', cursor: 'pointer' }} />
+                  </td>
+                  <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: '8px' }}>
+                    {overridden ? (
+                      <span style={{ display: 'inline-flex', gap: '3px', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--status-warning)' }}>覆寫</span>
+                        <button onClick={() => resetUser(u)} style={{ fontSize: '7px', padding: '0 2px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', cursor: 'pointer' }} title="還原">↶</button>
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>預設</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-        <thead>
-          <tr style={{ background: 'var(--titlebar-end)', color: 'var(--text-inverse)' }}>
-            <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>姓名</th>
-            <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>員編</th>
-            <th style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)' }}>部門</th>
-            <th style={{ padding: '3px 6px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)' }}>角色</th>
-            <th style={{ padding: '3px 6px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)' }}>交辦權限</th>
-            <th style={{ padding: '3px 6px', textAlign: 'center', borderBottom: '1px solid var(--border-mid-dark)' }}>狀態</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.sort((a, b) => a.employee_id.localeCompare(b.employee_id)).map(u => {
-            const allowed = isIssuer(u)
-            const overridden = u.id in overrides
-            return (
-              <tr key={u.id} className="eventlist-row" style={{ borderBottom: '1px solid var(--table-border)' }}>
-                <td style={{ padding: '3px 6px' }}>{u.full_name}</td>
-                <td style={{ padding: '3px 6px', color: 'var(--text-muted)' }}>{u.employee_id}</td>
-                <td style={{ padding: '3px 6px' }}>{u.department}</td>
-                <td style={{ padding: '3px 6px', textAlign: 'center', fontSize: '9px', color: u.role === 'admin' ? 'var(--accent-red)' : u.role === 'supervisor' ? 'var(--accent-blue)' : 'var(--text-muted)' }}>
-                  {u.role === 'admin' ? '管理' : u.role === 'supervisor' ? '行政' : '作業員'}
-                </td>
-                <td style={{ padding: '3px 6px', textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={allowed}
-                    onChange={() => toggleIssuer(u)}
-                    style={{ width: '14px', height: '14px', cursor: 'pointer' }}
-                  />
-                </td>
-                <td style={{ padding: '3px 6px', textAlign: 'center', fontSize: '9px' }}>
-                  {overridden ? (
-                    <span style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
-                      <span style={{ color: 'var(--accent-orange)' }}>覆寫</span>
-                      <button
-                        onClick={() => resetUser(u)}
-                        style={{ fontSize: '8px', padding: '0 3px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', cursor: 'pointer' }}
-                        title="還原為角色預設"
-                      >↶</button>
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--text-muted)' }}>角色預設</span>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
     </div>
   )
 }
@@ -535,11 +522,12 @@ function DelegationTab() {
 // ============================================
 // SETTINGS PAGE — Main component using DepartmentShell
 // ============================================
-export default function SettingsPage({ isAdmin = false }: SettingsPageProps) {
+export default function SettingsPage({ isAdmin = false, userId }: SettingsPageProps) {
   const tabs: DepartmentTab[] = [
     { id: 'permissions', label: 'PERMISSIONS', show: isAdmin, component: <PermissionsTab /> },
     { id: 'delegation',  label: 'DELEGATION',  show: isAdmin, component: <DelegationTab /> },
     { id: 'assignment',  label: 'ASSIGNMENT',  show: true,    component: <AssignmentTab /> },
+    { id: 'line',        label: 'LINE 通知',   show: true,    component: <LineSettingsTab userId={userId} /> },
     { id: 'devtracker',  label: 'DEV TRACKER', show: isAdmin, component: <DevTrackerPage /> },
   ]
 

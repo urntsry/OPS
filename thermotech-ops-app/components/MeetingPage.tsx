@@ -86,7 +86,7 @@ export default function MeetingPage({ isAdmin, userProfile, selectedScheduledMee
   const statusInfo = aiStatusLabel()
 
   return (
-    <div style={{ fontFamily: 'monospace', fontSize: '10px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ fontFamily: 'monospace', fontSize: '9px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Tab Bar */}
       <div style={{ display: 'flex', gap: '1px', padding: '2px 4px 0', background: 'var(--bg-window)', borderBottom: '1px solid var(--border-mid-dark)', flexShrink: 0 }}>
         {tabs.filter(t => t.show).map(tab => {
@@ -135,42 +135,31 @@ export default function MeetingPage({ isAdmin, userProfile, selectedScheduledMee
         {activeTab === 'create' && <CreateTab />}
       </div>
 
-      {/* AI Status Bar */}
+      {/* Status Bar */}
       <div style={{
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
         padding: '2px 6px',
-        fontSize: '9px',
+        fontSize: '8px',
         fontFamily: 'monospace',
         background: 'var(--bg-window)',
         borderTop: '1px solid var(--border-mid-dark)',
         color: 'var(--text-muted)',
       }}>
-        {/* AI Connection Status */}
-        <span style={{ color: statusInfo.color, fontWeight: 'bold' }}>
-          {statusInfo.text}
-        </span>
-
-        {/* Separator */}
+        <span style={{ fontWeight: 'bold' }}>MEETING - 會議</span>
         <span style={{ color: 'var(--border-mid-dark)' }}>|</span>
-
-        {/* Active analysis indicator */}
+        <span style={{ color: statusInfo.color, fontWeight: 'bold' }}>{statusInfo.text}</span>
+        <span style={{ color: 'var(--border-mid-dark)' }}>|</span>
         {analyzingCount > 0 ? (
-          <span style={{ color: 'var(--status-warning)' }}>
-            ANALYZING: {analyzingCount} file{analyzingCount > 1 ? 's' : ''}...
-          </span>
+          <span style={{ color: 'var(--status-warning)' }}>ANALYZING: {analyzingCount}</span>
         ) : pendingCount > 0 ? (
-          <span style={{ color: 'var(--text-muted)' }}>
-            PENDING: {pendingCount} in queue
-          </span>
+          <span>PENDING: {pendingCount}</span>
         ) : (
           <span>IDLE</span>
         )}
-
-        {/* Gemini model */}
-        <span style={{ marginLeft: 'auto' }}>MODEL: gemini-2.0-flash</span>
+        <span style={{ marginLeft: 'auto' }}>MEETING</span>
       </div>
     </div>
   )
@@ -257,7 +246,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
       {/* Left: list */}
       <div style={{ width: '50%', display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {/* Filter bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px' }}>
           <span style={{ color: 'var(--text-muted)' }}>FILTER:</span>
           {([
             { key: 'upcoming', label: '即將召開' },
@@ -268,7 +257,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
               key={f.key}
               onClick={() => setFilter(f.key)}
               style={{
-                fontSize: '10px',
+                fontSize: '9px',
                 fontFamily: 'monospace',
                 padding: '2px 8px',
                 border: '1px solid var(--border-mid-dark)',
@@ -283,7 +272,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
           <button
             onClick={load}
             style={{
-              fontSize: '10px',
+              fontSize: '9px',
               fontFamily: 'monospace',
               padding: '2px 8px',
               border: '1px solid var(--border-mid-dark)',
@@ -304,14 +293,14 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
         {/* List */}
         <div className="inset" style={{ flex: 1, overflow: 'auto', background: 'var(--bg-inset)' }}>
           {loading ? (
-            <div style={{ padding: '20px', textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)' }}>載入中...</div>
+            <div style={{ padding: '20px', textAlign: 'center', fontSize: '9px', color: 'var(--text-muted)' }}>載入中...</div>
           ) : meetings.length === 0 ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '9px', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.4 }}>◎</div>
               <div>{filter === 'upcoming' ? '尚無即將召開的會議' : filter === 'past' ? '尚無歷史會議' : '尚無會議排程'}</div>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', fontFamily: 'monospace' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-mid-dark)' }}>
                   <th style={{ padding: '3px 5px', textAlign: 'left', fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)' }}>DATE</th>
@@ -361,7 +350,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
       {/* Right: detail */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {!selected ? (
-          <div className="inset" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '11px', padding: '20px', textAlign: 'center' }}>
+          <div className="inset" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '9px', padding: '20px', textAlign: 'center' }}>
             ← 點選左側會議查看詳情
           </div>
         ) : (
@@ -376,7 +365,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
                   {selected.title}
                 </div>
                 {selected.location && (
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>
                     地點: {selected.location}
                   </div>
                 )}
@@ -394,7 +383,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
             {selected.summary && (
               <div>
                 <div style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '3px' }}>會議簡介</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-mid-dark)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-mid-dark)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
                   {selected.summary}
                 </div>
               </div>
@@ -403,7 +392,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
             {/* Record status banner */}
             <div style={{
               padding: '4px 8px',
-              fontSize: '10px',
+              fontSize: '9px',
               background: selected.record_uploaded ? 'rgba(0,160,0,0.15)' : 'rgba(255,140,0,0.15)',
               border: `1px solid ${selected.record_uploaded ? 'var(--status-success)' : 'var(--status-warning)'}`,
               color: selected.record_uploaded ? 'var(--status-success)' : 'var(--status-warning)',
@@ -455,7 +444,7 @@ function ScheduleTab({ selectedId, onClearSelected, currentUserId }: {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   {helpers.map(p => (
                     <div key={p.id} style={{
-                      fontSize: '10px',
+                      fontSize: '9px',
                       padding: '4px 6px',
                       background: 'var(--bg-window)',
                       border: '1px solid var(--border-mid-dark)',
@@ -564,7 +553,7 @@ function RecordsTab() {
           value={filterCat}
           onChange={e => setFilterCat(e.target.value)}
           className="inset"
-          style={{ fontSize: '10px', fontFamily: 'monospace', padding: '1px 3px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+          style={{ fontSize: '9px', fontFamily: 'monospace', padding: '1px 3px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         >
           <option value="">ALL</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -582,7 +571,7 @@ function RecordsTab() {
         ) : meetings.length === 0 ? (
           <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>- NO RECORDS -</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ background: 'var(--bg-window)' }}>
                 <th style={{ padding: '2px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', width: '70px' }}>DATE</th>
@@ -648,7 +637,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
   const info = analysis?.meeting_info || {}
   const sections = analysis?.content_sections || []
 
-  const cellStyle: React.CSSProperties = { padding: '3px 6px', fontSize: '10px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', verticalAlign: 'top' }
+  const cellStyle: React.CSSProperties = { padding: '3px 6px', fontSize: '9px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', verticalAlign: 'top' }
   const labelStyle: React.CSSProperties = { ...cellStyle, fontWeight: 'bold', background: 'var(--bg-window)', width: '70px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }
 
   return (
@@ -668,7 +657,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
 
         {/* Document Header */}
         <div style={{ background: 'var(--bg-inset)', padding: '8px 12px', borderBottom: '1px solid var(--border-mid-dark)', textAlign: 'center' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{info.doc_number ? `表單編號 ${info.doc_number}` : ''}</div>
+          <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{info.doc_number ? `表單編號 ${info.doc_number}` : ''}</div>
           <div style={{ fontSize: '12px', fontWeight: 'bold', margin: '4px 0', letterSpacing: '2px' }}>
             {info.company || '工德股份有限公司/振禹企業有限公司'}
           </div>
@@ -676,7 +665,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
         </div>
 
         {/* Meeting Info Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', fontFamily: 'monospace' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace' }}>
           <tbody>
             <tr>
               <td style={labelStyle}>主　題</td>
@@ -710,7 +699,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
         <div style={{ padding: '8px 12px', background: 'var(--bg-inset)', minHeight: '80px' }}>
           {/* AI Summary */}
           {meeting.summary && (
-            <div style={{ marginBottom: '8px', padding: '4px 6px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', fontSize: '10px' }}>
+            <div style={{ marginBottom: '8px', padding: '4px 6px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', fontSize: '9px' }}>
               <span style={{ fontWeight: 'bold', color: 'var(--accent-teal)', fontSize: '9px' }}>AI SUMMARY: </span>
               {meeting.summary}
             </div>
@@ -720,22 +709,22 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
           {sections.length > 0 ? (
             sections.map((section: any, idx: number) => (
               <div key={idx} style={{ marginBottom: '8px' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '3px', borderBottom: '1px solid var(--border-mid-dark)', paddingBottom: '2px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '3px', borderBottom: '1px solid var(--border-mid-dark)', paddingBottom: '2px' }}>
                   {idx + 1}. {section.title}
                 </div>
                 {(section.items || []).map((item: string, iIdx: number) => (
-                  <div key={iIdx} style={{ fontSize: '10px', paddingLeft: '12px', marginBottom: '2px', lineHeight: '1.4' }}>
+                  <div key={iIdx} style={{ fontSize: '9px', paddingLeft: '12px', marginBottom: '2px', lineHeight: '1.4' }}>
                     • {item}
                   </div>
                 ))}
               </div>
             ))
           ) : meeting.raw_content && !meeting.raw_content.startsWith('[IMAGE') ? (
-            <div style={{ fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+            <div style={{ fontSize: '9px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
               {meeting.raw_content}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '12px', fontSize: '10px' }}>
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '12px', fontSize: '9px' }}>
               (尚無結構化內容)
             </div>
           )}
@@ -745,7 +734,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
             <div style={{ marginTop: '8px', padding: '4px 6px', border: '1px solid var(--accent-blue)', background: 'var(--bg-window)' }}>
               <div style={{ fontWeight: 'bold', fontSize: '9px', color: 'var(--accent-blue)', marginBottom: '2px' }}>重要決議</div>
               {analysis.key_decisions.map((d: string, i: number) => (
-                <div key={i} style={{ fontSize: '10px', marginBottom: '1px' }}>• {d}</div>
+                <div key={i} style={{ fontSize: '9px', marginBottom: '1px' }}>• {d}</div>
               ))}
             </div>
           )}
@@ -756,9 +745,9 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
 
         {/* Action Items / 待辦事項 */}
         <div style={{ padding: '6px 12px', background: 'var(--bg-inset)' }}>
-          <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '4px', letterSpacing: '2px' }}>待辦事項</div>
+          <div style={{ fontWeight: 'bold', fontSize: '9px', marginBottom: '4px', letterSpacing: '2px' }}>待辦事項</div>
           {tasks.length === 0 && deadlines.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: '10px', padding: '4px 0' }}>- 無 -</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '9px', padding: '4px 0' }}>- 無 -</div>
           ) : (
             <>
               {tasks.map((t, idx) => (
@@ -766,7 +755,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
                   key={t.id}
                   className="eventlist-row"
                   onClick={() => onTaskToggle(t.id, t.status)}
-                  style={{ padding: '2px 0', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'flex-start', borderBottom: '1px solid var(--table-border)', fontSize: '10px' }}
+                  style={{ padding: '2px 0', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'flex-start', borderBottom: '1px solid var(--table-border)', fontSize: '9px' }}
                 >
                   <span style={{ fontFamily: 'Courier New', flexShrink: 0 }}>{t.status === 'completed' ? '[V]' : '[ ]'}</span>
                   <span style={{ fontWeight: 'bold', color: 'var(--accent-blue)', minWidth: '50px', flexShrink: 0 }}>{t.assignee_name}</span>
@@ -781,7 +770,7 @@ function MeetingDetail({ meeting, deadlines, tasks, onBack, onDelete, onTaskTogg
                   key={d.id}
                   className="eventlist-row"
                   onClick={() => onDeadlineToggle(d.id, d.status)}
-                  style={{ padding: '2px 0', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'center', borderBottom: '1px solid var(--table-border)', fontSize: '10px' }}
+                  style={{ padding: '2px 0', cursor: 'pointer', display: 'flex', gap: '6px', alignItems: 'center', borderBottom: '1px solid var(--table-border)', fontSize: '9px' }}
                 >
                   <span style={{ fontFamily: 'Courier New', flexShrink: 0 }}>{d.status === 'completed' ? '[V]' : '[ ]'}</span>
                   {d.is_urgent && <span style={{ color: 'var(--accent-red)', fontWeight: 'bold', fontSize: '9px', flexShrink: 0 }}>URGENT</span>}
@@ -925,7 +914,7 @@ function UploadTab({ userProfile }: { userProfile: any }) {
           type="date"
           value={defaultDate}
           onChange={e => setDefaultDate(e.target.value)}
-          style={{ fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+          style={{ fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         />
         <div style={{ flex: 1 }} />
         {queue.length > 0 && (
@@ -973,7 +962,7 @@ function UploadTab({ userProfile }: { userProfile: any }) {
             }
           }}
         />
-        <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '2px' }}>DROP FILES HERE (BATCH)</div>
+        <div style={{ fontSize: '9px', fontWeight: 'bold', marginBottom: '2px' }}>DROP FILES HERE (BATCH)</div>
         <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>or click to browse — select multiple files — PDF / DOCX / TXT / IMAGE</div>
       </div>
 
@@ -1001,7 +990,7 @@ function UploadTab({ userProfile }: { userProfile: any }) {
                     gap: '6px',
                     padding: '3px 6px',
                     borderBottom: '1px solid var(--table-border)',
-                    fontSize: '10px',
+                    fontSize: '9px',
                   }}
                 >
                   <span style={{ color: 'var(--text-muted)', fontSize: '9px', width: '16px', textAlign: 'right' }}>{idx + 1}</span>
@@ -1012,7 +1001,7 @@ function UploadTab({ userProfile }: { userProfile: any }) {
                       className="inset"
                       value={item.title}
                       onChange={e => updateQueueItem(item.id, { title: e.target.value })}
-                      style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '1px 3px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                      style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '1px 3px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
                     />
                   ) : (
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
@@ -1114,7 +1103,7 @@ function CategoriesTab() {
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
           placeholder="New category name"
-          style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+          style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         />
         <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={{ width: '24px', height: '18px', border: '1px solid var(--border-mid-dark)', cursor: 'pointer' }} />
         <button className="btn" onClick={handleAdd} style={{ fontSize: '9px', padding: '1px 8px' }}>ADD</button>
@@ -1171,7 +1160,7 @@ function SearchTab() {
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
           placeholder="Search meetings..."
-          style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+          style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         />
         <button className="btn" onClick={handleSearch} style={{ fontSize: '9px', padding: '1px 8px' }}>SEARCH</button>
       </div>
@@ -1244,9 +1233,9 @@ function CreateTab() {
     <div>
       <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
         <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>TITLE:</span>
-        <input className="inset" value={title} onChange={e => setTitle(e.target.value)} style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
+        <input className="inset" value={title} onChange={e => setTitle(e.target.value)} style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
         <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>DATE:</span>
-        <input className="inset" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ fontSize: '10px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
+        <input className="inset" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ fontSize: '9px', fontFamily: 'monospace', padding: '2px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
       </div>
 
       <div style={{ marginBottom: '6px' }}>
@@ -1255,7 +1244,7 @@ function CreateTab() {
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Paste meeting notes here..."
-          style={{ width: '100%', minHeight: '180px', fontSize: '10px', fontFamily: 'monospace', padding: '4px', resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
+          style={{ width: '100%', minHeight: '180px', fontSize: '9px', fontFamily: 'monospace', padding: '4px', resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-primary)' }}
         />
       </div>
 
