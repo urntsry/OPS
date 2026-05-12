@@ -355,9 +355,9 @@ function LineBindingTab() {
   if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Stats bar */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center' }}>
         <span>總計: <b style={{ color: 'var(--text-primary)' }}>{entries.length}</b></span>
         <span>已綁定: <b style={{ color: 'var(--status-success)' }}>{boundCount}</b></span>
         <span>未綁定: <b style={{ color: 'var(--status-error)' }}>{unboundCount}</b></span>
@@ -366,7 +366,7 @@ function LineBindingTab() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', fontSize: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', fontSize: '8px', alignItems: 'center' }}>
         <input
           type="text"
           placeholder="搜尋姓名/編號..."
@@ -398,38 +398,39 @@ function LineBindingTab() {
         <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>篩選: <b style={{ color: 'var(--text-primary)' }}>{filtered.length}</b> 筆</span>
       </div>
 
-      {/* Table */}
-      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', maxHeight: '420px', overflow: 'hidden auto' }}>
+      {/* Table — fills remaining space */}
+      <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', flex: 1, minHeight: 0, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace', tableLayout: 'fixed' }}>
           <thead>
-            <tr style={{ background: 'var(--bg-window)' }}>
+            <tr style={{ background: 'var(--bg-window)', position: 'sticky', top: 0, zIndex: 1 }}>
               <th style={{ ...hrThStyle, width: '50px' }}>編號</th>
               <th style={{ ...hrThStyle, width: '60px' }}>姓名</th>
               <th style={{ ...hrThStyle, width: '55px' }}>部門</th>
               <th style={{ ...hrThStyle, width: '45px', textAlign: 'center' }}>狀態</th>
-              <th style={{ ...hrThStyle, width: '90px' }}>綁定時間</th>
+              <th style={{ ...hrThStyle, width: '110px' }}>綁定時間</th>
               <th style={{ ...hrThStyle, width: '40px', textAlign: 'center' }}>操作</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(e => (
-              <tr key={e.id} style={{ borderBottom: '1px solid var(--border-light)', opacity: e.is_active ? 1 : 0.5 }}>
-                <td style={{ padding: '2px 4px' }}>{e.employee_id}</td>
-                <td style={{ padding: '2px 4px', fontWeight: 'bold' }}>{e.full_name}</td>
-                <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>{e.department || '--'}</td>
-                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+              <tr key={e.id} style={{ borderBottom: '1px solid var(--border-light)', opacity: e.is_active ? 1 : 0.5, height: '20px' }}>
+                <td style={{ padding: '3px 4px', lineHeight: '14px' }}>{e.employee_id}</td>
+                <td style={{ padding: '3px 4px', fontWeight: 'bold', lineHeight: '14px' }}>{e.full_name}</td>
+                <td style={{ padding: '3px 4px', color: 'var(--text-muted)', lineHeight: '14px' }}>{e.department || '--'}</td>
+                <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
                   {e.line_user_id
                     ? <span style={{ color: 'var(--status-success)', fontWeight: 'bold' }}>已綁定</span>
                     : <span style={{ color: 'var(--status-error)' }}>未綁定</span>
                   }
                 </td>
-                <td style={{ padding: '2px 4px', fontSize: '8px', color: 'var(--text-muted)' }}>
+                <td style={{ padding: '3px 4px', fontSize: '8px', color: 'var(--text-muted)', lineHeight: '14px' }}>
                   {e.line_bound_at ? new Date(e.line_bound_at).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '--'}
                 </td>
-                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
-                  {e.line_user_id && (
-                    <button onClick={() => handleUnbind(e)} className="btn" style={{ fontSize: '7px', padding: '1px 4px', color: 'var(--status-error)' }}>解綁</button>
-                  )}
+                <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
+                  {e.line_user_id
+                    ? <button onClick={() => handleUnbind(e)} className="btn" style={{ fontSize: '7px', padding: '0px 4px', lineHeight: '14px', color: 'var(--status-error)' }}>解綁</button>
+                    : <span style={{ fontSize: '7px', color: 'var(--text-muted)' }}>--</span>
+                  }
                 </td>
               </tr>
             ))}
