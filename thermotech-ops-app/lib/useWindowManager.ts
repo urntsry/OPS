@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export interface WindowState {
   id: string
@@ -81,7 +82,7 @@ interface WindowManagerStore {
   toggleMinimizeRestore: (id: string) => void
 }
 
-export const useWindowManager = create<WindowManagerStore>((set, get) => ({
+export const useWindowManager = create<WindowManagerStore>()(persist((set, get) => ({
   windows: {},
   activeWindowId: null,
 
@@ -255,6 +256,20 @@ export const useWindowManager = create<WindowManagerStore>((set, get) => ({
       get().minimizeWindow(id)
     } else {
       get().focusWindow(id)
+    }
+  },
+}), {
+  name: 'ops-window-state',
+  partialize: (state) => ({
+    windows: state.windows,
+    activeWindowId: state.activeWindowId,
+  }),
+  onRehydrate: () => {
+    return (state) => {
+      if (state?.windows) {
+        const maxZ = Math.max(10, ...Object.values(state.windows).map(w => w.zIndex))
+        globalZCounter = maxZ
+      }
     }
   },
 }))
