@@ -6,7 +6,7 @@ import AnnouncementManagementPage from './AnnouncementManagementPage'
 import AnnouncementReviewPage from './AnnouncementReviewPage'
 import HRNotificationPage from './HRNotificationPage'
 import { getPendingBulletins } from '@/lib/bulletinApi'
-import { getHRProfiles, getHREvents, getUpcomingExpirations, updateHRProfile, createHREvent, unbindLineUser, type HRProfile, type HREvent, type ExpirationAlert } from '@/lib/hrApi'
+import { getHRProfiles, getHREvents, getUpcomingExpirations, updateHRProfile, createHREvent, unbindLineUser, deleteProfile, type HRProfile, type HREvent, type ExpirationAlert } from '@/lib/hrApi'
 
 interface HRPageProps {
   isAdmin?: boolean
@@ -241,6 +241,20 @@ function HRRecords() {
     }
   }
 
+  async function handleDelete(p: HRProfile) {
+    if (!confirm(`確定刪除人員「${p.full_name}」（${p.employee_id}）？\n\n此操作無法復原！`)) return
+    if (!confirm(`再次確認：永久刪除 ${p.full_name}？`)) return
+    try {
+      await deleteProfile(p.id)
+      setToast(`已刪除 ${p.full_name}`)
+      setTimeout(() => setToast(null), 3000)
+      loadProfiles()
+    } catch (err) {
+      setToast('刪除失敗：' + (err instanceof Error ? err.message : '未知錯誤'))
+      setTimeout(() => setToast(null), 5000)
+    }
+  }
+
   const boundCount = profiles.filter(p => p.line_user_id).length
 
   if (loading) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '9px' }}>LOADING...</div>
@@ -299,7 +313,7 @@ function HRRecords() {
               <th style={{ ...hrThStyle, width: '68px' }}>合約到期</th>
               <th style={{ ...hrThStyle, ...thClickStyle, width: '42px', textAlign: 'center' }} onClick={() => toggleSort('line_status')}>LINE{sortIndicator('line_status')}</th>
               <th style={{ ...hrThStyle, ...thClickStyle, width: '85px' }} onClick={() => toggleSort('line_bound_at')}>綁定時間{sortIndicator('line_bound_at')}</th>
-              <th style={{ ...hrThStyle, width: '52px', textAlign: 'center' }}>操作</th>
+              <th style={{ ...hrThStyle, width: '68px', textAlign: 'center' }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -322,8 +336,9 @@ function HRRecords() {
                 <td style={{ padding: '3px 4px', textAlign: 'center', lineHeight: '14px' }}>
                   <button onClick={() => startEdit(p)} className="btn" style={{ fontSize: '7px', padding: '0px 3px', lineHeight: '14px', marginRight: '2px' }}>ED</button>
                   {p.line_user_id && (
-                    <button onClick={() => handleUnbind(p)} className="btn" style={{ fontSize: '7px', padding: '0px 3px', lineHeight: '14px', color: 'var(--status-error)' }}>×</button>
+                    <button onClick={() => handleUnbind(p)} className="btn" style={{ fontSize: '7px', padding: '0px 3px', lineHeight: '14px', color: 'var(--accent-blue)', marginRight: '2px' }} title="解除LINE綁定">⊘</button>
                   )}
+                  <button onClick={() => handleDelete(p)} className="btn" style={{ fontSize: '7px', padding: '0px 3px', lineHeight: '14px', color: 'var(--status-error)' }} title="刪除人員">DEL</button>
                 </td>
               </tr>
             ))}

@@ -174,6 +174,14 @@ export async function unbindLineUser(profileId: string): Promise<void> {
   if (error) throw error
 }
 
+export async function deleteProfile(profileId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', profileId)
+  if (error) throw error
+}
+
 // ---- Upcoming Expirations ----
 
 export interface ExpirationAlert {
