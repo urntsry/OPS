@@ -264,7 +264,7 @@ export const useWindowManager = create<WindowManagerStore>()(persist((set, get) 
     windows: state.windows,
     activeWindowId: state.activeWindowId,
   }),
-  onRehydrate: () => {
+  onRehydrateStorage: () => {
     return (state) => {
       if (state?.windows) {
         const maxZ = Math.max(10, ...Object.values(state.windows).map(w => w.zIndex))
