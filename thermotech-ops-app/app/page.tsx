@@ -49,7 +49,8 @@ export default function LoginPage() {
         role: profile.role,
         department: profile.department,
         jobTitle: profile.job_title,
-        siteCode: profile.site_code
+        siteCode: profile.site_code,
+        hr_access: profile.hr_access || false,
       }))
 
       router.push('/home')

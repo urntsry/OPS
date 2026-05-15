@@ -168,7 +168,7 @@ function HomePageInner() {
       console.log('[HomePage] 載入使用者:', user)
       setUserId(user.id)
       setUserRole(user.role)
-      const profile: Profile = {
+      const profile: any = {
         id: user.id,
         employee_id: user.employeeId,
         full_name: user.fullName,
@@ -176,8 +176,9 @@ function HomePageInner() {
         job_title: user.jobTitle || '',
         role: user.role,
         site_code: user.siteCode || 'ALL',
-        points_balance: 0, // 之後從 API 載入
-        avatar_url: undefined,
+        points_balance: 0,
+        hr_access: user.hr_access || false,
+        avatar_url: null,
         created_at: new Date().toISOString()
       }
       setUserProfile(profile)
@@ -960,7 +961,7 @@ function HomePageInner() {
             </>
           )}
 
-          {currentTab === 'hr' && <HRPage isAdmin={userRole === 'admin'} />}
+          {currentTab === 'hr' && <HRPage isAdmin={userRole === 'admin'} userProfile={userProfile} />}
           {currentTab === 'operations' && <div className="window p-2"><div style={{ textAlign: 'center', fontSize: '10px' }}>OPS (建構中)</div></div>}
           {currentTab === 'settings' && <SettingsPage isAdmin={userRole === 'admin'} />}
           {currentTab === 'points' && <PointsPage userProfile={userProfile} />}
@@ -1056,7 +1057,7 @@ function HomePageInner() {
               )}
             </div>
           )}
-          {currentTab === 'hr' && <HRPage isAdmin={userRole === 'admin'} />}
+          {currentTab === 'hr' && <HRPage isAdmin={userRole === 'admin'} userProfile={userProfile} />}
           {currentTab === 'operations' && <div className="window p-4"><div className="text-center">OPS (建構中)</div></div>}
           {currentTab === 'settings' && <SettingsPage isAdmin={userRole === 'admin'} />}
           {currentTab === 'points' && <PointsPage userProfile={userProfile} />}
@@ -1176,7 +1177,7 @@ function HomePageInner() {
 
       {/* Application Windows Layer — Internal modules */}
       <Win95Window windowId="hr">
-        <HRPage isAdmin={isAdmin} />
+        <HRPage isAdmin={isAdmin} userProfile={userProfile} />
       </Win95Window>
 
       <Win95Window windowId="meeting">

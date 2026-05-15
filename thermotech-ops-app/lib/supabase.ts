@@ -34,6 +34,7 @@ export interface Profile {
   sales_code: string | null
   shift_type: string | null
   is_supervisor: boolean
+  hr_access: boolean
   created_at: string
 }
 
