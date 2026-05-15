@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { getOvertimeRecords, upsertOvertimeRecord, deleteOvertimeRecord, getHRProfiles, type OvertimeRecord, type HRProfile } from '@/lib/hrApi'
-import { parseExcelFile, parseDate } from '@/lib/excelImport'
+import { parseExcelFile, parseDate, findHeaderRow } from '@/lib/excelImport'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const OVERTIME_THRESHOLD = 46
@@ -107,21 +107,43 @@ export default function HROvertimeTab() {
     if (!file) return
     setImporting(true)
     try {
-      const { sheets, sheetNames } = await parseExcelFile(file)
+      const { rawSheets, sheetNames } = await parseExcelFile(file)
       let imported = 0
       const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
 
       for (const sn of sheetNames) {
-        const rows = sheets[sn]
-        // Try to extract employee ID from sheet name like "黎文祥(10235)"
-        const titleMatch = sn.match(/\((\d{5})\)/)
-        const sheetEmpId = titleMatch ? titleMatch[1] : null
+        const raw = rawSheets[sn]
+        if (!raw || raw.length < 3) continue
 
-        for (const row of rows) {
-          const dateVal = row['日期'] ?? row['date'] ?? row['Date']
-          const ot1 = Number(row['加班\nI'] ?? row['加班I'] ?? row['OT1'] ?? row['overtime_type1_hours'] ?? 0)
-          const ot2 = Number(row['加班\nII'] ?? row['加班II'] ?? row['OT2'] ?? row['overtime_type2_hours'] ?? 0)
-          const noteVal = row['審核'] ?? row['備註'] ?? row['note'] ?? null
+        // Extract employee ID from sheet name "黎文祥(10235)" or from content
+        let empId: string | null = null
+        const titleMatch = sn.match(/\((\d{5})\)/)
+        if (titleMatch) {
+          empId = titleMatch[1]
+        } else {
+          for (let i = 0; i < Math.min(5, raw.length); i++) {
+            const rowStr = raw[i]?.join(' ') || ''
+            const m = rowStr.match(/\((\d{5})\)/)
+            if (m) { empId = m[1]; break }
+          }
+        }
+        if (!empId) continue
+
+        const profileId = profileByEmpId.get(empId)
+        if (!profileId) continue
+
+        // Find header row (contains "日期")
+        const headerIdx = findHeaderRow(raw, '日期')
+        const dataStart = headerIdx + 1
+
+        for (let i = dataStart; i < raw.length; i++) {
+          const row = raw[i]
+          if (!row || !row[0]) continue
+
+          const dateVal = row[0]
+          const ot1 = Number(row[2]) || 0
+          const ot2 = Number(row[3]) || 0
+          const noteVal = row[5] ?? row[4] ?? null
 
           if (ot1 === 0 && ot2 === 0) continue
 
@@ -132,14 +154,12 @@ export default function HROvertimeTab() {
           }
           if (!recordDate) continue
 
-          const empId = sheetEmpId || String(row['員工編號'] ?? row['編號'] ?? '').trim()
-          const profileId = profileByEmpId.get(empId)
-          if (!profileId) continue
+          const weekday = row[1] ? String(row[1]).trim() : getWeekday(recordDate)
 
           await upsertOvertimeRecord({
             profile_id: profileId,
             record_date: recordDate,
-            weekday: getWeekday(recordDate),
+            weekday,
             overtime_type1_hours: ot1,
             overtime_type2_hours: ot2,
             note: noteVal ? String(noteVal) : null,

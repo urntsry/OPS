@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { getBonusMonthly, upsertBonusMonthly, getBonusPenalties, createBonusPenalty, deleteBonusPenalty, getHRProfiles, type BonusMonthly, type BonusPenalty, type HRProfile } from '@/lib/hrApi'
-import { parseExcelFile } from '@/lib/excelImport'
+import { parseExcelFile, findHeaderRow } from '@/lib/excelImport'
 
 function getCurrentQuarter(): { year: number; quarter: number } {
   const now = new Date()
@@ -119,7 +119,7 @@ export default function HRBonusTab() {
     if (!file) return
     setImporting(true)
     try {
-      const { sheets, sheetNames } = await parseExcelFile(file)
+      const { rawSheets, sheetNames } = await parseExcelFile(file)
       let imported = 0
       const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
 
@@ -134,21 +134,26 @@ export default function HRBonusTab() {
         const westYear = rocYear + 1911
         const yearMonth = `${westYear}-${String(monthNum).padStart(2, '0')}`
 
-        const rows = sheets[sn]
-        for (const row of rows) {
-          const empId = String(row['員工編號'] ?? '').trim()
+        const raw = rawSheets[sn]
+        if (!raw || raw.length < 2) continue
+
+        // Headers: [None, 部門名稱, 員工編號, 員工姓名, XX月時薪, XX月0.5h次數, XX月伙食費, XX月小計]
+        const headerIdx = findHeaderRow(raw, '員工編號')
+
+        for (let i = headerIdx + 1; i < raw.length; i++) {
+          const row = raw[i]
+          if (!row) continue
+
+          const empId = String(row[2] ?? '').trim()
+          if (!/^\d{5}$/.test(empId)) continue
+
           const profileId = profileByEmpId.get(empId)
           if (!profileId) continue
 
-          const hourlyKey = Object.keys(row).find(k => k.includes('時薪'))
-          const countKey = Object.keys(row).find(k => k.includes('0.5h') || k.includes('次數'))
-          const mealKey = Object.keys(row).find(k => k.includes('伙食'))
-          const totalKey = Object.keys(row).find(k => k.includes('小計'))
-
-          const hourly = Number(row[hourlyKey || ''] ?? 0)
-          const count = Number(row[countKey || ''] ?? 0)
-          const meal = Number(row[mealKey || ''] ?? 0)
-          const total = Number(row[totalKey || ''] ?? 0) || (hourly * count * 0.5 + meal)
+          const hourly = Number(row[4]) || 0
+          const count = Number(row[5]) || 0
+          const meal = Number(row[6]) || 0
+          const total = Number(row[7]) || (hourly * count * 0.5 + meal)
 
           if (hourly === 0 && count === 0 && total === 0) continue
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { getLeaveRecords, createLeaveRecord, updateLeaveRecord, deleteLeaveRecord, getAnnualLeaveBalances, upsertAnnualLeaveBalance, getHRProfiles, type LeaveRecord, type AnnualLeaveBalance, type HRProfile } from '@/lib/hrApi'
-import { parseExcelFile } from '@/lib/excelImport'
+import { parseExcelFile, findHeaderRow } from '@/lib/excelImport'
 
 const LEAVE_TYPES = ['事假', '病假', '生理假', '婚假', '喪假', '公假', '產假', '陪產假', '家庭照顧假', '特休', '其他']
 
@@ -73,45 +73,52 @@ export default function HRAttendanceTab() {
     if (!file) return
     setImporting(true)
     try {
-      const { sheets, sheetNames } = await parseExcelFile(file)
+      const { rawSheets, sheetNames } = await parseExcelFile(file)
       let imported = 0
       const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
 
       for (const sn of sheetNames) {
-        if (sn.includes('差假') || sn.includes('明細')) {
-          const rows = sheets[sn]
-          for (const row of rows) {
-            const empId = String(row['員工編號'] ?? '').trim()
-            const profileId = profileByEmpId.get(empId)
-            if (!profileId) continue
+        if (!sn.includes('差假') && !sn.includes('明細')) continue
 
-            const leaveType = String(row['假別'] ?? '其他').trim()
-            const timeRange = String(row['起迄時間'] ?? '').trim()
-            const days = Number(row['日數'] ?? 0)
-            const hours = Number(row['total'] ?? row['時數'] ?? 0)
-            const reason = row['事由'] ? String(row['事由']) : null
+        const raw = rawSheets[sn]
+        if (!raw || raw.length < 2) continue
 
-            let startTime = '', endTime = ''
-            if (timeRange.includes('~')) {
-              const parts = timeRange.split('~')
-              startTime = parts[0].trim()
-              endTime = parts[1].trim()
-            } else if (timeRange.includes('～')) {
-              const parts = timeRange.split('～')
-              startTime = parts[0].trim()
-              endTime = parts[1].trim()
-            }
-            if (!startTime || !endTime) continue
+        // Headers: 部門名稱(0), 員工編號(1), 員工姓名(2), 假別(3), 起迄時間(4), 日數(5), 日數換算(6), 時數(7), total(8), 事由(9)
+        const headerIdx = findHeaderRow(raw, '員工編號')
+        
+        for (let i = headerIdx + 1; i < raw.length; i++) {
+          const row = raw[i]
+          if (!row) continue
 
-            await createLeaveRecord({
-              profile_id: profileId,
-              leave_type: leaveType,
-              start_time: startTime,
-              end_time: endTime,
-              days, hours, reason, year,
-            })
-            imported++
+          const empId = String(row[1] ?? '').trim()
+          if (!/^\d{5}$/.test(empId)) continue
+
+          const profileId = profileByEmpId.get(empId)
+          if (!profileId) continue
+
+          const leaveType = String(row[3] ?? '其他').trim()
+          const timeRange = String(row[4] ?? '').trim()
+          const days = Number(row[5]) || 0
+          const hours = Number(row[8] ?? row[7]) || 0
+          const reason = row[9] ? String(row[9]) : null
+
+          let startTime = '', endTime = ''
+          const separator = timeRange.includes('~') ? '~' : timeRange.includes('～') ? '～' : null
+          if (separator) {
+            const parts = timeRange.split(separator)
+            startTime = parts[0].trim()
+            endTime = parts[1].trim()
           }
+          if (!startTime || !endTime) continue
+
+          await createLeaveRecord({
+            profile_id: profileId,
+            leave_type: leaveType,
+            start_time: startTime,
+            end_time: endTime,
+            days, hours, reason, year,
+          })
+          imported++
         }
       }
       showToast(`匯入完成：${imported} 筆`)
