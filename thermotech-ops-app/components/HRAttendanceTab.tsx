@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getLeaveRecords, createLeaveRecord, updateLeaveRecord, deleteLeaveRecord, getAnnualLeaveBalances, upsertAnnualLeaveBalance, getHRProfiles, type LeaveRecord, type AnnualLeaveBalance, type HRProfile } from '@/lib/hrApi'
+import { parseExcelFile } from '@/lib/excelImport'
 
 const LEAVE_TYPES = ['事假', '病假', '生理假', '婚假', '喪假', '公假', '產假', '陪產假', '家庭照顧假', '特休', '其他']
 
@@ -63,6 +64,66 @@ export default function HRAttendanceTab() {
     const q = filter.toLowerCase()
     return p.full_name.toLowerCase().includes(q) || p.employee_id.toLowerCase().includes(q)
   }).sort((a, b) => a.employee_id.localeCompare(b.employee_id))
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const { sheets, sheetNames } = await parseExcelFile(file)
+      let imported = 0
+      const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
+
+      for (const sn of sheetNames) {
+        if (sn.includes('差假') || sn.includes('明細')) {
+          const rows = sheets[sn]
+          for (const row of rows) {
+            const empId = String(row['員工編號'] ?? '').trim()
+            const profileId = profileByEmpId.get(empId)
+            if (!profileId) continue
+
+            const leaveType = String(row['假別'] ?? '其他').trim()
+            const timeRange = String(row['起迄時間'] ?? '').trim()
+            const days = Number(row['日數'] ?? 0)
+            const hours = Number(row['total'] ?? row['時數'] ?? 0)
+            const reason = row['事由'] ? String(row['事由']) : null
+
+            let startTime = '', endTime = ''
+            if (timeRange.includes('~')) {
+              const parts = timeRange.split('~')
+              startTime = parts[0].trim()
+              endTime = parts[1].trim()
+            } else if (timeRange.includes('～')) {
+              const parts = timeRange.split('～')
+              startTime = parts[0].trim()
+              endTime = parts[1].trim()
+            }
+            if (!startTime || !endTime) continue
+
+            await createLeaveRecord({
+              profile_id: profileId,
+              leave_type: leaveType,
+              start_time: startTime,
+              end_time: endTime,
+              days, hours, reason, year,
+            })
+            imported++
+          }
+        }
+      }
+      showToast(`匯入完成：${imported} 筆`)
+      loadData()
+    } catch (err) {
+      console.error('[Attendance Import]', err)
+      showToast('匯入失敗：' + (err instanceof Error ? err.message : '未知錯誤'))
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   function showToast(msg: string) {
     setToast(msg)
@@ -126,7 +187,11 @@ export default function HRAttendanceTab() {
           onChange={e => setFilter(e.target.value)}
           style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', width: '100px' }}
         />
-        <button onClick={() => setAddingLeave(true)} className="btn" style={{ fontSize: '8px', padding: '1px 6px', marginLeft: 'auto' }}>+ 新增請假</button>
+        <input type="file" ref={fileInputRef} accept=".xlsx,.xls" onChange={handleImportExcel} style={{ display: 'none' }} />
+        <button onClick={() => fileInputRef.current?.click()} className="btn" style={{ fontSize: '8px', padding: '1px 6px', marginLeft: 'auto' }} disabled={importing}>
+          {importing ? '匯入中...' : '匯入 Excel'}
+        </button>
+        <button onClick={() => setAddingLeave(true)} className="btn" style={{ fontSize: '8px', padding: '1px 6px' }}>+ 新增請假</button>
         {toast && <span style={{ color: 'var(--status-success)' }}>{toast}</span>}
       </div>
 

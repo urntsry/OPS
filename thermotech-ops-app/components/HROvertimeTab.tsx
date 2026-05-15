@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getOvertimeRecords, upsertOvertimeRecord, deleteOvertimeRecord, getHRProfiles, type OvertimeRecord, type HRProfile } from '@/lib/hrApi'
+import { parseExcelFile, parseDate } from '@/lib/excelImport'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const OVERTIME_THRESHOLD = 46
@@ -98,6 +99,67 @@ export default function HROvertimeTab() {
   const totalEmployeesWithOT = summaries.filter(s => s.total_hours > 0).length
   const totalOvertime = summaries.filter(s => s.is_overtime).length
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const { sheets, sheetNames } = await parseExcelFile(file)
+      let imported = 0
+      const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
+
+      for (const sn of sheetNames) {
+        const rows = sheets[sn]
+        // Try to extract employee ID from sheet name like "黎文祥(10235)"
+        const titleMatch = sn.match(/\((\d{5})\)/)
+        const sheetEmpId = titleMatch ? titleMatch[1] : null
+
+        for (const row of rows) {
+          const dateVal = row['日期'] ?? row['date'] ?? row['Date']
+          const ot1 = Number(row['加班\nI'] ?? row['加班I'] ?? row['OT1'] ?? row['overtime_type1_hours'] ?? 0)
+          const ot2 = Number(row['加班\nII'] ?? row['加班II'] ?? row['OT2'] ?? row['overtime_type2_hours'] ?? 0)
+          const noteVal = row['審核'] ?? row['備註'] ?? row['note'] ?? null
+
+          if (ot1 === 0 && ot2 === 0) continue
+
+          let recordDate = parseDate(dateVal)
+          if (!recordDate && dateVal) {
+            const m = String(dateVal).match(/(\d{1,2})\/(\d{1,2})/)
+            if (m) recordDate = `${month.slice(0, 4)}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+          }
+          if (!recordDate) continue
+
+          const empId = sheetEmpId || String(row['員工編號'] ?? row['編號'] ?? '').trim()
+          const profileId = profileByEmpId.get(empId)
+          if (!profileId) continue
+
+          await upsertOvertimeRecord({
+            profile_id: profileId,
+            record_date: recordDate,
+            weekday: getWeekday(recordDate),
+            overtime_type1_hours: ot1,
+            overtime_type2_hours: ot2,
+            note: noteVal ? String(noteVal) : null,
+            month_period: month,
+            updated_at: new Date().toISOString(),
+          } as any)
+          imported++
+        }
+      }
+      showToast(`匯入完成：${imported} 筆`)
+      loadData()
+    } catch (err) {
+      console.error('[Overtime Import]', err)
+      showToast('匯入失敗：' + (err instanceof Error ? err.message : '未知錯誤'))
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   function startAdd(profileId: string) {
     setAddingFor(profileId)
     setEditingId(null)
@@ -177,7 +239,11 @@ export default function HROvertimeTab() {
         />
         <span>有加班: <b style={{ color: 'var(--text-primary)' }}>{totalEmployeesWithOT}</b></span>
         <span>超時({OVERTIME_THRESHOLD}hr): <b style={{ color: 'var(--status-error)' }}>{totalOvertime}</b></span>
-        {toast && <span style={{ marginLeft: 'auto', color: 'var(--status-success)' }}>{toast}</span>}
+        <input type="file" ref={fileInputRef} accept=".xlsx,.xls" onChange={handleImportExcel} style={{ display: 'none' }} />
+        <button onClick={() => fileInputRef.current?.click()} className="btn" style={{ fontSize: '8px', padding: '1px 6px', marginLeft: 'auto' }} disabled={importing}>
+          {importing ? '匯入中...' : '匯入 Excel'}
+        </button>
+        {toast && <span style={{ color: 'var(--status-success)' }}>{toast}</span>}
       </div>
 
       {/* Table */}

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getBonusMonthly, upsertBonusMonthly, getBonusPenalties, createBonusPenalty, deleteBonusPenalty, getHRProfiles, type BonusMonthly, type BonusPenalty, type HRProfile } from '@/lib/hrApi'
+import { parseExcelFile } from '@/lib/excelImport'
 
 function getCurrentQuarter(): { year: number; quarter: number } {
   const now = new Date()
@@ -110,6 +111,69 @@ export default function HRBonusTab() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const { sheets, sheetNames } = await parseExcelFile(file)
+      let imported = 0
+      const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
+
+      for (const sn of sheetNames) {
+        // Match monthly sheets like "115.01", "115.02", "115.03"
+        const monthMatch = sn.match(/(\d{3})\.(\d{2})/)
+        if (!monthMatch) continue
+        if (sn.includes('出勤') || sn.includes('伙食')) continue
+
+        const rocYear = parseInt(monthMatch[1])
+        const monthNum = parseInt(monthMatch[2])
+        const westYear = rocYear + 1911
+        const yearMonth = `${westYear}-${String(monthNum).padStart(2, '0')}`
+
+        const rows = sheets[sn]
+        for (const row of rows) {
+          const empId = String(row['員工編號'] ?? '').trim()
+          const profileId = profileByEmpId.get(empId)
+          if (!profileId) continue
+
+          const hourlyKey = Object.keys(row).find(k => k.includes('時薪'))
+          const countKey = Object.keys(row).find(k => k.includes('0.5h') || k.includes('次數'))
+          const mealKey = Object.keys(row).find(k => k.includes('伙食'))
+          const totalKey = Object.keys(row).find(k => k.includes('小計'))
+
+          const hourly = Number(row[hourlyKey || ''] ?? 0)
+          const count = Number(row[countKey || ''] ?? 0)
+          const meal = Number(row[mealKey || ''] ?? 0)
+          const total = Number(row[totalKey || ''] ?? 0) || (hourly * count * 0.5 + meal)
+
+          if (hourly === 0 && count === 0 && total === 0) continue
+
+          await upsertBonusMonthly({
+            profile_id: profileId,
+            year_month: yearMonth,
+            hourly_rate: hourly,
+            half_hour_count: count,
+            meal_allowance: meal,
+            monthly_total: total,
+          })
+          imported++
+        }
+      }
+      showToast(`匯入完成：${imported} 筆`)
+      loadData()
+    } catch (err) {
+      console.error('[Bonus Import]', err)
+      showToast('匯入失敗：' + (err instanceof Error ? err.message : '未知錯誤'))
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   function startEditMonthly(profileId: string, ym: string) {
     const existing = monthlyData.find(m => m.profile_id === profileId && m.year_month === ym)
     setEditingMonthly({ profile_id: profileId, year_month: ym })
@@ -196,7 +260,11 @@ export default function HRBonusTab() {
           onChange={e => setFilter(e.target.value)}
           style={{ fontSize: '8px', fontFamily: 'monospace', padding: '1px 4px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)', width: '100px' }}
         />
-        <button onClick={() => setAddingPenalty(true)} className="btn" style={{ fontSize: '8px', padding: '1px 6px', marginLeft: 'auto' }}>+ 獎懲</button>
+        <input type="file" ref={fileInputRef} accept=".xlsx,.xls" onChange={handleImportExcel} style={{ display: 'none' }} />
+        <button onClick={() => fileInputRef.current?.click()} className="btn" style={{ fontSize: '8px', padding: '1px 6px', marginLeft: 'auto' }} disabled={importing}>
+          {importing ? '匯入中...' : '匯入 Excel'}
+        </button>
+        <button onClick={() => setAddingPenalty(true)} className="btn" style={{ fontSize: '8px', padding: '1px 6px' }}>+ 獎懲</button>
         {toast && <span style={{ color: 'var(--status-success)' }}>{toast}</span>}
       </div>
 
