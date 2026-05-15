@@ -1,12 +1,7 @@
 'use client'
 
-import { createClient } from '@supabase/supabase-js'
+import { supabase as sb } from './supabase'
 import { notify } from './notifications'
-
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
 
 export type ParticipantRole = 'attendee' | 'related' | 'helper'
 

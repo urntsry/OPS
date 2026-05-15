@@ -1,9 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const globalForSupabase = globalThis as unknown as { _supabase?: SupabaseClient }
+
+export const supabase = globalForSupabase._supabase ?? createClient(supabaseUrl, supabaseAnonKey)
+
+if (typeof window !== 'undefined') {
+  globalForSupabase._supabase = supabase
+}
 
 // Types for Database Tables
 export interface Profile {

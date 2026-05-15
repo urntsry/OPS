@@ -1,24 +1,8 @@
 // THERMOTECH-OPS Supabase API 工具函數
 // 所有資料庫操作的統一介面
 
-import { createClient } from '@supabase/supabase-js'
-
-// Supabase Client - 使用環境變數
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-// 檢查環境變數
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('[API] 環境變數未設定:', {
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseAnonKey,
-    url: supabaseUrl,
-    envKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
-  })
-  throw new Error('Supabase 環境變數未設定。請檢查 .env.local 檔案。')
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { supabase } from './supabase'
+export { supabase }
 
 // ===========================================
 // 型別定義

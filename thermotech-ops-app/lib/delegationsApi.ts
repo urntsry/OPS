@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase as sb } from './supabase'
 import { notify } from './notifications'
 
 /**
@@ -10,10 +10,6 @@ import { notify } from './notifications'
  * - 一筆交辦 = 一個跨日區間 (start_date → due_date) 的工作單
  * - 狀態：pending / done ；overdue 為動態計算 (due_date < today AND !done)
  */
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-const sb = createClient(supabaseUrl, supabaseAnonKey)
 
 export type DelegationStatus = 'pending' | 'done'
 export type DelegationPriority = 'normal' | 'high' | 'urgent'

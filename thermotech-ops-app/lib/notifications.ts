@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase as clientSb } from './supabase'
 
 /**
  * Notification Port — 通用通知抽象層
@@ -11,10 +11,6 @@ import { createClient } from '@supabase/supabase-js'
  *
  * 漸進式 rollout：尚未綁 LINE 的同事仍會收到 In-App 通知，等綁定後自動升級。
  */
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-const clientSb = createClient(supabaseUrl, supabaseAnonKey)
 
 export type NotificationChannel = 'in_app' | 'line' | 'email' | 'sms'
 export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'cancelled'
