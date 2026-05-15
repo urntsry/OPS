@@ -110,12 +110,13 @@ export default function HROvertimeTab() {
       const { rawSheets, sheetNames } = await parseExcelFile(file)
       let imported = 0
       const profileByEmpId = new Map(profiles.map(p => [p.employee_id, p.id]))
+      const employeesWithDetail = new Set<string>()
 
+      // Phase 1: Import detail sheets (individual employee sheets with daily breakdown)
       for (const sn of sheetNames) {
         const raw = rawSheets[sn]
         if (!raw || raw.length < 3) continue
 
-        // Extract employee ID from sheet name "黎文祥(10235)" or from content
         let empId: string | null = null
         const titleMatch = sn.match(/\((\d{5})\)/)
         if (titleMatch) {
@@ -131,8 +132,8 @@ export default function HROvertimeTab() {
 
         const profileId = profileByEmpId.get(empId)
         if (!profileId) continue
+        employeesWithDetail.add(empId)
 
-        // Find header row (contains "日期")
         const headerIdx = findHeaderRow(raw, '日期')
         const dataStart = headerIdx + 1
 
@@ -141,6 +142,8 @@ export default function HROvertimeTab() {
           if (!row || !row[0]) continue
 
           const dateVal = row[0]
+          if (String(dateVal).includes('合計')) continue
+
           const ot1 = Number(row[2]) || 0
           const ot2 = Number(row[3]) || 0
           const noteVal = row[5] ?? row[4] ?? null
@@ -169,6 +172,57 @@ export default function HROvertimeTab() {
           imported++
         }
       }
+
+      // Phase 2: Import summary sheet for employees WITHOUT detail sheets
+      // Summary sheet (first sheet "時數計算") has total OT1/OT2 for all employees
+      const summarySheet = rawSheets[sheetNames[0]]
+      if (summarySheet) {
+        const hdrIdx = findHeaderRow(summarySheet, '加班') || findHeaderRow(summarySheet, '編號') || 0
+
+        // Detect column positions from header
+        const hdr = summarySheet[hdrIdx] || []
+        let colEmpId = -1, colOT1 = -1, colOT2 = -1
+        for (let c = 0; c < hdr.length; c++) {
+          const v = String(hdr[c] ?? '').replace(/\s/g, '')
+          if (v.includes('編號')) colEmpId = c
+          if (v.includes('加班I') || v.includes('加班\nI')) colOT1 = c
+          if (v.includes('加班II') || v.includes('加班\nII')) colOT2 = c
+        }
+        if (colEmpId < 0) colEmpId = 1
+        if (colOT1 < 0) colOT1 = 4
+        if (colOT2 < 0) colOT2 = 5
+
+        for (let i = hdrIdx + 1; i < summarySheet.length; i++) {
+          const row = summarySheet[i]
+          if (!row) continue
+
+          const empId = String(row[colEmpId] ?? '').trim()
+          if (!/^\d{5}$/.test(empId)) continue
+          if (employeesWithDetail.has(empId)) continue
+
+          const profileId = profileByEmpId.get(empId)
+          if (!profileId) continue
+
+          const ot1Total = Number(row[colOT1]) || 0
+          const ot2Total = Number(row[colOT2]) || 0
+          if (ot1Total === 0 && ot2Total === 0) continue
+
+          // Create a single monthly summary record (date = 1st of month)
+          const summaryDate = `${month}-01`
+          await upsertOvertimeRecord({
+            profile_id: profileId,
+            record_date: summaryDate,
+            weekday: '',
+            overtime_type1_hours: ot1Total,
+            overtime_type2_hours: ot2Total,
+            note: '(月合計-無每日明細)',
+            month_period: month,
+            updated_at: new Date().toISOString(),
+          } as any)
+          imported++
+        }
+      }
+
       showToast(`匯入完成：${imported} 筆`)
       loadData()
     } catch (err) {
