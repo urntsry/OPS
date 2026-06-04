@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getOvertimeRecords, upsertOvertimeRecord, deleteOvertimeRecord, getHRProfiles, type OvertimeRecord, type HRProfile } from '@/lib/hrApi'
 import { parseExcelFile, parseDate, findHeaderRow } from '@/lib/excelImport'
+import HROvertimeCompare from './HROvertimeCompare'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const OVERTIME_THRESHOLD = 46
@@ -30,6 +31,7 @@ interface SummaryRow {
 }
 
 export default function HROvertimeTab() {
+  const [mode, setMode] = useState<'records' | 'compare'>('records')
   const [month, setMonth] = useState(getCurrentMonth())
   const [records, setRecords] = useState<OvertimeRecord[]>([])
   const [profiles, setProfiles] = useState<HRProfile[]>([])
@@ -293,8 +295,28 @@ export default function HROvertimeTab() {
 
   const thStyle: React.CSSProperties = { padding: '3px 4px', textAlign: 'left', borderBottom: '1px solid var(--border-mid-dark)', fontSize: '8px', fontWeight: 'bold' }
 
+  const modeTabStyle = (active: boolean): React.CSSProperties => ({
+    fontSize: '8px', padding: '2px 10px', cursor: 'pointer',
+    background: active ? 'var(--bg-window)' : 'var(--bg-inset)',
+    border: '1px solid var(--border-mid-dark)',
+    borderBottom: active ? 'none' : '1px solid var(--border-mid-dark)',
+    fontWeight: active ? 'bold' : 'normal',
+    marginBottom: '-1px', position: 'relative' as const, zIndex: active ? 1 : 0,
+    color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Mode tabs */}
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '4px', borderBottom: '1px solid var(--border-mid-dark)' }}>
+        <button style={modeTabStyle(mode === 'records')} onClick={() => setMode('records')}>加班紀錄</button>
+        <button style={modeTabStyle(mode === 'compare')} onClick={() => setMode('compare')}>自動比對工具</button>
+      </div>
+
+      {mode === 'compare' ? (
+        <HROvertimeCompare />
+      ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Controls */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', fontSize: '8px', color: 'var(--text-muted)', alignItems: 'center' }}>
         <label>月份:</label>
@@ -438,6 +460,8 @@ export default function HROvertimeTab() {
             </div>
           </div>
         </div>
+      )}
+      </div>
       )}
     </div>
   )

@@ -11,12 +11,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-ops-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-ops-service-role-key
 
 # === Capacity Supabase（LINE Bot 加班/語音建單功能需要）===
-CAPACITY_SUPABASE_URL=https://your-capacity-project.supabase.co
-CAPACITY_SUPABASE_SERVICE_KEY=your-capacity-service-role-key
+CAPACITY_SUPABASE_URL=https://bacsqydbhmiictqtgidy.supabase.co
+CAPACITY_SUPABASE_SERVICE_KEY=Admin369888
 CAPACITY_APP_URL=https://ca-chi.vercel.app
 
 # === LINE Bot ===
-LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
+LINE_CHANNEL_ACCESS_TOKEN=15NvWu94170itDpSHflZOm0teDmHDNe0Ufa5BlEcqu5cnwYAFL1HBaGdgtG9Gsts735vcPKmRmzZ21aFX+fwrMnH8q7BsX92uPhKBuGMjph4Ic2bu1x4jbwfvbHyaozUaqeJ+X+AxKaa+mpUKbHe/AdB04t89/1O/w1cDnyilFU=
 LINE_CHANNEL_SECRET=your-line-channel-secret
 
 # === Google AI（會議分析 + 語音建單）===
