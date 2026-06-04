@@ -250,9 +250,16 @@ export default function HROvertimeCompare() {
             earlyStatus = 'exclude'
             earlyReason = `QR ${qrStart} >= 08:30，非加班`
           } else {
-            earlyOt = 0
-            earlyStatus = 'review'
-            earlyReason = '無 QR 資料，需人工確認'
+            // No QR data: if no evening OT either, auto-exclude (likely office staff)
+            if (!att.clock_out || att.clock_out <= '18:00') {
+              earlyOt = 0
+              earlyStatus = 'exclude'
+              earlyReason = '無 QR 資料且無晚班加班，自動排除'
+            } else {
+              earlyOt = 0
+              earlyStatus = 'review'
+              earlyReason = '無 QR 資料，需人工確認'
+            }
           }
         }
 
