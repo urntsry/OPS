@@ -21,9 +21,10 @@ interface TaskbarProps {
   onLogout: () => void
   onOpenPoints: () => void
   isAdmin: boolean
+  allowedModules?: string[] | null
 }
 
-export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }: TaskbarProps) {
+export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin, allowedModules }: TaskbarProps) {
   const { windows, activeWindowId, toggleMinimizeRestore, openWindow } = useWindowManager()
   const { toggleTheme, isDark, mounted } = useTheme()
   const [startMenuOpen, setStartMenuOpen] = useState(false)
@@ -77,6 +78,7 @@ export default function Taskbar({ userProfile, onLogout, onOpenPoints, isAdmin }
         <StartMenu
           userProfile={userProfile}
           isAdmin={isAdmin}
+          allowedModules={allowedModules}
           onClose={() => setStartMenuOpen(false)}
           onLogout={onLogout}
           onOpenWindow={(id) => {

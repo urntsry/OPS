@@ -14,7 +14,7 @@ export interface Profile {
   full_name: string
   department: string
   job_title: string
-  role: 'admin' | 'supervisor' | 'user'
+  role: 'admin' | 'manager' | 'supervisor' | 'user'
   points_balance: number
   site_code: string
   avatar_url?: string

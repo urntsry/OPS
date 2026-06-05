@@ -12,12 +12,13 @@ interface StartMenuProps {
     points_balance: number
   } | null
   isAdmin: boolean
+  allowedModules?: string[] | null
   onClose: () => void
   onLogout: () => void
   onOpenWindow: (id: string) => void
 }
 
-export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onOpenWindow }: StartMenuProps) {
+export default function StartMenu({ userProfile, isAdmin, allowedModules, onClose, onLogout, onOpenWindow }: StartMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,13 +39,20 @@ export default function StartMenu({ userProfile, isAdmin, onClose, onLogout, onO
     }
   }, [onClose])
 
-  // Build menu sections from WINDOW_CONFIGS (filter out hidden)
+  // 是否可見：admin 全可見；否則依有效模組清單（allowedModules 尚未載入時暫時隱藏受控模組）
+  const canSee = (id: string) => {
+    if (isAdmin) return true
+    if (!allowedModules) return ['meeting', 'points', 'appcenter', 'settings'].includes(id)
+    return allowedModules.includes(id)
+  }
+
+  // Build menu sections from WINDOW_CONFIGS (filter out hidden + 依權限過濾)
   const internalApps = WINDOW_CONFIGS.filter(c =>
-    c.type === 'internal' && !c.hidden && !['points', 'devtracker'].includes(c.id)
+    c.type === 'internal' && !c.hidden && !['points', 'devtracker'].includes(c.id) && canSee(c.id)
   )
-  const externalApps = WINDOW_CONFIGS.filter(c => c.type === 'external' && !c.hidden)
+  const externalApps = WINDOW_CONFIGS.filter(c => c.type === 'external' && !c.hidden && canSee(c.id))
   const utilItems = [
-    ...WINDOW_CONFIGS.filter(c => c.id === 'points' && !c.hidden),
+    ...WINDOW_CONFIGS.filter(c => c.id === 'points' && !c.hidden && canSee('points')),
     ...(isAdmin ? WINDOW_CONFIGS.filter(c => c.id === 'devtracker' && !c.hidden) : []),
   ]
 

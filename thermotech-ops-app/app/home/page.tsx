@@ -31,6 +31,7 @@ import ExternalAppFrame from '@/components/ExternalAppFrame'
 import ManagerDashboard from '@/components/ManagerDashboard'
 import AppCenterPage from '@/components/AppCenterPage'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
+import { getEffectiveModules } from '@/lib/userAccessApi'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
 import { getMeetingsForMonth as fetchMeetingsForMonth, subscribeScheduledMeetings } from '@/lib/meetingsApi'
 import { getDelegationsForMonth, subscribeDelegations, type Delegation } from '@/lib/delegationsApi'
@@ -141,6 +142,8 @@ function HomePageInner() {
   // 從 localStorage 讀取登入資訊
   const [userId, setUserId] = useState<string>('')
   const [userRole, setUserRole] = useState<string>('user')
+  // 有效可見模組（依部門對應 + 個人 override 計算）
+  const [allowedModules, setAllowedModules] = useState<string[] | null>(null)
   
   // 佈告系統
   const [publicBulletins, setPublicBulletins] = useState<Bulletin[]>([])
@@ -196,6 +199,19 @@ function HomePageInner() {
       loadAllUsers()
     }
   }, [userRole, userId])
+
+  // 計算有效可見模組
+  useEffect(() => {
+    if (!userProfile?.id) return
+    let cancelled = false
+    getEffectiveModules({ id: userProfile.id, role: userProfile.role, department: userProfile.department })
+      .then(set => { if (!cancelled) setAllowedModules(Array.from(set)) })
+      .catch(err => {
+        console.warn('[HomePage] 計算模組權限失敗，套用基本模組:', err)
+        if (!cancelled) setAllowedModules(['meeting', 'points', 'appcenter'])
+      })
+    return () => { cancelled = true }
+  }, [userProfile?.id, userProfile?.role, userProfile?.department])
   
   // 載入佈告資料 — 初始載入 + Supabase Realtime 即時訂閱
   useEffect(() => {
@@ -1206,7 +1222,7 @@ function HomePageInner() {
       </Win95Window>
 
       <Win95Window windowId="settings">
-        <SettingsPage isAdmin={isAdmin} userId={userId} />
+        <SettingsPage isAdmin={isAdmin} userId={userId} userRole={userRole} userDepartment={userProfile?.department || ''} employeeId={userProfile?.employee_id || ''} />
       </Win95Window>
 
       <Win95Window windowId="points">
@@ -1275,6 +1291,7 @@ function HomePageInner() {
         onLogout={handleLogout}
         onOpenPoints={handleOpenPoints}
         isAdmin={isAdmin}
+        allowedModules={allowedModules}
       />
     </div>
   )

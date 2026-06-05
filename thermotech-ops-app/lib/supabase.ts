@@ -18,7 +18,7 @@ export interface Profile {
   full_name: string
   department: string | null
   job_title: string | null
-  role: 'admin' | 'supervisor' | 'user'
+  role: 'admin' | 'manager' | 'supervisor' | 'user'
   points_balance: number
   site_code: string | null
   avatar_url: string | null
@@ -41,6 +41,8 @@ export interface Profile {
   shift_type: string | null
   is_supervisor: boolean
   hr_access: boolean
+  must_change_password?: boolean
+  password_changed_at?: string | null
   created_at: string
 }
 
