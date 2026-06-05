@@ -37,10 +37,10 @@ export const WINDOW_CONFIGS: WindowConfig[] = [
   { id: 'manager', title: 'MANAGER - 管理監控', defaultWidth: 900, defaultHeight: 600, type: 'internal' },
   { id: 'points', title: 'POINTS - 積分中心', defaultWidth: 550, defaultHeight: 450, type: 'internal' },
   { id: 'appcenter', title: 'APP CENTER - 軟體中心', defaultWidth: 700, defaultHeight: 500, type: 'internal' },
+  { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 1000, defaultHeight: 650, type: 'internal' },
 
   // Hidden — under construction
   { id: 'operations', title: 'OPS - FACTORY', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
-  { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
   { id: 'reports', title: 'REPORT - ANALYTICS', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
   { id: 'devtracker', title: 'DEV TRACKER', defaultWidth: 800, defaultHeight: 500, type: 'internal', hidden: true },
 
