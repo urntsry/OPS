@@ -43,6 +43,7 @@ import {
   createDailyAssignment,
   deleteTaskDefinition,
   deleteDailyAssignment,
+  updateTaskDefinitionDescription,
   getAllProfiles,
   getProfileByEmployeeId,
   type TaskDefinition,
@@ -393,13 +394,22 @@ function HomePageInner() {
         // 轉換為顯示格式 — 解析事件類型
         const assignmentsData = pendingTasks.map((assignment: any) => {
           const taskDef = assignment.task_def
+          const desc: string = taskDef?.description || ''
           let eventType = 'assignment'
+          let content: string | undefined
           if (taskDef?.task_category) {
             eventType = taskDef.task_category
-          } else if (taskDef?.description?.startsWith('type:')) {
-            eventType = taskDef.description.replace('type:', '')
+            content = desc || undefined
+          } else if (desc.startsWith('type:')) {
+            // 編碼格式：第一行 type:<類型>，其後（若有）為內容
+            const nl = desc.indexOf('\n')
+            eventType = (nl === -1 ? desc.slice(5) : desc.slice(5, nl)).trim()
+            content = nl === -1 ? undefined : desc.slice(nl + 1)
           } else if (taskDef?.is_active) {
             eventType = 'routine'
+            content = desc || undefined
+          } else {
+            content = desc || undefined
           }
           return {
             id: assignment.id,
@@ -408,6 +418,8 @@ function HomePageInner() {
             done: assignment.status === 'completed',
             rawDate: assignment.assigned_date,
             type: eventType,
+            content,
+            taskDefId: assignment.task_def_id,
           }
         })
         
@@ -510,11 +522,13 @@ function HomePageInner() {
           title: a.title,
           type: a.type || 'assignment',
           done: a.done || false,
+          content: a.content,
+          taskDefId: a.taskDefId,
         }
       }
       return null
     })
-    .filter(e => e !== null) as Array<{id: number, date: number, title: string, type: string, done: boolean}>
+    .filter(e => e !== null) as Array<{id: number, date: number, title: string, type: string, done: boolean, content?: string, taskDefId?: number}>
 
   // 從佈告系統生成日曆事件
   const bulletinCalendarEvents = getBulletinCalendarEvents(
@@ -657,6 +671,7 @@ function HomePageInner() {
     title: string
     type: string
     dates: string[]
+    content?: string
   }) => {
     console.log('[HomePage] handleSubmitEvent 被調用:', data)
     console.log('[HomePage] 事項標題:', data.title)
@@ -673,7 +688,8 @@ function HomePageInner() {
           base_points: 10,
           default_assignee_id: userId,
           site_location: 'ALL',
-          is_active: true
+          is_active: true,
+          description: data.content || undefined,
         })
 
         setRoutineTasks(prev => [...prev, {
@@ -700,6 +716,8 @@ function HomePageInner() {
             done: false,
             rawDate: dateStr,
             type: 'routine',
+            content: data.content,
+            taskDefId: newTask.id,
           })
         }
         if (newAssignments.length > 0) {
@@ -719,7 +737,8 @@ function HomePageInner() {
           base_points: 10,
           default_assignee_id: userId,
           site_location: 'ALL',
-          is_active: false // 設為 false，這樣不會出現在「例行公事」
+          is_active: false, // 設為 false，這樣不會出現在「例行公事」
+          description: data.content || undefined,
         })
         
         // 為每個日期建立具體任務
@@ -740,6 +759,8 @@ function HomePageInner() {
             done: false,
             rawDate: dateStr,
             type: 'assignment',
+            content: data.content,
+            taskDefId: taskDef.id,
           })
         }
         
@@ -762,7 +783,7 @@ function HomePageInner() {
           default_assignee_id: userId,
           site_location: 'ALL',
           is_active: false,
-          description: `type:${data.type}`,
+          description: `type:${data.type}${data.content ? `\n${data.content}` : ''}`,
         })
 
         const newAssignments: any[] = []
@@ -782,6 +803,8 @@ function HomePageInner() {
             done: false,
             rawDate: dateStr,
             type: data.type,
+            content: data.content,
+            taskDefId: taskDef.id,
           })
         }
 
@@ -798,6 +821,21 @@ function HomePageInner() {
     } finally {
       // cleanup done
     }
+  }
+
+  // 編輯行事曆事件「內容」— 寫回 task_definitions.description（保留 type: 標記）
+  const handleUpdateEventContent = async (
+    event: { id?: number; type: string; taskDefId?: number },
+    content: string
+  ) => {
+    if (!event.taskDefId) return
+    const pureTypes = new Set(['public', 'event', 'meeting', 'visit', 'training', 'delegation'])
+    const desc = pureTypes.has(event.type)
+      ? `type:${event.type}${content ? `\n${content}` : ''}`
+      : content
+    await updateTaskDefinitionDescription(event.taskDefId, desc)
+    // 同步更新本地狀態，重開彈窗即可看到新內容
+    setAssignments(prev => prev.map(a => (a.id === event.id ? { ...a, content } : a)))
   }
 
   const handleLogout = () => {
@@ -1167,6 +1205,7 @@ function HomePageInner() {
                     openWindow('meeting')
                   }
                 }}
+                onUpdateEventContent={handleUpdateEventContent}
                 userRole={userRole}
                 userId={userId}
                 userDepartment={userProfile?.department || ''}

@@ -257,6 +257,23 @@ export async function updateTaskDefinitionAssignee(
   return data as TaskDefinition
 }
 
+/**
+ * 更新任務定義的 description（用於行事曆事件「內容」編輯）
+ */
+export async function updateTaskDefinitionDescription(taskId: number, description: string) {
+  const { data, error } = await supabase
+    .from('task_definitions')
+    .update({ description })
+    .eq('id', taskId)
+    .select()
+    .single()
+  if (error) {
+    console.error('[API] 更新任務內容失敗:', error)
+    throw error
+  }
+  return data as TaskDefinition
+}
+
 // ===========================================
 // 3. DAILY ASSIGNMENTS (每日任務)
 // ===========================================

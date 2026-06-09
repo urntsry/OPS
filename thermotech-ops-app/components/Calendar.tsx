@@ -15,6 +15,8 @@ interface CalendarEvent {
   detailLink?: string
   /** Scheduled meeting id (for deep-link to MeetingPage schedule tab) */
   scheduledMeetingId?: string
+  /** task_definitions id — present for assignment-based events so content is editable */
+  taskDefId?: number
 }
 
 interface CalendarProps {
@@ -24,7 +26,9 @@ interface CalendarProps {
   onMonthChange?: (year: number, month: number) => void
   onToggleEvent?: (id: number) => void
   onDeleteEvent?: (id: number) => void
-  onAddEvent?: (data: { title: string; type: string; dates: string[] }) => void
+  onAddEvent?: (data: { title: string; type: string; dates: string[]; content?: string }) => void
+  /** Save edited content for an existing event (assignment-based). */
+  onUpdateEventContent?: (event: CalendarEvent, content: string) => Promise<void> | void
   /** Called when user clicks "進階" button while creating a meeting event.
    *  Parent should open MeetingCreateModal pre-filled with title + date. */
   onAdvancedMeeting?: (data: { title: string; date: string }) => void
@@ -45,11 +49,14 @@ const PURE_EVENT_TYPES = new Set(['public', 'event', 'meeting', 'visit', 'traini
 export default function Calendar({
   year, month, events = [], onMonthChange,
   onToggleEvent, onDeleteEvent, onAddEvent, onAdvancedMeeting, onOpenDetail,
+  onUpdateEventContent,
   hideWeekend = false, compact = false, userRole = 'user',
   userId = '', userDepartment = ''
 }: CalendarProps) {
   const [editingDay, setEditingDay] = useState<number | null>(null)
   const [newTitle, setNewTitle] = useState('')
+  const [newContent, setNewContent] = useState('')
+  const [showContentField, setShowContentField] = useState(false)
   // Event info popup state
   const [popupEvent, setPopupEvent] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null)
   // delegation 類型有專屬建立流程（DELEGATED 面板 + Modal），inline 下拉不顯示
@@ -128,6 +135,8 @@ export default function Calendar({
     } else {
       setEditingDay(day)
       setNewTitle('')
+      setNewContent('')
+      setShowContentField(false)
       setNewType(availableTypes[0]?.id || 'routine')
       setExtraDates([])
       setNewExtraDate('')
@@ -138,8 +147,10 @@ export default function Calendar({
     if (!newTitle.trim() || !onAddEvent) return
     const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const allDates = [isoDate, ...extraDates]
-    onAddEvent({ title: newTitle.trim(), type: newType, dates: allDates })
+    onAddEvent({ title: newTitle.trim(), type: newType, dates: allDates, content: newContent.trim() || undefined })
     setNewTitle('')
+    setNewContent('')
+    setShowContentField(false)
     setExtraDates([])
     setNewExtraDate('')
   }
@@ -331,7 +342,14 @@ export default function Calendar({
                                 </select>
                                 {/* OK 按鈕只在非會議類型顯示；會議必須走進階流程 */}
                                 {!isMeetingType && (
-                                  <button onClick={() => handleAddSubmit(day)} style={{ width: '44px', flexShrink: 0, fontSize: '10px', fontFamily: 'monospace', padding: '0', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
+                                  <>
+                                    <button
+                                      onClick={() => setShowContentField(s => !s)}
+                                      title="附帶內容（可選）"
+                                      style={{ width: '28px', flexShrink: 0, fontSize: '11px', fontFamily: 'monospace', padding: '0', border: '1px solid var(--border-mid-dark)', background: showContentField || newContent ? 'var(--accent-teal)' : 'var(--bg-window)', color: showContentField || newContent ? '#FFF' : 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}
+                                    >✎</button>
+                                    <button onClick={() => handleAddSubmit(day)} style={{ width: '40px', flexShrink: 0, fontSize: '10px', fontFamily: 'monospace', padding: '0', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none', fontWeight: 'bold', height: '24px', boxSizing: 'border-box' }}>OK</button>
+                                  </>
                                 )}
                               </div>
                               {/* 會議類型：只顯示「進階」按鈕 + 提示，不允許多日期 */}
@@ -355,6 +373,16 @@ export default function Calendar({
                               ) : (
                                 /* 非會議類型：保留原本的多日期功能 */
                                 <>
+                                  {showContentField && (
+                                    <textarea
+                                      value={newContent}
+                                      onChange={e => setNewContent(e.target.value)}
+                                      onKeyDown={e => { if (e.key === 'Escape') setEditingDay(null) }}
+                                      placeholder="輸入事件內容（可選）"
+                                      rows={3}
+                                      style={{ width: '100%', boxSizing: 'border-box', marginBottom: '3px', padding: '4px 6px', fontSize: '10px', fontFamily: 'monospace', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', resize: 'vertical', lineHeight: 1.4 }}
+                                    />
+                                  )}
                                   {extraDates.length > 0 && (
                                     <div style={{ marginBottom: '3px' }}>
                                       {extraDates.map(d => (
@@ -397,6 +425,7 @@ export default function Calendar({
           onDelete={onDeleteEvent}
           onToggle={onToggleEvent}
           onOpenDetail={onOpenDetail}
+          onUpdateContent={onUpdateEventContent}
         />
       )}
     </div>
@@ -407,7 +436,7 @@ export default function Calendar({
 // EVENT INFO POPUP
 // 純事件 (event/meeting/visit/training/public) 點擊後顯示的小窗
 // ============================================
-function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle, onOpenDetail }: {
+function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle, onOpenDetail, onUpdateContent }: {
   event: CalendarEvent
   x: number
   y: number
@@ -417,11 +446,20 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle,
   onDelete?: (id: number) => void
   onToggle?: (id: number) => void
   onOpenDetail?: (event: CalendarEvent) => void
+  onUpdateContent?: (event: CalendarEvent, content: string) => Promise<void> | void
 }) {
   const isTaskType = !PURE_EVENT_TYPES.has(event.type)
   const popupRef = useRef<HTMLDivElement>(null)
+  // 內容可編輯：僅 assignment 類事件（有 taskDefId）支援
+  const canEdit = !!event.taskDefId && !!onUpdateContent
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(event.content || '')
+  const [content, setContent] = useState(event.content || '')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    // editing 時不要因點擊外部而關閉（避免誤關遺失編輯）
+    if (editing) return
     const handleClickOutside = (e: MouseEvent) => {
       if (popupRef.current && !popupRef.current.contains(e.target as Node)) onClose()
     }
@@ -432,11 +470,24 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle,
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleEsc)
     }
-  }, [onClose])
+  }, [onClose, editing])
+
+  const handleSave = async () => {
+    if (!onUpdateContent) return
+    setSaving(true)
+    try {
+      await onUpdateContent(event, draft)
+      setContent(draft)
+      setEditing(false)
+    } catch {
+      // 保持編輯狀態讓使用者重試
+    }
+    setSaving(false)
+  }
 
   // Clamp position so popup stays in viewport
   const POPUP_W = 280
-  const POPUP_H = 200
+  const POPUP_H = 260
   const left = Math.min(x, window.innerWidth - POPUP_W - 10)
   const top = Math.min(y, window.innerHeight - POPUP_H - 10)
   const color = getEventColor(event.type)
@@ -472,8 +523,9 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle,
         alignItems: 'center',
         background: color,
       }}>
-        <span style={{ fontWeight: 'bold', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          {label} 事件
+        <span style={{ fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ width: '7px', height: '7px', background: '#FFF', opacity: 0.85, borderRadius: '50%', display: 'inline-block' }} />
+          {label}
         </span>
         <button
           onClick={onClose}
@@ -509,20 +561,44 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle,
         }}>
           {event.title}
         </div>
-        <div style={{
-          fontSize: '10px',
-          color: 'var(--text-primary)',
-          padding: '6px 8px',
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-mid-dark)',
-          minHeight: '50px',
-          maxHeight: '120px',
-          overflow: 'auto',
-          whiteSpace: 'pre-wrap',
-          lineHeight: 1.4,
-        }}>
-          {event.content || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>（此事件未填寫詳細內容）</span>}
-        </div>
+        {editing ? (
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            autoFocus
+            placeholder="輸入事件內容…"
+            rows={5}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSave() }
+              if (e.key === 'Escape') { e.preventDefault(); setEditing(false); setDraft(content) }
+            }}
+            style={{
+              width: '100%', boxSizing: 'border-box', fontSize: '11px', fontFamily: 'monospace',
+              color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--bg-input)',
+              border: '1px solid var(--accent-teal)', outline: 'none', resize: 'vertical', lineHeight: 1.5,
+            }}
+          />
+        ) : (
+          <div
+            onClick={() => { if (canEdit) { setDraft(content); setEditing(true) } }}
+            title={canEdit ? '點擊編輯內容' : undefined}
+            style={{
+              fontSize: '11px',
+              color: 'var(--text-primary)',
+              padding: '6px 8px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-mid-dark)',
+              minHeight: '50px',
+              maxHeight: '120px',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.5,
+              cursor: canEdit ? 'text' : 'default',
+            }}
+          >
+            {content || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{canEdit ? '（尚無內容，點此新增…）' : '（此事件未填寫詳細內容）'}</span>}
+          </div>
+        )}
       </div>
 
       {/* Footer actions */}
@@ -534,6 +610,28 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle,
         background: 'var(--bg-secondary)',
         flexWrap: 'wrap',
       }}>
+        {editing ? (
+          <>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              style={{ fontSize: '10px', padding: '3px 12px', border: '1px solid #003F7F', background: '#005FAF', color: '#FFF', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 'bold' }}
+            >{saving ? '儲存中…' : '✓ 儲存'}</button>
+            <button
+              onClick={() => { setEditing(false); setDraft(content) }}
+              style={{ fontSize: '10px', padding: '3px 10px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'monospace' }}
+            >取消</button>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', alignSelf: 'center' }}>Ctrl+Enter 儲存</span>
+          </>
+        ) : (
+        <>
+        {canEdit && (
+          <button
+            onClick={() => { setDraft(content); setEditing(true) }}
+            style={{ fontSize: '9px', padding: '3px 8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'monospace' }}
+          >✎ 編輯內容</button>
+        )}
         {/* Task action: mark complete / undo */}
         {isTaskType && event.id && onToggle && (
           <button
@@ -581,6 +679,8 @@ function EventInfoPopup({ event, x, y, year, month, onClose, onDelete, onToggle,
         >
           關閉
         </button>
+        </>
+        )}
       </div>
     </div>
   )
