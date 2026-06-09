@@ -25,6 +25,9 @@
 *.pem
 .commit-msg.tmp
 
+# 初始密碼匯出檔（含明碼，嚴禁進版控）
+initial_passwords_*.csv
+
 # debug
 npm-debug.log*
 yarn-debug.log*
