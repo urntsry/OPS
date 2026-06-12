@@ -601,7 +601,13 @@ function HomePageInner() {
 
   const handleToggleTask = async (id: number | string) => {
     console.log('[HomePage] handleToggleTask 被調用:', { id })
-    
+
+    // 尚未寫入後端的樂觀項目（暫時負數 id）先擋下，避免無效的資料庫操作
+    if (typeof id === 'number' && id < 0) {
+      setToast({ message: '建立中，請稍候…', type: 'info' })
+      return
+    }
+
     try {
       // 更新資料庫
       await updateAssignmentStatus(Number(id), 'completed')
@@ -638,7 +644,13 @@ function HomePageInner() {
   // 刪除交辦事項（測試用）
   const handleDeleteAssignment = async (id: number | string) => {
     console.log('[HomePage] handleDeleteAssignment 被調用:', { id })
-    
+
+    // 尚未寫入後端的樂觀項目：直接從前端移除即可
+    if (typeof id === 'number' && id < 0) {
+      setAssignments(prev => prev.filter(task => task.id !== id))
+      return
+    }
+
     try {
       await deleteDailyAssignment(Number(id))
       
@@ -667,160 +679,90 @@ function HomePageInner() {
     }
   }
 
-  const handleSubmitEvent = async (data: {
+  const handleSubmitEvent = (data: {
     title: string
     type: string
     dates: string[]
     content?: string
   }) => {
-    console.log('[HomePage] handleSubmitEvent 被調用:', data)
-    console.log('[HomePage] 事項標題:', data.title)
-    console.log('[HomePage] 事項類型:', data.type)
-    console.log('[HomePage] 選擇日期:', data.dates)
-    
+    // 關閉視窗、即時呈現（樂觀更新），後端在背景處理
     setIsAddModalOpen(false)
-    
-    try {
-      if (data.type === 'routine') {
-        const newTask = await createTaskDefinition({
-          title: data.title,
-          frequency: 'daily',
-          base_points: 10,
-          default_assignee_id: userId,
-          site_location: 'ALL',
-          is_active: true,
-          description: data.content || undefined,
-        })
 
-        setRoutineTasks(prev => [...prev, {
-          id: newTask.id,
-          title: newTask.title,
-          date: '每日',
-          done: false
-        }])
+    // 各類型參數
+    const cfg = data.type === 'routine'
+      ? { frequency: 'daily' as const, base: 10, active: true, earned: 10, desc: data.content || undefined, displayType: 'routine', isRoutine: true }
+      : data.type === 'assignment'
+      ? { frequency: 'event_triggered' as const, base: 10, active: false, earned: 10, desc: data.content || undefined, displayType: 'assignment', isRoutine: false }
+      : { frequency: 'event_triggered' as const, base: 5, active: false, earned: 5, desc: `type:${data.type}${data.content ? `\n${data.content}` : ''}`, displayType: data.type, isRoutine: false }
 
-        // Also create daily_assignments for each selected date so it shows on calendar
-        const newAssignments: any[] = []
-        for (const dateStr of data.dates) {
-          const assignment = await createDailyAssignment({
-            task_def_id: newTask.id,
-            user_id: userId,
-            status: 'pending',
-            assigned_date: dateStr,
-            earned_points: 10
-          })
-          newAssignments.push({
-            id: assignment.id,
-            title: data.title,
-            date: formatDate(dateStr),
-            done: false,
-            rawDate: dateStr,
-            type: 'routine',
-            content: data.content,
-            taskDefId: newTask.id,
-          })
-        }
-        if (newAssignments.length > 0) {
-          setAssignments(prev => [...prev, ...newAssignments].sort((a, b) => a.rawDate.localeCompare(b.rawDate)))
-        }
+    // 產生暫時 id（負數，避免與真實 id 衝突），先樂觀塞進畫面
+    const tempBase = -Date.now()
+    const tempEntries = data.dates.map((dateStr, i) => ({
+      __tempId: tempBase - i,
+      id: tempBase - i,
+      title: data.title,
+      date: formatDate(dateStr),
+      done: false,
+      rawDate: dateStr,
+      type: cfg.displayType,
+      content: data.content,
+      taskDefId: undefined as number | undefined,
+      pending: true, // 標記尚未寫入後端
+    }))
+    const tempIdSet = new Set(tempEntries.map(e => e.__tempId))
+    const routineTempId = tempBase
 
-        setToast({ message: `✓ 例行公事「${data.title}」新增成功 (${data.dates.length} 日)`, type: 'success' })
-        
-      } else if (data.type === 'assignment') {
-        // 【交辦事項】→ 建立任務定義 + 建立每日任務
-        console.log('[HomePage] 新增交辦事項')
-        
-        // 先建立一個任務定義（作為模板）
-        const taskDef = await createTaskDefinition({
-          title: data.title,
-          frequency: 'event_triggered',
-          base_points: 10,
-          default_assignee_id: userId,
-          site_location: 'ALL',
-          is_active: false, // 設為 false，這樣不會出現在「例行公事」
-          description: data.content || undefined,
-        })
-        
-        // 為每個日期建立具體任務
-        const newAssignments: any[] = []
-        for (const dateStr of data.dates) {
-          const assignment = await createDailyAssignment({
-            task_def_id: taskDef.id,
-            user_id: userId,
-            status: 'pending',
-            assigned_date: dateStr,
-            earned_points: 10
-          })
-          
-          newAssignments.push({
-            id: assignment.id,
-            title: data.title,
-            date: formatDate(dateStr),
-            done: false,
-            rawDate: dateStr,
-            type: 'assignment',
-            content: data.content,
-            taskDefId: taskDef.id,
-          })
-        }
-        
-        // 樂觀更新前端
-        setAssignments(prev => [...prev, ...newAssignments].sort((a, b) => 
-          a.rawDate.localeCompare(b.rawDate)
-        ))
-        
-        setToast({ 
-          message: `✓ 交辦事項「${data.title}」新增成功 (${data.dates.length} 個日期)`, 
-          type: 'success' 
-        })
-        
-      } else {
-        // All other types (public, event, meeting, visit, training)
-        const taskDef = await createTaskDefinition({
-          title: data.title,
-          frequency: 'event_triggered',
-          base_points: 5,
-          default_assignee_id: userId,
-          site_location: 'ALL',
-          is_active: false,
-          description: `type:${data.type}${data.content ? `\n${data.content}` : ''}`,
-        })
-
-        const newAssignments: any[] = []
-        for (const dateStr of data.dates) {
-          const assignment = await createDailyAssignment({
-            task_def_id: taskDef.id,
-            user_id: userId,
-            status: 'pending',
-            assigned_date: dateStr,
-            earned_points: 5
-          })
-
-          newAssignments.push({
-            id: assignment.id,
-            title: data.title,
-            date: formatDate(dateStr),
-            done: false,
-            rawDate: dateStr,
-            type: data.type,
-            content: data.content,
-            taskDefId: taskDef.id,
-          })
-        }
-
-        setAssignments(prev => [...prev, ...newAssignments].sort((a, b) =>
-          a.rawDate.localeCompare(b.rawDate)
-        ))
-
-        setToast({ message: `✓「${data.title}」新增成功 (${data.dates.length} 個日期)`, type: 'success' })
-      }
-      
-    } catch (error) {
-      console.error('[HomePage] 新增任務失敗:', error)
-      setToast({ message: '新增失敗，請稍後再試', type: 'error' })
-    } finally {
-      // cleanup done
+    setAssignments(prev => [...prev, ...tempEntries].sort((a, b) => a.rawDate.localeCompare(b.rawDate)))
+    if (cfg.isRoutine) {
+      setRoutineTasks(prev => [...prev, { __tempId: routineTempId, id: routineTempId, title: data.title, date: '每日', done: false }])
     }
+
+    const label = cfg.isRoutine ? '例行公事' : data.type === 'assignment' ? '交辦事項' : '事件'
+    setToast({ message: `✓ ${label}「${data.title}」已建立 (${data.dates.length} 日)`, type: 'success' })
+
+    // 背景寫入資料庫，完成後把暫時 id 換成真實 id；失敗則撤回
+    ;(async () => {
+      try {
+        const taskDef = await createTaskDefinition({
+          title: data.title,
+          frequency: cfg.frequency,
+          base_points: cfg.base,
+          default_assignee_id: userId,
+          site_location: 'ALL',
+          is_active: cfg.active,
+          description: cfg.desc,
+        })
+
+        const realIdByTemp: Record<number, number> = {}
+        for (const e of tempEntries) {
+          const assignment = await createDailyAssignment({
+            task_def_id: taskDef.id,
+            user_id: userId,
+            status: 'pending',
+            assigned_date: e.rawDate,
+            earned_points: cfg.earned,
+          })
+          realIdByTemp[e.__tempId] = assignment.id
+        }
+
+        // 對帳：暫時 id → 真實 id + taskDefId，移除 pending 標記
+        setAssignments(prev => prev.map(it =>
+          it.__tempId && realIdByTemp[it.__tempId] != null
+            ? { ...it, id: realIdByTemp[it.__tempId], taskDefId: taskDef.id, __tempId: undefined, pending: false }
+            : it
+        ))
+        if (cfg.isRoutine) {
+          setRoutineTasks(prev => prev.map(rt => rt.__tempId === routineTempId ? { ...rt, id: taskDef.id, __tempId: undefined } : rt))
+        }
+      } catch (error) {
+        console.error('[HomePage] 背景建立任務失敗，撤回樂觀更新:', error)
+        setAssignments(prev => prev.filter(it => !tempIdSet.has(it.__tempId)))
+        if (cfg.isRoutine) {
+          setRoutineTasks(prev => prev.filter(rt => rt.__tempId !== routineTempId))
+        }
+        setToast({ message: `「${data.title}」建立失敗，已撤回，請重試`, type: 'error' })
+      }
+    })()
   }
 
   // 編輯行事曆事件「內容」— 寫回 task_definitions.description（保留 type: 標記）
