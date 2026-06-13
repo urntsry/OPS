@@ -6,7 +6,7 @@ export interface EventType {
 }
 
 export const EVENT_TYPES: EventType[] = [
-  { id: 'event',      label: '事件',     color: '#FF8C00', allowedRoles: ['admin', 'manager', 'user'] },
+  { id: 'event',      label: '事件',     color: '#005FAF', allowedRoles: ['admin', 'manager', 'user'] },
   { id: 'meeting',    label: '會議',     color: '#800080', allowedRoles: ['admin', 'manager'] },
   { id: 'assignment', label: '交辦事項', color: '#008080', allowedRoles: ['admin', 'manager'] },
   { id: 'delegation', label: '正式交辦', color: '#B22222', allowedRoles: ['admin', 'manager', 'user'] },
