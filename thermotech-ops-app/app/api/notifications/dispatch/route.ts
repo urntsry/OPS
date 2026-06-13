@@ -8,6 +8,16 @@ const supabase = createClient(
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || ''
 const CRON_SECRET = process.env.CRON_SECRET || ''
+// 對外可存取的系統網址（用於把通知裡的相對連結補成可點的完整網址）
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/+$/, '')
+
+/** 把通知連結轉成可點的完整網址；若是相對路徑且未設定 APP_URL 則回傳 null（不顯示醜路徑） */
+function toAbsoluteUrl(link: string | null): string | null {
+  if (!link) return null
+  if (/^https?:\/\//i.test(link)) return link
+  if (link.startsWith('/') && APP_URL) return `${APP_URL}${link}`
+  return null
+}
 
 interface ChannelResult {
   channel: string
@@ -30,9 +40,15 @@ async function dispatchLine(userId: string, title: string, body: string | null, 
     return { channel: 'line', status: 'skipped', error: 'user has no line_user_id (尚未綁定)' }
   }
 
-  const text = link
-    ? `【${title}】\n${body || ''}\n\n${link}`
-    : `【${title}】\n${body || ''}`
+  const cleanBody = (body || '').trim()
+  const url = toAbsoluteUrl(link)
+  const text = [
+    `【${title}】`,
+    cleanBody || null,
+    url ? `🔗 ${url}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   try {
     const res = await fetch('https://api.line.me/v2/bot/message/push', {
