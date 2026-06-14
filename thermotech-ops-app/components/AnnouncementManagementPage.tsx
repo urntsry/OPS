@@ -123,7 +123,11 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
       if (mode === 'publish') {
         const n = await publishBulletinNotifications(saved, { useLine, actorId: userProfile?.id })
-        setToast(`已發布並通知 ${n} 人${useLine ? '（含 LINE）' : ''}`)
+        if (n === 0) {
+          setToast('已發布（無通知對象）')
+        } else {
+          setToast(`已發布並通知 ${n} 人${useLine ? '（含 LINE）' : ''}`)
+        }
       } else {
         setToast('草稿已儲存')
       }

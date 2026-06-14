@@ -174,7 +174,7 @@ export interface PublishOptions {
  * createOrUpdate 已寫好的 bulletin 物件傳進來即可。
  */
 export async function publishBulletinNotifications(bulletin: Bulletin, opts: PublishOptions = {}): Promise<number> {
-  const targets = (await resolveAudienceUserIds(bulletin)).filter(id => id && id !== opts.actorId)
+  const targets = (await resolveAudienceUserIds(bulletin)).filter(id => !!id)
   if (targets.length === 0) return 0
 
   const channels = opts.useLine ? (['in_app', 'line'] as const) : (['in_app'] as const)
