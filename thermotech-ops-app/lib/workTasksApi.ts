@@ -111,8 +111,8 @@ export async function createWorkTask(input: CreateWorkTaskInput): Promise<WorkTa
       await notify({
         user_ids: [created.assignee_id],
         type: 'task_assigned',
-        title: `🗂 新任務待評估：${created.title}`,
-        body: `來自 ${created.issuer_name || '主管'}｜請回報預估工時與完成日${created.hard_due ? `（期望 ${created.hard_due} 前）` : ''}`,
+        title: `新任務｜${created.title}`,
+        body: `指派者：${created.issuer_name || '主管'}\n請回報預估工時與完成日${created.hard_due ? `（期限 ${created.hard_due}）` : ''}`,
         channels: pushLine ? ['in_app', 'line'] : ['in_app'],
         metadata: { work_task_id: created.id, issuer_id: created.issuer_id, priority: created.priority },
       })
@@ -144,8 +144,8 @@ export async function submitEstimate(
       await notify({
         user_ids: [t.issuer_id],
         type: 'task_assigned',
-        title: `⏱ 已回報預估：${t.title}`,
-        body: `${t.assignee_name || '承辦人'} 預估 ${t.estimated_hours ?? '?'} 小時${t.estimated_due ? `，預計 ${t.estimated_due} 完成` : ''}，請確認`,
+        title: `預估回報｜${t.title}`,
+        body: `${t.assignee_name || '承辦人'} 預估 ${t.estimated_hours ?? '?'} 小時${t.estimated_due ? `，預計 ${t.estimated_due} 完成` : ''}\n請確認或要求重新評估`,
         channels: ['in_app', 'line'],
         metadata: { work_task_id: t.id },
       })
@@ -166,8 +166,8 @@ export async function confirmWorkTask(id: string, opts: { hard_due?: string } = 
       await notify({
         user_ids: [t.assignee_id],
         type: 'task_assigned',
-        title: `✅ 任務已確認，請開始：${t.title}`,
-        body: `預計 ${t.estimated_due || t.hard_due || '—'} 完成`,
+        title: `任務確認｜${t.title}`,
+        body: `預計 ${t.estimated_due || t.hard_due || '—'} 完成，請開始執行`,
         channels: ['in_app', 'line'],
         metadata: { work_task_id: t.id },
       })
@@ -189,8 +189,8 @@ export async function requestReestimate(id: string, note?: string): Promise<Work
       await notify({
         user_ids: [t.assignee_id],
         type: 'task_assigned',
-        title: `🔁 請重新評估：${t.title}`,
-        body: note || '主管希望你重新評估工時/完成日',
+        title: `請重新評估｜${t.title}`,
+        body: note || '主管希望重新評估工時與完成日',
         channels: ['in_app', 'line'],
         metadata: { work_task_id: t.id },
       })
@@ -217,8 +217,8 @@ export async function completeWorkTask(id: string, note?: string): Promise<WorkT
       await notify({
         user_ids: [t.issuer_id],
         type: 'task_assigned',
-        title: `🎉 任務已完成：${t.title}`,
-        body: `${t.assignee_name || '承辦人'} 已完成${note ? `｜${note}` : ''}`,
+        title: `任務完成｜${t.title}`,
+        body: `${t.assignee_name || '承辦人'} 已完成${note ? `\n備註：${note}` : ''}`,
         channels: ['in_app', 'line'],
         metadata: { work_task_id: t.id },
       })

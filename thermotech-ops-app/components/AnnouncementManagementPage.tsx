@@ -78,7 +78,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
   const handleNew = () => {
     setEditingBulletin({
-      title: '', content: '', bulletin_type: 'notice', priority: 'normal', status: 'draft',
+      title: '', content: '', bulletin_type: 'notice', category: 'general', priority: 'normal', status: 'draft',
       attachments: [], pinned: false, require_ack: false, audience: 'all',
       audience_departments: [], audience_user_ids: [],
     })
@@ -93,7 +93,8 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
       const base = {
         title: editingBulletin.title,
         content: editingBulletin.content,
-        bulletin_type: editingBulletin.bulletin_type,
+        bulletin_type: editingBulletin.bulletin_type || 'notice',
+        category: editingBulletin.category || 'general',
         priority: editingBulletin.priority,
         event_date: editingBulletin.event_date,
         attachments: editingBulletin.attachments || [],
@@ -245,10 +246,12 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
             <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
               <div style={{ flex: 1 }}>
-                <label style={labelBase}>類型</label>
-                <select value={editingBulletin.bulletin_type || 'notice'} onChange={e => setEditingBulletin({ ...editingBulletin, bulletin_type: e.target.value as any })} style={inputBase}>
-                  <option value="notice">NOTICE (公告)</option>
-                  <option value="public">PUBLIC (公共事項)</option>
+                <label style={labelBase}>分類</label>
+                <select value={editingBulletin.category || 'general'} onChange={e => setEditingBulletin({ ...editingBulletin, category: e.target.value as any })} style={inputBase}>
+                  <option value="admin">行政公告</option>
+                  <option value="routine">例行事項</option>
+                  <option value="urgent">緊急通知</option>
+                  <option value="general">一般通知</option>
                 </select>
               </div>
               <div style={{ flex: 1 }}>
@@ -396,7 +399,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
                     <td style={{ padding: '2px 4px', textAlign: 'center' }}>
                       <span style={{ color: statusColor(b.status), fontWeight: 'bold', fontSize: '8px' }}>{b.status === 'published' ? '已發布' : b.status === 'draft' ? '草稿' : b.status.toUpperCase()}</span>
                     </td>
-                    <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: '8px' }}>{b.bulletin_type === 'public' ? 'PUB' : 'NTC'}</td>
+                    <td style={{ padding: '2px 4px', textAlign: 'center', fontSize: '8px' }}>{b.category === 'admin' ? '行政' : b.category === 'routine' ? '例行' : b.category === 'urgent' ? '緊急' : '一般'}</td>
                     <td style={{ padding: '2px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {b.pinned ? '📌 ' : ''}{b.priority === 'urgent' ? '🔴 ' : b.priority === 'important' ? '⭐ ' : ''}{b.title}
                       {b.require_ack && <span style={{ color: 'var(--accent-teal)', fontSize: '8px' }}> [需確認]</span>}

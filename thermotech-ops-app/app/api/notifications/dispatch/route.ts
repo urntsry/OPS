@@ -43,12 +43,12 @@ async function dispatchLine(userId: string, title: string, body: string | null, 
   const cleanBody = (body || '').trim()
   const url = toAbsoluteUrl(link)
   const text = [
-    `【${title}】`,
+    title,
     cleanBody || null,
-    url ? `🔗 ${url}` : null,
+    url ? `→ ${url}` : null,
   ]
     .filter(Boolean)
-    .join('\n\n')
+    .join('\n')
 
   try {
     const res = await fetch('https://api.line.me/v2/bot/message/push', {

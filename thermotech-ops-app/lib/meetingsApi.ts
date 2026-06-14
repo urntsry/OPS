@@ -115,8 +115,8 @@ async function sendMeetingNotifications(meeting: Meeting, participants: MeetingP
     await notify({
       user_ids: attendeeIds,
       type: 'meeting',
-      title: `📅 會議邀請: ${meeting.title}`,
-      body: `🕒 ${dateStr}${timeStr}${locStr}${meeting.summary ? `\n\n${meeting.summary}` : ''}`,
+      title: `會議邀請｜${meeting.title}`,
+      body: `${dateStr}${timeStr}${locStr}${meeting.summary ? `\n${meeting.summary}` : ''}`,
       link: `/home?tab=meeting&id=${meeting.id}`,
       channels: [...channels],
       metadata: { meeting_id: meeting.id, role: 'attendee' },
@@ -128,8 +128,8 @@ async function sendMeetingNotifications(meeting: Meeting, participants: MeetingP
     await notify({
       user_ids: relatedIds,
       type: 'meeting',
-      title: `📢 會議通知（相關人員）: ${meeting.title}`,
-      body: `這場會議與您相關，但無需出席。\n🕒 ${dateStr}${timeStr}${locStr}${meeting.summary ? `\n\n${meeting.summary}` : ''}`,
+      title: `會議通知（相關人員）｜${meeting.title}`,
+      body: `此會議與您相關，無需出席。\n${dateStr}${timeStr}${locStr}${meeting.summary ? `\n${meeting.summary}` : ''}`,
       link: `/home?tab=meeting&id=${meeting.id}`,
       channels: [...channels],
       metadata: { meeting_id: meeting.id, role: 'related' },
@@ -141,8 +141,8 @@ async function sendMeetingNotifications(meeting: Meeting, participants: MeetingP
     await notify({
       user_ids: [h.user_id],
       type: 'meeting_helper',
-      title: `🛠 協助準備: ${meeting.title}`,
-      body: `${dateStr}${timeStr}${locStr}\n\n您負責準備：\n${h.helper_task || '（請與會議發起人確認細節）'}`,
+      title: `協助準備｜${meeting.title}`,
+      body: `${dateStr}${timeStr}${locStr}\n您負責準備：${h.helper_task || '（請與會議發起人確認細節）'}`,
       link: `/home?tab=meeting&id=${meeting.id}`,
       channels: [...channels],
       metadata: { meeting_id: meeting.id, role: 'helper', helper_task: h.helper_task },

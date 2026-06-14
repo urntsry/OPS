@@ -147,8 +147,7 @@ function HomePageInner() {
   const [allowedModules, setAllowedModules] = useState<string[] | null>(null)
   
   // 佈告系統
-  const [publicBulletins, setPublicBulletins] = useState<Bulletin[]>([])
-  const [noticeBulletins, setNoticeBulletins] = useState<Bulletin[]>([])
+  const [bulletins, setBulletins] = useState<Bulletin[]>([])
   const [editingBulletin, setEditingBulletin] = useState<Bulletin | null>(null)
   // 公佈欄已讀狀態 + 登入未讀重要公告彈窗
   const [bulletinReadMap, setBulletinReadMap] = useState<Record<string, { read: boolean; acked: boolean }>>({})
@@ -240,12 +239,8 @@ function HomePageInner() {
 
   const loadBulletins = async () => {
     try {
-      const [pub, notice] = await Promise.all([
-        getBulletins('public'),
-        getBulletins('notice'),
-      ])
-      setPublicBulletins(pub)
-      setNoticeBulletins(notice)
+      const all = await getBulletins()
+      setBulletins(all)
     } catch (e) {
       console.error('[HomePage] 載入佈告失敗:', e)
     }
@@ -520,26 +515,19 @@ function HomePageInner() {
   // 依發布對象過濾 + 置頂優先排序
   const bulletinCtx = { userId, department: userProfile?.department, role: userRole }
   const sortPinned = (a: Bulletin, b: Bulletin) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1)
-  const visiblePublic = publicBulletins.filter(b => isBulletinVisibleTo(b, bulletinCtx)).slice().sort(sortPinned)
-  const visibleNotice = noticeBulletins.filter(b => isBulletinVisibleTo(b, bulletinCtx)).slice().sort(sortPinned)
+  const visibleBulletins = bulletins.filter(b => isBulletinVisibleTo(b, bulletinCtx)).slice().sort(sortPinned)
 
-  // PUBLIC 面板資料（從 DB 載入）
-  const publicEvents = visiblePublic.map(b => ({
+  // 統一公告面板資料
+  const announcements = visibleBulletins.map(b => ({
     id: b.id as any,
-    title: `${b.pinned ? '📌 ' : ''}${b.title}`,
-    date: b.event_date ? formatDate(b.event_date) : (b.is_recurring && b.recurring_days ? `每月${b.recurring_days.join(',')}日` : ''),
-  }))
-
-  // NOTICE 面板資料（從 DB 載入）
-  const announcements = visibleNotice.map(b => ({
-    id: b.id as any,
-    title: `${b.pinned ? '📌 ' : ''}${b.priority === 'urgent' ? '🔴 ' : b.priority === 'important' ? '⭐ ' : ''}${b.title}`,
+    title: `${b.pinned ? '📌 ' : ''}${b.priority === 'urgent' ? '[緊急] ' : b.priority === 'important' ? '[重要] ' : ''}${b.title}`,
     content: b.content || '',
     postedBy: b.department || '',
     postedAt: (b.published_at || b.created_at)?.slice(0, 10) || '',
     attachments: b.attachments || [],
     requireAck: !!b.require_ack,
     acked: !!bulletinReadMap[b.id]?.acked,
+    date: b.event_date ? formatDate(b.event_date) : (b.is_recurring && b.recurring_days ? `每月${b.recurring_days.join(',')}日` : ''),
   }))
 
   // 從 assignments 生成日曆事件
@@ -564,7 +552,7 @@ function HomePageInner() {
 
   // 從佈告系統生成日曆事件
   const bulletinCalendarEvents = getBulletinCalendarEvents(
-    [...visiblePublic, ...visibleNotice],
+    visibleBulletins,
     currentYear,
     currentMonth
   ).map(e => ({ date: e.date, title: e.title, type: e.type }))
@@ -742,9 +730,9 @@ function HomePageInner() {
   const renderBulletinAlert = () => {
     const b = loginAlerts[0]
     if (!b) return null
-    const tag = b.priority === 'urgent' ? { t: '🔴 緊急公告', c: 'var(--status-error, #C0392B)' }
-      : b.priority === 'important' ? { t: '⭐ 重要公告', c: 'var(--status-warning, #B8860B)' }
-      : { t: '📌 公告', c: 'var(--accent-blue, #005FAF)' }
+    const tag = b.priority === 'urgent' ? { t: '緊急公告', c: 'var(--status-error, #C0392B)' }
+      : b.priority === 'important' ? { t: '重要公告', c: 'var(--status-warning, #B8860B)' }
+      : { t: '公告', c: 'var(--accent-blue, #005FAF)' }
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}>
         <div className="window" style={{ width: 'min(460px, 92vw)', maxHeight: '82vh', overflow: 'auto', fontSize: '11px' }}>
@@ -1043,7 +1031,7 @@ function HomePageInner() {
 
                   {/* 公告 */}
                   <div className="window">
-                    <div className="titlebar" style={{ padding: '2px 4px', fontSize: '9px' }}>NOTICE</div>
+                    <div className="titlebar" style={{ padding: '2px 4px', fontSize: '9px' }}>公告</div>
                     <div style={{ maxHeight: '80px', overflowY: 'auto' }}>
                       {announcements.map((ann) => (
                         <div 
@@ -1147,12 +1135,11 @@ function HomePageInner() {
                     />
                   </div>
 
-                  {/* 下方四欄：任務區 */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', width: '100%' }}>
+                  {/* 下方三欄：任務區 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', width: '100%' }}>
                     <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
                     <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
-                    <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
-                    <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
+                    <EventList title="公告" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
                   </div>
                 </>
               )}
@@ -1271,8 +1258,7 @@ function HomePageInner() {
               />
               <EventList title="ROUTINE" events={routineTasks} onToggle={handleToggleTask} onDelete={handleDeleteRoutineTask} showAddButton={false} showDeleteButton={true} />
               <EventList title="TASKS" events={assignments} onToggle={handleToggleTask} onDelete={handleDeleteAssignment} showAddButton={false} showDeleteButton={true} />
-              <EventList title="PUBLIC" events={publicEvents} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
-              <EventList title="NOTICE" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
+              <EventList title="公告" events={announcements} onItemClick={handleAnnouncementClick} onDelete={handleDeleteBulletin} onEdit={canEditBulletins ? handleEditBulletin : undefined} showAddButton={false} showDeleteButton={true} showEditButton={canEditBulletins} />
             </div>
           </>
         )}

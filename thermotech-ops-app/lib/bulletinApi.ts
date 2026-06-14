@@ -9,11 +9,21 @@ export interface Attachment {
 
 export type BulletinAudience = 'all' | 'department' | 'custom'
 
+export type BulletinCategory = 'admin' | 'routine' | 'urgent' | 'general'
+
+export const BULLETIN_CATEGORIES: Record<BulletinCategory, string> = {
+  admin: '行政公告',
+  routine: '例行事項',
+  urgent: '緊急通知',
+  general: '一般通知',
+}
+
 export interface Bulletin {
   id: string
   title: string
   content?: string
   bulletin_type: 'public' | 'notice'
+  category?: BulletinCategory
   event_date?: string
   is_recurring: boolean
   recurring_days?: number[]
@@ -24,7 +34,6 @@ export interface Bulletin {
   is_active: boolean
   status: 'draft' | 'pending' | 'approved' | 'rejected' | 'published'
   created_at: string
-  // 專業化欄位
   pinned?: boolean
   require_ack?: boolean
   audience?: BulletinAudience
@@ -41,7 +50,7 @@ export interface BulletinRead {
   acked_at: string | null
 }
 
-export async function getBulletins(type?: 'public' | 'notice', statusFilter?: string): Promise<Bulletin[]> {
+export async function getBulletins(type?: 'public' | 'notice', statusFilter?: string, category?: BulletinCategory): Promise<Bulletin[]> {
   let query = supabase
     .from('bulletins')
     .select('*')
@@ -49,6 +58,7 @@ export async function getBulletins(type?: 'public' | 'notice', statusFilter?: st
     .order('created_at', { ascending: false })
 
   if (type) query = query.eq('bulletin_type', type)
+  if (category) query = query.eq('category', category)
   if (statusFilter) {
     query = query.eq('status', statusFilter)
   } else {
@@ -178,13 +188,13 @@ export async function publishBulletinNotifications(bulletin: Bulletin, opts: Pub
   if (targets.length === 0) return 0
 
   const channels = opts.useLine ? (['in_app', 'line'] as const) : (['in_app'] as const)
-  const tag = bulletin.priority === 'urgent' ? '🔴 緊急公告' : bulletin.priority === 'important' ? '⭐ 重要公告' : '📢 公告'
-  const ackHint = bulletin.require_ack ? '\n\n（此公告需要您確認已詳閱）' : ''
+  const tag = bulletin.priority === 'urgent' ? '[緊急] 公告' : bulletin.priority === 'important' ? '[重要] 公告' : '公告'
+  const ackHint = bulletin.require_ack ? '\n＊ 此公告需確認已閱' : ''
 
   await notify({
     user_ids: targets,
     type: 'new_announcement',
-    title: `${tag}: ${bulletin.title}`,
+    title: `${tag}｜${bulletin.title}`,
     body: `${(bulletin.content || '').slice(0, 200)}${ackHint}`,
     channels: [...channels],
     metadata: { bulletin_id: bulletin.id, priority: bulletin.priority, require_ack: !!bulletin.require_ack },
@@ -275,16 +285,14 @@ export function isBulletinVisibleTo(
 export async function getLoginAlertBulletins(
   ctx: { userId: string; department?: string | null; role?: string }
 ): Promise<Bulletin[]> {
-  const all = await getBulletins('notice')
-  const pub = await getBulletins('public')
+  const all = await getBulletins()
   const readMap = await getMyReadMap(ctx.userId)
 
-  return [...all, ...pub]
+  return all
     .filter(b => isBulletinVisibleTo(b, ctx))
     .filter(b => b.pinned || b.priority === 'urgent' || b.priority === 'important' || b.require_ack)
     .filter(b => {
       const r = readMap[b.id]
-      // 需確認的：未確認就提醒；其他重要的：未讀就提醒
       if (b.require_ack) return !r?.acked
       return !r?.read
     })
