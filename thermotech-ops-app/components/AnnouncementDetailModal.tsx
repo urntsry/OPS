@@ -4,6 +4,7 @@ interface AnnouncementDetailModalProps {
   isOpen: boolean
   onClose: () => void
   announcement: {
+    id?: string
     title: string
     content: string
     postedBy: string
@@ -11,15 +12,21 @@ interface AnnouncementDetailModalProps {
     images?: string[]
     links?: string[]
     attachments?: Array<{ name: string; url: string; type: string }>
+    requireAck?: boolean
+    acked?: boolean
   } | null
   zIndex?: number
   position?: { x: number; y: number }
+  /** 按下「我已詳閱」時呼叫 */
+  onAck?: (id: string) => void
 }
 
 export default function AnnouncementDetailModal({
-  isOpen, onClose, announcement, zIndex = 1001, position = { x: 140, y: 140 }
+  isOpen, onClose, announcement, zIndex = 1001, position = { x: 140, y: 140 }, onAck
 }: AnnouncementDetailModalProps) {
   if (!isOpen || !announcement) return null
+
+  const needsAck = !!announcement.requireAck && !announcement.acked
 
   const attachments = announcement.attachments || []
   const hasAttachments = attachments.length > 0
@@ -87,8 +94,25 @@ export default function AnnouncementDetailModal({
             </div>
           )}
 
+          {/* Ack confirmation */}
+          {announcement.requireAck && (
+            announcement.acked ? (
+              <div style={{ padding: '4px 6px', marginBottom: '6px', fontSize: '9px', color: 'var(--accent-teal)', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)' }}>
+                ✔ 您已確認詳閱此公告
+              </div>
+            ) : (
+              <button
+                className="btn"
+                onClick={() => { if (announcement.id) onAck?.(announcement.id) }}
+                style={{ width: '100%', fontSize: '10px', padding: '5px', marginBottom: '6px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F', cursor: 'pointer' }}
+              >
+                ✔ 我已詳閱
+              </button>
+            )
+          )}
+
           {/* Close */}
-          <button className="btn" onClick={onClose} style={{ width: '100%', fontSize: '9px', padding: '3px' }}>關閉</button>
+          <button className="btn" onClick={onClose} disabled={needsAck} title={needsAck ? '請先確認已詳閱' : ''} style={{ width: '100%', fontSize: '9px', padding: '3px', opacity: needsAck ? 0.5 : 1, cursor: needsAck ? 'not-allowed' : 'pointer' }}>關閉</button>
         </div>
       </div>
     </>

@@ -32,7 +32,7 @@ import ManagerDashboard from '@/components/ManagerDashboard'
 import AppCenterPage from '@/components/AppCenterPage'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { getEffectiveModules } from '@/lib/userAccessApi'
-import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, type Bulletin } from '@/lib/bulletinApi'
+import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, markBulletinRead, ackBulletin, getMyReadMap, getLoginAlertBulletins, isBulletinVisibleTo, type Bulletin } from '@/lib/bulletinApi'
 import { getMeetingsForMonth as fetchMeetingsForMonth, subscribeScheduledMeetings } from '@/lib/meetingsApi'
 import { getDelegationsForMonth, subscribeDelegations, type Delegation } from '@/lib/delegationsApi'
 import { 
@@ -150,6 +150,9 @@ function HomePageInner() {
   const [publicBulletins, setPublicBulletins] = useState<Bulletin[]>([])
   const [noticeBulletins, setNoticeBulletins] = useState<Bulletin[]>([])
   const [editingBulletin, setEditingBulletin] = useState<Bulletin | null>(null)
+  // 公佈欄已讀狀態 + 登入未讀重要公告彈窗
+  const [bulletinReadMap, setBulletinReadMap] = useState<Record<string, { read: boolean; acked: boolean }>>({})
+  const [loginAlerts, setLoginAlerts] = useState<Bulletin[]>([])
 
   // 管理者視圖功能
   const [allUsers, setAllUsers] = useState<Profile[]>([])
@@ -248,6 +251,27 @@ function HomePageInner() {
     }
   }
 
+  // 載入個人已讀狀態 + 登入未讀重要公告
+  const refreshBulletinReads = async () => {
+    if (!userId) return
+    try {
+      const ctx = { userId, department: userProfile?.department, role: userRole }
+      const [map, alerts] = await Promise.all([
+        getMyReadMap(userId),
+        getLoginAlertBulletins(ctx),
+      ])
+      setBulletinReadMap(map)
+      setLoginAlerts(alerts)
+    } catch (e) {
+      console.warn('[HomePage] 載入公告已讀狀態失敗:', e)
+    }
+  }
+
+  useEffect(() => {
+    if (userId) refreshBulletinReads()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, userProfile?.department, userRole])
+
   const handleDeleteBulletin = async (id: number | string) => {
     if (!confirm('確定要刪除此公告？')) return
     try {
@@ -282,7 +306,7 @@ function HomePageInner() {
     }
   }
 
-  const canEditBulletins = userRole === 'admin' || userRole === 'supervisor'
+  const canEditBulletins = userRole === 'admin' || userRole === 'supervisor' || userProfile?.hr_access === true
 
   const loadAllUsers = async () => {
     try {
@@ -493,21 +517,29 @@ function HomePageInner() {
     return `${month}/${day}`
   }
   
+  // 依發布對象過濾 + 置頂優先排序
+  const bulletinCtx = { userId, department: userProfile?.department, role: userRole }
+  const sortPinned = (a: Bulletin, b: Bulletin) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1)
+  const visiblePublic = publicBulletins.filter(b => isBulletinVisibleTo(b, bulletinCtx)).slice().sort(sortPinned)
+  const visibleNotice = noticeBulletins.filter(b => isBulletinVisibleTo(b, bulletinCtx)).slice().sort(sortPinned)
+
   // PUBLIC 面板資料（從 DB 載入）
-  const publicEvents = publicBulletins.map(b => ({
+  const publicEvents = visiblePublic.map(b => ({
     id: b.id as any,
-    title: b.title,
+    title: `${b.pinned ? '📌 ' : ''}${b.title}`,
     date: b.event_date ? formatDate(b.event_date) : (b.is_recurring && b.recurring_days ? `每月${b.recurring_days.join(',')}日` : ''),
   }))
 
   // NOTICE 面板資料（從 DB 載入）
-  const announcements = noticeBulletins.map(b => ({
+  const announcements = visibleNotice.map(b => ({
     id: b.id as any,
-    title: b.priority === 'urgent' ? `[!] ${b.title}` : b.priority === 'important' ? `[*] ${b.title}` : b.title,
+    title: `${b.pinned ? '📌 ' : ''}${b.priority === 'urgent' ? '🔴 ' : b.priority === 'important' ? '⭐ ' : ''}${b.title}`,
     content: b.content || '',
     postedBy: b.department || '',
-    postedAt: b.created_at?.slice(0, 10) || '',
+    postedAt: (b.published_at || b.created_at)?.slice(0, 10) || '',
     attachments: b.attachments || [],
+    requireAck: !!b.require_ack,
+    acked: !!bulletinReadMap[b.id]?.acked,
   }))
 
   // 從 assignments 生成日曆事件
@@ -532,7 +564,7 @@ function HomePageInner() {
 
   // 從佈告系統生成日曆事件
   const bulletinCalendarEvents = getBulletinCalendarEvents(
-    [...publicBulletins, ...noticeBulletins],
+    [...visiblePublic, ...visibleNotice],
     currentYear,
     currentMonth
   ).map(e => ({ date: e.date, title: e.title, type: e.type }))
@@ -669,14 +701,86 @@ function HomePageInner() {
   }
 
   const handleAnnouncementClick = (id: number | string) => {
-    console.log('[HomePage] handleAnnouncementClick 被調用:', { id })
     const announcement = announcements.find(a => a.id === id)
     if (announcement) {
-      console.log('[HomePage] 找到公告:', announcement)
       setSelectedAnnouncement(announcement)
+      // 記錄已讀（背景，不阻塞）
+      if (userId && typeof id === 'string') {
+        markBulletinRead(id, userId)
+          .then(() => setBulletinReadMap(prev => ({ ...prev, [id]: { read: true, acked: prev[id]?.acked || false } })))
+          .catch(() => {})
+      }
     } else {
       console.warn('[HomePage] 找不到公告 ID:', id)
     }
+  }
+
+  // 按下「我已詳閱」
+  const handleAckBulletin = async (id: string) => {
+    if (!userId) return
+    try {
+      await ackBulletin(id, userId)
+      setBulletinReadMap(prev => ({ ...prev, [id]: { read: true, acked: true } }))
+      setSelectedAnnouncement((prev: any) => prev && prev.id === id ? { ...prev, acked: true } : prev)
+      setLoginAlerts(prev => prev.filter(b => b.id !== id))
+      setToast({ message: '已確認詳閱', type: 'success' })
+    } catch {
+      setToast({ message: '確認失敗，請重試', type: 'error' })
+    }
+  }
+
+  // 登入彈窗：知道了（非強制確認的重要/置頂公告）
+  const handleDismissAlert = (id: string) => {
+    if (userId) {
+      markBulletinRead(id, userId).catch(() => {})
+      setBulletinReadMap(prev => ({ ...prev, [id]: { read: true, acked: prev[id]?.acked || false } }))
+    }
+    setLoginAlerts(prev => prev.filter(b => b.id !== id))
+  }
+
+  // 登入時未讀重要/置頂/需確認公告的強制彈窗
+  const renderBulletinAlert = () => {
+    const b = loginAlerts[0]
+    if (!b) return null
+    const tag = b.priority === 'urgent' ? { t: '🔴 緊急公告', c: 'var(--status-error, #C0392B)' }
+      : b.priority === 'important' ? { t: '⭐ 重要公告', c: 'var(--status-warning, #B8860B)' }
+      : { t: '📌 公告', c: 'var(--accent-blue, #005FAF)' }
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}>
+        <div className="window" style={{ width: 'min(460px, 92vw)', maxHeight: '82vh', overflow: 'auto', fontSize: '11px' }}>
+          <div className="titlebar" style={{ padding: '3px 8px', fontSize: '11px', fontWeight: 'bold', background: tag.c, color: '#FFF' }}>
+            {tag.t}{loginAlerts.length > 1 ? `（還有 ${loginAlerts.length - 1} 則）` : ''}
+          </div>
+          <div style={{ padding: '10px', background: 'var(--bg-window)' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '6px' }}>{b.title}</div>
+            <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+              {b.department || ''} {(b.published_at || b.created_at)?.slice(0, 10)}
+            </div>
+            <div className="inset" style={{ padding: '8px', marginBottom: '8px', background: 'var(--bg-inset)', whiteSpace: 'pre-wrap', minHeight: '60px', lineHeight: 1.5 }}>
+              {b.content || '（無內文）'}
+            </div>
+            {(b.attachments?.length || 0) > 0 && (
+              <div style={{ marginBottom: '8px' }}>
+                {b.attachments.map((att, i) => (
+                  <div key={i} style={{ fontSize: '10px', marginBottom: '2px' }}>
+                    📎 <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)' }}>{att.name}</a>
+                  </div>
+                ))}
+              </div>
+            )}
+            {b.require_ack ? (
+              <button onClick={() => handleAckBulletin(b.id)} style={{ width: '100%', fontSize: '12px', padding: '7px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F', cursor: 'pointer' }}>
+                ✔ 我已詳閱
+              </button>
+            ) : (
+              <button onClick={() => handleDismissAlert(b.id)} className="btn" style={{ width: '100%', fontSize: '11px', padding: '6px', fontWeight: 'bold' }}>
+                知道了
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const handleSubmitEvent = (data: {
@@ -968,7 +1072,8 @@ function HomePageInner() {
 
         {/* Modals */}
         <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
-        <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
+        <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} onAck={handleAckBulletin} />
+        {renderBulletinAlert()}
       </div>
     )
   }
@@ -1061,7 +1166,8 @@ function HomePageInner() {
 
         {/* Modals */}
         <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
-        <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
+        <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} onAck={handleAckBulletin} />
+        {renderBulletinAlert()}
       </div>
     )
   }
@@ -1195,7 +1301,7 @@ function HomePageInner() {
       </Win95Window>
 
       <Win95Window windowId="sales">
-        <SalesPage isAdmin={isAdmin} />
+        <SalesPage isAdmin={isAdmin} userProfile={userProfile} />
       </Win95Window>
 
       <Win95Window windowId="reports">
@@ -1231,7 +1337,8 @@ function HomePageInner() {
 
       {/* Modals */}
       <AddEventModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSubmit={handleSubmitEvent} zIndex={addModalZIndex} position={getModalPosition(0)} userRole={userRole} />
-      <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} />
+      <AnnouncementDetailModal isOpen={!!selectedAnnouncement} onClose={() => setSelectedAnnouncement(null)} announcement={selectedAnnouncement} zIndex={announcementModalZIndex} position={getModalPosition(1)} onAck={handleAckBulletin} />
+      {renderBulletinAlert()}
 
       {/* Bulletin Edit Modal */}
       {editingBulletin && (

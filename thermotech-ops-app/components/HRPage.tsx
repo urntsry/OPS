@@ -3,12 +3,10 @@
 import { useState, useEffect } from 'react'
 import DepartmentShell, { type DepartmentTab } from './DepartmentShell'
 import AnnouncementManagementPage from './AnnouncementManagementPage'
-import AnnouncementReviewPage from './AnnouncementReviewPage'
 import HRNotificationPage from './HRNotificationPage'
 import HROvertimeTab from './HROvertimeTab'
 import HRAttendanceTab from './HRAttendanceTab'
 import HRBonusTab from './HRBonusTab'
-import { getPendingBulletins } from '@/lib/bulletinApi'
 import { getHRProfiles, getHREvents, getUpcomingExpirations, updateHRProfile, createHREvent, unbindLineUser, deleteProfile, type HRProfile, type HREvent, type ExpirationAlert } from '@/lib/hrApi'
 
 interface HRPageProps {
@@ -431,15 +429,7 @@ function HRTools() {
 // HR Page — main component using DepartmentShell
 // ============================================
 export default function HRPage({ isAdmin = false, userProfile }: HRPageProps) {
-  const [pendingCount, setPendingCount] = useState(0)
-
   const hasHRAccess = isAdmin || userProfile?.hr_access === true
-
-  useEffect(() => {
-    if (isAdmin) {
-      getPendingBulletins().then(data => setPendingCount(data.length)).catch(() => {})
-    }
-  }, [isAdmin])
 
   const tabs: DepartmentTab[] = [
     { id: 'dashboard', label: 'DASHBOARD', show: true,        component: <HRDashboard /> },
@@ -447,10 +437,9 @@ export default function HRPage({ isAdmin = false, userProfile }: HRPageProps) {
     { id: 'overtime',  label: 'OVERTIME',  show: hasHRAccess, component: <HROvertimeTab /> },
     { id: 'attendance',label: 'ATTENDANCE',show: hasHRAccess, component: <HRAttendanceTab /> },
     { id: 'bonus',     label: 'BONUS',     show: hasHRAccess, component: <HRBonusTab /> },
-    { id: 'bulletin',  label: 'BULLETIN',  show: true,        component: <AnnouncementManagementPage isAdmin={isAdmin} /> },
+    { id: 'bulletin',  label: 'BULLETIN',  show: hasHRAccess, component: <AnnouncementManagementPage isAdmin={isAdmin} userProfile={userProfile} /> },
     { id: 'line',      label: 'LINE PUSH', show: isAdmin,     component: <HRNotificationPage /> },
     { id: 'tools',     label: 'TOOLS',     show: isAdmin,     component: <HRTools /> },
-    { id: 'review',    label: 'REVIEW',    show: isAdmin, badge: pendingCount, component: <AnnouncementReviewPage /> },
   ]
 
   return (
