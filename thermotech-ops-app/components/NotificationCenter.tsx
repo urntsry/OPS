@@ -13,18 +13,24 @@ interface Props {
   onOpenLink?: (link: string) => void
 }
 
-const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
-  meeting: { label: '會議', icon: '◎', color: '#005FAF' },
-  meeting_helper: { label: '協助', icon: '◇', color: '#A06000' },
-  meeting_reminder: { label: '提醒', icon: '!', color: '#A00000' },
-  visit: { label: '客訪', icon: '◐', color: '#006080' },
-  fax: { label: '傳真', icon: '✉', color: '#B06000' },
-  birthday: { label: '生日', icon: '★', color: '#A00080' },
-  system: { label: '系統', icon: '■', color: '#404040' },
+const TYPE_META: Record<string, { label: string; color: string }> = {
+  meeting: { label: '會議', color: '#005FAF' },
+  meeting_helper: { label: '協助', color: '#A06000' },
+  meeting_reminder: { label: '提醒', color: '#A00000' },
+  new_announcement: { label: '公告', color: '#2E7D32' },
+  task_assigned: { label: '任務', color: '#6A1B9A' },
+  visit: { label: '客訪', color: '#006080' },
+  fax: { label: '傳真', color: '#B06000' },
+  birthday: { label: '生日', color: '#A00080' },
+  system: { label: '系統', color: '#404040' },
 }
 
 function getTypeMeta(type: string) {
-  return TYPE_META[type] || { label: type, icon: '●', color: '#606060' }
+  return TYPE_META[type] || { label: type.replace(/_/g, ' '), color: '#606060' }
+}
+
+function cleanTitle(title: string): string {
+  return title.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]+\s*/u, '').trim()
 }
 
 function relativeTime(iso: string): string {
@@ -148,67 +154,29 @@ export default function NotificationCenter({ userId, open, onClose, onOpenLink }
                   padding: '8px 10px',
                   borderBottom: '1px solid var(--border-mid-dark)',
                   cursor: n.link ? 'pointer' : 'default',
-                  background: isRead ? 'transparent' : 'rgba(0, 95, 175, 0.08)',
-                  display: 'flex',
-                  gap: '8px',
-                  alignItems: 'flex-start',
+                  background: isRead ? 'transparent' : 'rgba(0, 95, 175, 0.06)',
                   transition: 'background 0.1s',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0, 95, 175, 0.18)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isRead ? 'transparent' : 'rgba(0, 95, 175, 0.08)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0, 95, 175, 0.14)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isRead ? 'transparent' : 'rgba(0, 95, 175, 0.06)' }}
               >
-                {/* Type icon */}
-                <span style={{
-                  flexShrink: 0,
-                  width: '22px', height: '22px',
-                  background: meta.color, color: '#FFF',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '12px', fontWeight: 'bold',
-                  fontFamily: 'monospace',
-                }}>
-                  {meta.icon}
-                </span>
-                {/* Content */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '8px', color: meta.color, fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      {meta.label}
-                    </span>
-                    {!isRead && <span style={{ width: '6px', height: '6px', background: '#C00000', borderRadius: '50%' }} />}
-                    <span style={{ fontSize: '8px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                      {relativeTime(n.scheduled_at)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '10px', fontWeight: isRead ? 'normal' : 'bold', color: 'var(--text-primary)', marginTop: '1px', wordBreak: 'break-word' }}>
-                    {n.title}
-                  </div>
-                  {n.body && (
-                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '1px', wordBreak: 'break-word', lineHeight: 1.3 }}>
-                      {n.body}
-                    </div>
-                  )}
-                  {/* Channel status indicator */}
-                  {n.channel_status && Object.keys(n.channel_status).length > 0 && (
-                    <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
-                      {Object.entries(n.channel_status).map(([ch, st]) => (
-                        <span
-                          key={ch}
-                          style={{
-                            fontSize: '7px',
-                            padding: '0 3px',
-                            background: st === 'sent' ? '#D0FFD0' : st === 'failed' ? '#FFD0D0' : '#E8E8E8',
-                            color: st === 'sent' ? '#006000' : st === 'failed' ? '#800000' : '#606060',
-                            border: `1px solid ${st === 'sent' ? '#008000' : st === 'failed' ? '#C00000' : '#999'}`,
-                            fontWeight: 'bold',
-                          }}
-                          title={`${ch}: ${st}`}
-                        >
-                          {ch.toUpperCase()}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                  <span style={{ fontSize: '8px', color: meta.color, fontWeight: 'bold' }}>
+                    {meta.label}
+                  </span>
+                  {!isRead && <span style={{ width: '5px', height: '5px', background: '#C00000', borderRadius: '50%' }} />}
+                  <span style={{ fontSize: '8px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                    {relativeTime(n.scheduled_at)}
+                  </span>
                 </div>
+                <div style={{ fontSize: '10px', fontWeight: isRead ? 'normal' : 'bold', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                  {cleanTitle(n.title)}
+                </div>
+                {n.body && (
+                  <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px', wordBreak: 'break-word', lineHeight: 1.3 }}>
+                    {cleanTitle(n.body).slice(0, 120)}
+                  </div>
+                )}
               </div>
             )
           })
