@@ -628,19 +628,25 @@ function HomePageInner() {
       return
     }
 
+    // 依目前狀態決定要切到完成或取消完成（雙向切換）
+    const current = assignments.find(t => t.id === id)
+    const nextStatus = current?.done ? 'pending' : 'completed'
+
+    // 先樂觀更新畫面
+    setAssignments(prev => prev.map(task =>
+      task.id === id ? { ...task, done: nextStatus === 'completed' } : task
+    ))
+
     try {
-      // 更新資料庫
-      await updateAssignmentStatus(Number(id), 'completed')
-      
-      // 更新本地狀態（樂觀 UI）
-      setAssignments(prev => prev.map(task => 
-        task.id === id ? { ...task, done: !task.done } : task
-      ))
-      
+      await updateAssignmentStatus(Number(id), nextStatus)
       console.log('[HomePage] 任務狀態更新成功')
     } catch (error) {
       console.error('[HomePage] 更新任務狀態失敗:', error)
-      alert('更新失敗，請稍後再試')
+      // 失敗回滾
+      setAssignments(prev => prev.map(task =>
+        task.id === id ? { ...task, done: current?.done ?? false } : task
+      ))
+      setToast({ message: '更新失敗，請稍後再試', type: 'error' })
     }
   }
 

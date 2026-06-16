@@ -310,6 +310,7 @@ export async function getTodayAssignments(userId: string) {
 export async function getPendingAssignments(userId: string) {
   console.log('[API] 取得待辦任務:', userId)
   
+  // 同時撈未完成(pending)與已完成(completed)：已完成者保留並以劃線呈現，由使用者自行決定是否清除
   const { data, error } = await supabase
     .from('daily_assignments')
     .select(`
@@ -317,7 +318,7 @@ export async function getPendingAssignments(userId: string) {
       task_def:task_definitions(title, description, base_points, requires_photo)
     `)
     .eq('user_id', userId)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'completed'])
     .order('assigned_date', { ascending: true }) // 改為升序：最早的任務在前
   
   if (error) {
@@ -335,7 +336,7 @@ export async function getPendingAssignments(userId: string) {
  */
 export async function updateAssignmentStatus(
   assignmentId: number, 
-  status: 'completed' | 'verified' | 'abnormal',
+  status: 'pending' | 'completed' | 'verified' | 'abnormal',
   photoUrl?: string,
   comment?: string
 ) {
@@ -343,7 +344,8 @@ export async function updateAssignmentStatus(
   
   const updates: Partial<DailyAssignment> = {
     status,
-    completed_at: status === 'completed' ? new Date().toISOString() : undefined,
+    // 完成時記錄時間；切回未完成時清空
+    completed_at: status === 'completed' ? new Date().toISOString() : null as any,
     photo_url: photoUrl,
     comment: comment
   }
