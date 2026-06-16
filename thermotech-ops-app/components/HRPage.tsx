@@ -438,7 +438,8 @@ export default function HRPage({ isAdmin = false, userProfile }: HRPageProps) {
     { id: 'attendance',label: 'ATTENDANCE',show: hasHRAccess, component: <HRAttendanceTab /> },
     { id: 'bonus',     label: 'BONUS',     show: hasHRAccess, component: <HRBonusTab /> },
     { id: 'bulletin',  label: 'BULLETIN',  show: hasHRAccess, component: <AnnouncementManagementPage isAdmin={isAdmin} userProfile={userProfile} /> },
-    { id: 'line',      label: 'LINE PUSH', show: isAdmin,     component: <HRNotificationPage /> },
+    // LINE PUSH 已停用：公告系統的「發布時推播 LINE」已取代此功能
+    { id: 'line',      label: 'LINE PUSH', show: false,       component: <HRNotificationPage /> },
     { id: 'tools',     label: 'TOOLS',     show: isAdmin,     component: <HRTools /> },
   ]
 
