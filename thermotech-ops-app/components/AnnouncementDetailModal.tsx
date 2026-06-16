@@ -42,10 +42,10 @@ export default function AnnouncementDetailModal({
           <button onClick={onClose} style={{ background: 'var(--bg-window)', border: '1px solid var(--border-dark)', color: 'var(--accent-red)', fontSize: '10px', cursor: 'pointer', padding: '0 4px', fontWeight: 'bold', outline: 'none' }}>×</button>
         </div>
 
-        <div style={{ padding: '8px', background: 'var(--bg-window)' }}>
+        <div style={{ padding: '10px', background: 'var(--bg-window)' }}>
           {/* Title + meta */}
-          <div className="outset" style={{ padding: '6px', marginBottom: '6px' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '4px' }}>{announcement.title}</div>
+          <div style={{ marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--border-mid-dark)' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '3px' }}>{announcement.title}</div>
             <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
               {announcement.postedAt && <span>發布: {announcement.postedAt}</span>}
               {announcement.postedBy && <span> | {announcement.postedBy}</span>}
@@ -54,29 +54,27 @@ export default function AnnouncementDetailModal({
 
           {/* Content */}
           {announcement.content && (
-            <div className="inset" style={{ padding: '8px', marginBottom: '6px', background: 'var(--bg-inset)', minHeight: '60px', whiteSpace: 'pre-wrap', fontSize: '10px', lineHeight: 1.4 }}>
+            <div style={{ marginBottom: '10px', whiteSpace: 'pre-wrap', fontSize: '10px', lineHeight: 1.5, color: 'var(--text-primary)' }}>
               {announcement.content}
             </div>
           )}
 
           {/* Attachments */}
           {hasAttachments && (
-            <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
-              <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginBottom: '3px' }}>
                 附件 ({attachments.length})
               </div>
-              <div style={{ padding: '4px', background: 'var(--bg-inset)' }}>
-                {attachments.map((att, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 4px', borderBottom: idx < attachments.length - 1 ? '1px solid var(--table-border)' : 'none' }}>
-                    <span style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 'bold', minWidth: '28px' }}>
-                      {att.type?.toUpperCase() || 'FILE'}
-                    </span>
-                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
-                      {att.name}
-                    </a>
-                  </div>
-                ))}
-              </div>
+              {attachments.map((att, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 0' }}>
+                  <span style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 'bold', minWidth: '28px' }}>
+                    {att.type?.toUpperCase() || 'FILE'}
+                  </span>
+                  <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px' }}>
+                    {att.name}
+                  </a>
+                </div>
+              ))}
             </div>
           )}
 
