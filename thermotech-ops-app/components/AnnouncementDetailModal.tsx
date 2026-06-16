@@ -38,7 +38,7 @@ export default function AnnouncementDetailModal({
 
       <div className="window" style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: '480px', maxHeight: '80vh', overflow: 'auto', zIndex, fontFamily: 'monospace', fontSize: '10px' }} onClick={e => e.stopPropagation()}>
         <div className="titlebar" style={{ padding: '2px 6px', fontSize: '10px' }}>
-          <span style={{ fontWeight: 'bold' }}>公告詳情</span>
+          <span style={{ fontWeight: 'bold' }}>公告</span>
           <button onClick={onClose} style={{ background: 'var(--bg-window)', border: '1px solid var(--border-dark)', color: 'var(--accent-red)', fontSize: '10px', cursor: 'pointer', padding: '0 4px', fontWeight: 'bold', outline: 'none' }}>×</button>
         </div>
 
@@ -97,22 +97,26 @@ export default function AnnouncementDetailModal({
           {/* Ack confirmation */}
           {announcement.requireAck && (
             announcement.acked ? (
-              <div style={{ padding: '4px 6px', marginBottom: '6px', fontSize: '9px', color: 'var(--accent-teal)', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)' }}>
-                ✔ 您已確認詳閱此公告
+              <div style={{ padding: '3px 6px', marginBottom: '6px', fontSize: '9px', color: 'var(--accent-teal)', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)' }}>
+                已確認詳閱
               </div>
             ) : (
-              <button
-                className="btn"
-                onClick={() => { if (announcement.id) onAck?.(announcement.id) }}
-                style={{ width: '100%', fontSize: '10px', padding: '5px', marginBottom: '6px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F', cursor: 'pointer' }}
-              >
-                ✔ 我已詳閱
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '6px' }}>
+                <button
+                  className="btn"
+                  onClick={() => { if (announcement.id) onAck?.(announcement.id) }}
+                  style={{ fontSize: '9px', padding: '3px 12px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F', cursor: 'pointer' }}
+                >
+                  確認已閱
+                </button>
+              </div>
             )
           )}
 
           {/* Close */}
-          <button className="btn" onClick={onClose} disabled={needsAck} title={needsAck ? '請先確認已詳閱' : ''} style={{ width: '100%', fontSize: '9px', padding: '3px', opacity: needsAck ? 0.5 : 1, cursor: needsAck ? 'not-allowed' : 'pointer' }}>關閉</button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={onClose} disabled={needsAck} title={needsAck ? '請先確認已詳閱' : ''} style={{ fontSize: '9px', padding: '3px 14px', opacity: needsAck ? 0.5 : 1, cursor: needsAck ? 'not-allowed' : 'pointer' }}>關閉</button>
+          </div>
         </div>
       </div>
     </>
