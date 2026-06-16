@@ -751,20 +751,22 @@ function HomePageInner() {
               <div style={{ marginBottom: '8px' }}>
                 {b.attachments.map((att, i) => (
                   <div key={i} style={{ fontSize: '10px', marginBottom: '2px' }}>
-                    📎 <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)' }}>{att.name}</a>
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)' }}>{att.name}</a>
                   </div>
                 ))}
               </div>
             )}
-            {b.require_ack ? (
-              <button onClick={() => handleAckBulletin(b.id)} style={{ width: '100%', fontSize: '12px', padding: '7px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F', cursor: 'pointer' }}>
-                ✔ 我已詳閱
-              </button>
-            ) : (
-              <button onClick={() => handleDismissAlert(b.id)} className="btn" style={{ width: '100%', fontSize: '11px', padding: '6px', fontWeight: 'bold' }}>
-                知道了
-              </button>
-            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+              {b.require_ack ? (
+                <button onClick={() => handleAckBulletin(b.id)} className="btn" style={{ fontSize: '10px', padding: '3px 14px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F', cursor: 'pointer' }}>
+                  確認已閱
+                </button>
+              ) : (
+                <button onClick={() => handleDismissAlert(b.id)} className="btn" style={{ fontSize: '10px', padding: '3px 14px' }}>
+                  知道了
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
