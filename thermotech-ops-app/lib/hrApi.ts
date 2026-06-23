@@ -12,11 +12,21 @@ export interface HRProfile {
   birthday: string | null
   emergency_contact: string | null
   emergency_phone: string | null
+  emergency_relation: string | null
   address: string | null
   labor_insurance_date: string | null
   health_insurance_date: string | null
   contract_expiry: string | null
   nationality: string | null
+  // 人員清冊擴充欄位
+  id_number: string | null
+  blood_type: string | null
+  email: string | null
+  spouse_count: number | null
+  children_count: number | null
+  education_level: string | null
+  education_school: string | null
+  education_major: string | null
   is_active: boolean
   notes: string | null
   points_balance: number
@@ -53,7 +63,7 @@ export interface AttendanceRecord {
 export async function getHRProfiles(activeOnly = true): Promise<HRProfile[]> {
   let query = supabase
     .from('profiles')
-    .select('id, employee_id, full_name, department, job_title, role, phone, hire_date, birthday, emergency_contact, emergency_phone, address, labor_insurance_date, health_insurance_date, contract_expiry, nationality, is_active, notes, points_balance, line_user_id, line_bound_at, hr_access, created_at')
+    .select('id, employee_id, full_name, department, job_title, role, phone, hire_date, birthday, emergency_contact, emergency_phone, emergency_relation, address, labor_insurance_date, health_insurance_date, contract_expiry, nationality, id_number, blood_type, email, spouse_count, children_count, education_level, education_school, education_major, is_active, notes, points_balance, line_user_id, line_bound_at, hr_access, created_at')
     .order('department')
     .order('employee_id')
 
@@ -75,6 +85,46 @@ export async function updateHRProfile(id: string, updates: Partial<HRProfile>): 
     .single()
   if (error) throw error
   return data as HRProfile
+}
+
+// 依員工編號批次更新人員清冊欄位（Excel 匯入用）
+// 僅更新「系統已存在」的員工；找不到員編者回報於 skipped，不自動建立帳號
+export interface RosterImportResult {
+  updated: number
+  skipped: string[] // 找不到對應員編
+  failed: Array<{ employee_id: string; error: string }>
+}
+
+export async function importRosterByEmployeeId(
+  rows: Array<{ employee_id: string } & Partial<HRProfile>>
+): Promise<RosterImportResult> {
+  const result: RosterImportResult = { updated: 0, skipped: [], failed: [] }
+
+  // 先抓出所有 employee_id → id 對照（含離職）
+  const { data: existing, error: exErr } = await supabase
+    .from('profiles')
+    .select('id, employee_id')
+  if (exErr) throw exErr
+  const idMap = new Map((existing || []).map(p => [String(p.employee_id), p.id]))
+
+  for (const row of rows) {
+    const empId = String(row.employee_id).trim()
+    const profileId = idMap.get(empId)
+    if (!profileId) { result.skipped.push(empId); continue }
+
+    const { employee_id, ...updates } = row
+    // 移除 undefined / 空字串，避免覆蓋掉既有有效值
+    const clean: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(updates)) {
+      if (v !== undefined && v !== null && v !== '') clean[k] = v
+    }
+    if (Object.keys(clean).length === 0) continue
+
+    const { error } = await supabase.from('profiles').update(clean).eq('id', profileId)
+    if (error) result.failed.push({ employee_id: empId, error: error.message })
+    else result.updated++
+  }
+  return result
 }
 
 // ---- HR Events ----
