@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { notify } from './notifications'
+import { richTextToPlainText } from './richText'
 
 export interface Attachment {
   name: string
@@ -190,12 +191,16 @@ export async function publishBulletinNotifications(bulletin: Bulletin, opts: Pub
   const channels = opts.useLine ? (['in_app', 'line'] as const) : (['in_app'] as const)
   const tag = bulletin.priority === 'urgent' ? '[緊急] 公告' : bulletin.priority === 'important' ? '[重要] 公告' : '公告'
   const ackHint = bulletin.require_ack ? '\n＊ 此公告需確認已閱' : ''
+  const plainContent = richTextToPlainText(bulletin.content)
+  // LINE 單則文字訊息上限約 5000 字，這裡保留餘裕；避免長公告被截斷（原本只取 200 字）
+  const MAX_BODY = 4500
+  const trimmedContent = plainContent.length > MAX_BODY ? `${plainContent.slice(0, MAX_BODY)}…（內容過長，完整內容請至系統查看）` : plainContent
 
   await notify({
     user_ids: targets,
     type: 'new_announcement',
     title: `${tag}｜${bulletin.title}`,
-    body: `${(bulletin.content || '').slice(0, 200)}${ackHint}`,
+    body: `${trimmedContent}${ackHint}`,
     channels: [...channels],
     metadata: { bulletin_id: bulletin.id, priority: bulletin.priority, require_ack: !!bulletin.require_ack },
   })

@@ -33,6 +33,8 @@ import AppCenterPage from '@/components/AppCenterPage'
 import { useWindowManager, WINDOW_CONFIGS, TASKBAR_HEIGHT } from '@/lib/useWindowManager'
 import { getEffectiveModules } from '@/lib/userAccessApi'
 import { getBulletins, getBulletinCalendarEvents, deleteBulletin, updateBulletin, getBulletinById, markBulletinRead, ackBulletin, getMyReadMap, getLoginAlertBulletins, isBulletinVisibleTo, type Bulletin } from '@/lib/bulletinApi'
+import { sanitizeRichText, isProbablyHtml } from '@/lib/richText'
+import RichTextEditor from '@/components/RichTextEditor'
 import { getMeetingsForMonth as fetchMeetingsForMonth, subscribeScheduledMeetings } from '@/lib/meetingsApi'
 import { getDelegationsForMonth, subscribeDelegations, type Delegation } from '@/lib/delegationsApi'
 import { 
@@ -69,11 +71,11 @@ function BulletinEditModal({ bulletin, onSave, onClose }: { bulletin: Bulletin; 
           </div>
           <div style={{ marginBottom: '6px' }}>
             <label style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>CONTENT</label>
-            <textarea value={content} onChange={e => setContent(e.target.value)} className="inset" rows={4} style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', padding: '3px 6px', background: 'var(--bg-input)', color: 'var(--text-primary)', resize: 'vertical', boxSizing: 'border-box' }} />
+            <RichTextEditor value={content} onChange={setContent} rows={4} />
           </div>
           <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
             <button onClick={onClose} className="btn" style={{ fontSize: '9px', padding: '3px 10px' }}>CANCEL</button>
-            <button onClick={() => onSave({ title, content })} className="btn" style={{ fontSize: '9px', padding: '3px 10px', fontWeight: 'bold' }}>SAVE</button>
+            <button onClick={() => onSave({ title, content: sanitizeRichText(content) })} className="btn" style={{ fontSize: '9px', padding: '3px 10px', fontWeight: 'bold' }}>SAVE</button>
           </div>
         </div>
       </div>
@@ -750,9 +752,17 @@ function HomePageInner() {
             <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginBottom: '8px' }}>
               {b.department || ''} {(b.published_at || b.created_at)?.slice(0, 10)}
             </div>
-            <div className="inset" style={{ padding: '8px', marginBottom: '8px', background: 'var(--bg-inset)', whiteSpace: 'pre-wrap', minHeight: '60px', lineHeight: 1.5 }}>
-              {b.content || '（無內文）'}
-            </div>
+            {isProbablyHtml(b.content) ? (
+              <div
+                className="inset rich-content"
+                style={{ padding: '8px', marginBottom: '8px', background: 'var(--bg-inset)', minHeight: '60px', lineHeight: 1.5, wordBreak: 'break-word' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichText(b.content || '') }}
+              />
+            ) : (
+              <div className="inset" style={{ padding: '8px', marginBottom: '8px', background: 'var(--bg-inset)', whiteSpace: 'pre-wrap', minHeight: '60px', lineHeight: 1.5 }}>
+                {b.content || '（無內文）'}
+              </div>
+            )}
             {(b.attachments?.length || 0) > 0 && (
               <div style={{ marginBottom: '8px' }}>
                 {b.attachments.map((att, i) => (

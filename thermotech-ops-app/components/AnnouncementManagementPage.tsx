@@ -7,6 +7,8 @@ import {
   type Bulletin, type BulletinAudience, type BulletinRead,
 } from '@/lib/bulletinApi'
 import { getAllProfiles } from '@/lib/api'
+import { sanitizeRichText } from '@/lib/richText'
+import RichTextEditor from './RichTextEditor'
 
 interface ProfileLite { id: string; full_name: string; department: string | null; employee_id: string }
 
@@ -92,7 +94,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
     try {
       const base = {
         title: editingBulletin.title,
-        content: editingBulletin.content,
+        content: sanitizeRichText(editingBulletin.content),
         bulletin_type: editingBulletin.bulletin_type || 'notice',
         category: editingBulletin.category || 'general',
         priority: editingBulletin.priority,
@@ -316,7 +318,14 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
             <div style={{ marginBottom: '4px' }}>
               <label style={labelBase}>內容</label>
-              <textarea value={editingBulletin.content || ''} onChange={e => setEditingBulletin({ ...editingBulletin, content: e.target.value })} rows={6} style={{ ...inputBase, resize: 'vertical' }} />
+              <RichTextEditor
+                value={editingBulletin.content || ''}
+                onChange={html => setEditingBulletin({ ...editingBulletin, content: html })}
+                rows={6}
+              />
+              <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                可選取文字後點上方按鈕標示重點；也可直接貼上已排版的內容（LINE 推播會自動轉為純文字）。
+              </div>
             </div>
 
             <div style={{ marginBottom: '4px' }}>

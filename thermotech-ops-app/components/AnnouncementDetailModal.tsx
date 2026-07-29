@@ -1,5 +1,7 @@
 'use client'
 
+import { sanitizeRichText, isProbablyHtml } from '@/lib/richText'
+
 interface AnnouncementDetailModalProps {
   isOpen: boolean
   onClose: () => void
@@ -54,9 +56,17 @@ export default function AnnouncementDetailModal({
 
           {/* Content */}
           {announcement.content && (
-            <div style={{ marginBottom: '10px', whiteSpace: 'pre-wrap', fontSize: '10px', lineHeight: 1.5, color: 'var(--text-primary)' }}>
-              {announcement.content}
-            </div>
+            isProbablyHtml(announcement.content) ? (
+              <div
+                className="rich-content"
+                style={{ marginBottom: '10px', fontSize: '10px', lineHeight: 1.5, color: 'var(--text-primary)', wordBreak: 'break-word' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichText(announcement.content) }}
+              />
+            ) : (
+              <div style={{ marginBottom: '10px', whiteSpace: 'pre-wrap', fontSize: '10px', lineHeight: 1.5, color: 'var(--text-primary)' }}>
+                {announcement.content}
+              </div>
+            )
           )}
 
           {/* Attachments */}
