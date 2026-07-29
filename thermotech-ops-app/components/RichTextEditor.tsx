@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { sanitizeRichText } from '@/lib/richText'
 
 interface RichTextEditorProps {
@@ -10,14 +10,49 @@ interface RichTextEditorProps {
   placeholder?: string
 }
 
-const RED = '#D40000'
 const HILITE = '#FFF275'
 
-// 工具列按鈕樣式（Win95 風格）
+// 顏色下拉（值同時對應 lib/lineFlex.ts 的色名，LINE 彩色公告才會一致）
+const COLORS: { label: string; value: string }[] = [
+  { label: '紅', value: '#D40000' },
+  { label: '橘', value: '#E67300' },
+  { label: '藍', value: '#005FAF' },
+  { label: '綠', value: '#1B7F1B' },
+  { label: '紫', value: '#7B2FA0' },
+  { label: '黑', value: '#111111' },
+]
+
+// 字級 → execCommand fontSize (1..7)
+const SIZES: { label: string; value: string }[] = [
+  { label: '小', value: '2' },
+  { label: '正常', value: '3' },
+  { label: '大', value: '5' },
+  { label: '特大', value: '6' },
+]
+
+// 符號插入組（皆為純文字/Unicode，系統內與 LINE 都能顯示）
+const SYMBOL_GROUPS: { title: string; items: string[] }[] = [
+  { title: '數字標記', items: ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫', '一、', '二、', '三、', '四、'] },
+  { title: '警示重點', items: ['⚠️', '❗', '❓', '❌', '✅', '✔️', '⭕', '🔴', '🟠', '🟡', '⭐', '🔺', '🔻', '▶️', '‼️', '✖️'] },
+  { title: '條列箭頭', items: ['・', '‧', '◆', '◇', '■', '□', '●', '○', '▶', '→', '⇒', '↳', '‣', '★', '☆', '※'] },
+  { title: '常用圖示', items: ['📌', '📢', '📣', '🗓️', '⏰', '📝', '☎️', '📞', '✉️', '🔔', '💡', '✍️', '📅', '🈺', '🕐', '🚫'] },
+]
+
+type MenuKind = 'color' | 'size' | 'symbol' | null
+
+// Win95 風格
 const toolBtn: React.CSSProperties = {
-  fontSize: '9px', fontFamily: 'monospace', padding: '1px 6px', cursor: 'pointer',
+  fontSize: '9px', fontFamily: 'monospace', padding: '2px 6px', cursor: 'pointer',
   background: 'var(--bg-button, #C0C0C0)', color: 'var(--text-primary)',
-  border: '1px solid var(--border-mid-dark)', minWidth: '24px',
+  border: '1px solid var(--border-mid-dark)', minWidth: '22px', lineHeight: 1.4,
+}
+const groupSep: React.CSSProperties = {
+  width: '1px', alignSelf: 'stretch', background: 'var(--border-mid-dark)', margin: '0 2px',
+}
+const popover: React.CSSProperties = {
+  position: 'absolute', top: '100%', left: 0, marginTop: '2px', zIndex: 50,
+  background: 'var(--bg-window, #C0C0C0)', border: '2px solid var(--border-mid-dark)',
+  boxShadow: '2px 2px 0 rgba(0,0,0,0.35)', padding: '4px',
 }
 
 function escapeHtml(s: string): string {
@@ -26,6 +61,8 @@ function escapeHtml(s: string): string {
 
 export default function RichTextEditor({ value, onChange, rows = 6, placeholder }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [menu, setMenu] = useState<MenuKind>(null)
 
   // 只在外部 value 與目前內容不同步時才回填（避免游標跳動）
   useEffect(() => {
@@ -35,6 +72,16 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder 
     }
   }, [value])
 
+  // 點編輯器外面就關閉下拉
+  useEffect(() => {
+    if (!menu) return
+    const onDocDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setMenu(null)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [menu])
+
   const emit = useCallback(() => {
     if (ref.current) onChange(ref.current.innerHTML)
   }, [onChange])
@@ -42,6 +89,14 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder 
   const exec = useCallback((command: string, arg?: string) => {
     ref.current?.focus()
     document.execCommand(command, false, arg)
+    emit()
+  }, [emit])
+
+  const insertText = useCallback((s: string) => {
+    ref.current?.focus()
+    if (!document.execCommand('insertText', false, s)) {
+      document.execCommand('insertHTML', false, escapeHtml(s))
+    }
     emit()
   }, [emit])
 
@@ -56,17 +111,104 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder 
     emit()
   }, [emit])
 
+  // 讓工具列按鈕不搶走編輯器的文字選取（顏色/字級才會套在選取字上）
+  const keepSelection = (e: React.MouseEvent) => e.preventDefault()
+
+  const toggleMenu = (kind: Exclude<MenuKind, null>) => setMenu(m => (m === kind ? null : kind))
+
   return (
-    <div style={{ border: '1px solid var(--border-mid-dark)' }}>
-      <div style={{ display: 'flex', gap: '3px', padding: '3px', flexWrap: 'wrap', background: 'var(--bg-window, #C0C0C0)', borderBottom: '1px solid var(--border-mid-dark)' }}>
-        <button type="button" title="粗體" onClick={() => exec('bold')} style={{ ...toolBtn, fontWeight: 'bold' }}>B</button>
-        <button type="button" title="紅字（警示重點）" onClick={() => exec('foreColor', RED)} style={{ ...toolBtn, color: RED, fontWeight: 'bold' }}>紅字</button>
-        <button type="button" title="螢光底色" onClick={() => exec('hiliteColor', HILITE)} style={{ ...toolBtn, background: HILITE }}>螢光</button>
-        <button type="button" title="放大字級" onClick={() => exec('fontSize', '5')} style={toolBtn}>放大</button>
-        <button type="button" title="縮小字級" onClick={() => exec('fontSize', '2')} style={toolBtn}>縮小</button>
-        <span style={{ width: '1px', background: 'var(--border-mid-dark)', margin: '0 2px' }} />
-        <button type="button" title="清除格式" onClick={() => exec('removeFormat')} style={toolBtn}>清除格式</button>
+    <div ref={wrapRef} style={{ border: '1px solid var(--border-mid-dark)' }}>
+      {/* 工具列 */}
+      <div style={{ display: 'flex', gap: '3px', padding: '3px', flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-window, #C0C0C0)', borderBottom: '1px solid var(--border-mid-dark)' }}>
+        {/* 基本格式 */}
+        <button type="button" title="粗體" onMouseDown={keepSelection} onClick={() => exec('bold')} style={{ ...toolBtn, fontWeight: 'bold' }}>B</button>
+        <button type="button" title="底線" onMouseDown={keepSelection} onClick={() => exec('underline')} style={{ ...toolBtn, textDecoration: 'underline' }}>U</button>
+        <button type="button" title="螢光底色（LINE 上會顯示為橘字）" onMouseDown={keepSelection} onClick={() => exec('hiliteColor', HILITE)} style={{ ...toolBtn, background: HILITE }}>螢光</button>
+
+        <span style={groupSep} />
+
+        {/* 顏色下拉 */}
+        <div style={{ position: 'relative' }}>
+          <button type="button" title="文字顏色" onMouseDown={keepSelection} onClick={() => toggleMenu('color')} style={toolBtn}>顏色 ▾</button>
+          {menu === 'color' && (
+            <div style={{ ...popover, display: 'grid', gridTemplateColumns: 'repeat(3, auto)', gap: '3px' }}>
+              {COLORS.map(c => (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.label}
+                  onMouseDown={keepSelection}
+                  onClick={() => { exec('foreColor', c.value); setMenu(null) }}
+                  style={{ ...toolBtn, color: c.value, fontWeight: 'bold', minWidth: '30px' }}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 字級下拉 */}
+        <div style={{ position: 'relative' }}>
+          <button type="button" title="字級大小" onMouseDown={keepSelection} onClick={() => toggleMenu('size')} style={toolBtn}>字級 ▾</button>
+          {menu === 'size' && (
+            <div style={{ ...popover, display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '54px' }}>
+              {SIZES.map(s => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onMouseDown={keepSelection}
+                  onClick={() => { exec('fontSize', s.value); setMenu(null) }}
+                  style={toolBtn}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span style={groupSep} />
+
+        {/* 清單 */}
+        <button type="button" title="項目清單（•）" onMouseDown={keepSelection} onClick={() => exec('insertUnorderedList')} style={toolBtn}>• 清單</button>
+        <button type="button" title="編號清單（1. 2. 3.）" onMouseDown={keepSelection} onClick={() => exec('insertOrderedList')} style={toolBtn}>1. 編號</button>
+
+        <span style={groupSep} />
+
+        {/* 符號插入 */}
+        <div style={{ position: 'relative' }}>
+          <button type="button" title="插入符號" onMouseDown={keepSelection} onClick={() => toggleMenu('symbol')} style={toolBtn}>符號 ▾</button>
+          {menu === 'symbol' && (
+            <div style={{ ...popover, width: '240px', maxHeight: '220px', overflowY: 'auto' }}>
+              {SYMBOL_GROUPS.map(g => (
+                <div key={g.title} style={{ marginBottom: '4px' }}>
+                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', margin: '2px 0' }}>{g.title}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
+                    {g.items.map(sym => (
+                      <button
+                        key={sym}
+                        type="button"
+                        onMouseDown={keepSelection}
+                        onClick={() => insertText(sym)}
+                        style={{ ...toolBtn, minWidth: '24px', fontSize: '13px', padding: '1px 4px' }}
+                      >
+                        {sym}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span style={groupSep} />
+
+        <button type="button" title="清除格式" onMouseDown={keepSelection} onClick={() => exec('removeFormat')} style={toolBtn}>清除格式</button>
       </div>
+
+      {/* 編輯區 */}
       <div
         ref={ref}
         contentEditable

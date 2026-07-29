@@ -141,7 +141,9 @@ function parseLines(html: string): LineSpans[] {
   let current: FlexSpan[] = []
   const flush = () => { lines.push({ spans: current }); current = [] }
 
-  const walk = (node: Node, ctx: StyleCtx) => {
+  interface ListCtx { ordered: boolean; n: number }
+
+  const walk = (node: Node, ctx: StyleCtx, list: ListCtx | null) => {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === 3) {
         // 文字節點
@@ -158,14 +160,19 @@ function parseLines(html: string): LineSpans[] {
         const isBlock = BLOCK_TAGS.has(tag)
         if (isBlock && current.length > 0) flush()
         const childCtx = deriveStyle(el, ctx)
-        if (tag === 'li') current.push({ type: 'span', text: '・' })
-        walk(el, childCtx)
+        // 進入清單時建立新的清單內容（ol 需編號）
+        const childList = tag === 'ol' ? { ordered: true, n: 0 } : tag === 'ul' ? { ordered: false, n: 0 } : list
+        if (tag === 'li') {
+          const prefix = childList?.ordered ? `${(childList.n = (childList.n || 0) + 1)}. ` : '・'
+          current.push({ type: 'span', text: prefix })
+        }
+        walk(el, childCtx, childList)
         if (isBlock && current.length > 0) flush()
       }
     }
   }
 
-  walk(root, {})
+  walk(root, {}, null)
   if (current.length > 0) flush()
 
   // 過濾整行皆空白者，但保留段落間的單一空行
