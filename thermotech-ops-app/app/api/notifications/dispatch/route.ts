@@ -26,7 +26,7 @@ interface ChannelResult {
 }
 
 /** Push to LINE for a single user (returns null if user has no line_user_id) */
-async function dispatchLine(userId: string, title: string, body: string | null, link: string | null): Promise<ChannelResult> {
+async function dispatchLine(userId: string, title: string, body: string | null, link: string | null, flex?: unknown): Promise<ChannelResult> {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return { channel: 'line', status: 'skipped', error: 'LINE_CHANNEL_ACCESS_TOKEN not set' }
 
   // Look up line_user_id for this user
@@ -50,18 +50,31 @@ async function dispatchLine(userId: string, title: string, body: string | null, 
     .filter(Boolean)
     .join('\n')
 
-  try {
-    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+  const pushMessages = async (messages: object[]) => {
+    return fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({
-        to: profile.line_user_id,
-        messages: [{ type: 'text', text }],
-      }),
+      body: JSON.stringify({ to: profile.line_user_id, messages }),
     })
+  }
+
+  const textMessage = [{ type: 'text', text }]
+  // 公告若帶有 Flex（有顏色/排版），優先送 Flex Message；altText 用純文字備援（上限 400 字）
+  const primaryMessages = flex
+    ? [{ type: 'flex', altText: (cleanBody || title).slice(0, 400), contents: flex }]
+    : textMessage
+
+  try {
+    let res = await pushMessages(primaryMessages)
+    // Flex 送失敗時（結構/大小問題）自動 fallback 純文字重送一次
+    if (!res.ok && flex) {
+      const flexErr = (await res.text()).slice(0, 200)
+      console.warn('[dispatchLine] flex push failed, fallback to text:', flexErr)
+      res = await pushMessages(textMessage)
+    }
     if (!res.ok) {
       const detail = await res.text()
       return { channel: 'line', status: 'failed', error: `LINE API ${res.status}: ${detail.slice(0, 200)}` }
@@ -87,7 +100,7 @@ async function dispatchOne(notif: any): Promise<{ status: string; channel_status
     if (ch === 'in_app') {
       result = dispatchInApp()
     } else if (ch === 'line') {
-      result = await dispatchLine(notif.user_id, notif.title, notif.body, notif.link)
+      result = await dispatchLine(notif.user_id, notif.title, notif.body, notif.link, notif.metadata?.flex)
     } else {
       result = { channel: ch, status: 'skipped', error: `${ch} adapter not implemented` }
     }

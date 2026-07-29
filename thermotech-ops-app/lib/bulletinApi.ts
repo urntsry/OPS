@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { notify } from './notifications'
 import { richTextToPlainText } from './richText'
+import { buildBulletinFlex } from './lineFlex'
 
 export interface Attachment {
   name: string
@@ -195,14 +196,27 @@ export async function publishBulletinNotifications(bulletin: Bulletin, opts: Pub
   // LINE 單則文字訊息上限約 5000 字，這裡保留餘裕；避免長公告被截斷（原本只取 200 字）
   const MAX_BODY = 4500
   const trimmedContent = plainContent.length > MAX_BODY ? `${plainContent.slice(0, MAX_BODY)}…（內容過長，完整內容請至系統查看）` : plainContent
+  const title = `${tag}｜${bulletin.title}`
+
+  // 若要推 LINE，額外建立 Flex（有顏色/粗體/字級/清單）；過長或無法解析則回傳 null，dispatch 會 fallback 純文字
+  let flex: object | null = null
+  if (opts.useLine) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    flex = buildBulletinFlex(bulletin.content, {
+      title,
+      titleColor: bulletin.priority === 'urgent' ? '#D40000' : bulletin.priority === 'important' ? '#B8860B' : '#005FAF',
+      requireAck: !!bulletin.require_ack,
+      url: origin ? `${origin}/home` : null,
+    })
+  }
 
   await notify({
     user_ids: targets,
     type: 'new_announcement',
-    title: `${tag}｜${bulletin.title}`,
+    title,
     body: `${trimmedContent}${ackHint}`,
     channels: [...channels],
-    metadata: { bulletin_id: bulletin.id, priority: bulletin.priority, require_ack: !!bulletin.require_ack },
+    metadata: { bulletin_id: bulletin.id, priority: bulletin.priority, require_ack: !!bulletin.require_ack, ...(flex ? { flex } : {}) },
   })
   return targets.length
 }
