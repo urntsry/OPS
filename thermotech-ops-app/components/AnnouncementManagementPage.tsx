@@ -136,8 +136,9 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
       setIsNew(false)
       loadData()
     } catch (e) {
-      alert('儲存失敗')
-      console.error(e)
+      const msg = e instanceof Error ? e.message : (typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e))
+      alert(`儲存失敗：${msg}`)
+      console.error('[bulletin] save failed:', e)
     }
     setPublishing(false)
   }
