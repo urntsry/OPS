@@ -26,18 +26,20 @@ export interface WindowConfig {
   externalUrl?: string
   fullscreenDefault?: boolean
   hidden?: boolean
+  /** 開啟時依螢幕自動放大（約 90% 寬 × 85% 高，上限 1280×860、下限 760×520） */
+  responsive?: boolean
 }
 
 export const WINDOW_CONFIGS: WindowConfig[] = [
   // Active modules
-  { id: 'hr', title: 'HR - PERSONNEL', defaultWidth: 700, defaultHeight: 500, type: 'internal' },
-  { id: 'meeting', title: 'MEETING - 會議', defaultWidth: 800, defaultHeight: 550, type: 'internal' },
-  { id: 'fax', title: 'FAX - 傳真中心', defaultWidth: 1100, defaultHeight: 720, type: 'internal' },
+  { id: 'hr', title: 'HR - PERSONNEL', defaultWidth: 700, defaultHeight: 500, type: 'internal', responsive: true },
+  { id: 'meeting', title: 'MEETING - 會議', defaultWidth: 800, defaultHeight: 550, type: 'internal', responsive: true },
+  { id: 'fax', title: 'FAX - 傳真中心', defaultWidth: 1100, defaultHeight: 720, type: 'internal', responsive: true },
   { id: 'settings', title: 'CONFIG - SETTINGS', defaultWidth: 750, defaultHeight: 500, type: 'internal' },
-  { id: 'manager', title: 'MANAGER - 管理監控', defaultWidth: 900, defaultHeight: 600, type: 'internal' },
+  { id: 'manager', title: 'MANAGER - 管理監控', defaultWidth: 900, defaultHeight: 600, type: 'internal', responsive: true },
   { id: 'points', title: 'POINTS - 積分中心', defaultWidth: 550, defaultHeight: 450, type: 'internal' },
   { id: 'appcenter', title: 'APP CENTER - 軟體中心', defaultWidth: 700, defaultHeight: 500, type: 'internal' },
-  { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 1000, defaultHeight: 650, type: 'internal' },
+  { id: 'sales', title: 'SALES - BUSINESS', defaultWidth: 1000, defaultHeight: 650, type: 'internal', responsive: true },
 
   // Hidden — under construction
   { id: 'operations', title: 'OPS - FACTORY', defaultWidth: 600, defaultHeight: 400, type: 'internal', hidden: true },
@@ -62,6 +64,30 @@ function getCenterPosition(width: number, height: number): { x: number; y: numbe
   return {
     x: Math.max(0, Math.round((vw - width) / 2)),
     y: Math.max(0, Math.round((vh - height - TASKBAR_HEIGHT) / 2)),
+  }
+}
+
+// 依 config 計算開窗尺寸：responsive 視窗隨螢幕自動放大（90%×85%，上限 1280×860、下限 760×520），
+// 其餘沿用固定 defaultWidth/Height；兩者都不會超出可視範圍。
+function getOpenSize(config: WindowConfig): { width: number; height: number } {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  const maxW = Math.max(320, vw - 20)
+  const maxH = Math.max(240, vh - TASKBAR_HEIGHT - 20)
+
+  if (config.responsive) {
+    const capW = Math.min(1280, maxW)
+    const capH = Math.min(860, maxH)
+    const floorW = Math.min(760, maxW)
+    const floorH = Math.min(520, maxH)
+    return {
+      width: Math.min(capW, Math.max(floorW, Math.round(vw * 0.90))),
+      height: Math.min(capH, Math.max(floorH, Math.round(vh * 0.85))),
+    }
+  }
+  return {
+    width: Math.min(config.defaultWidth, maxW),
+    height: Math.min(config.defaultHeight, maxH),
   }
 }
 
@@ -102,12 +128,7 @@ export const useWindowManager = create<WindowManagerStore>()(persist((set, get) 
 
     globalZCounter++
 
-    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    const maxW = Math.max(320, vw - 20)
-    const maxH = Math.max(240, vh - TASKBAR_HEIGHT - 20)
-    const w = Math.min(config.defaultWidth, maxW)
-    const h = Math.min(config.defaultHeight, maxH)
+    const { width: w, height: h } = getOpenSize(config)
     const pos = getCenterPosition(w, h)
     const x = pos.x
     const y = pos.y
@@ -260,6 +281,23 @@ export const useWindowManager = create<WindowManagerStore>()(persist((set, get) 
   },
 }), {
   name: 'ops-window-state',
+  // v2：responsive 視窗改為隨螢幕自動放大。升級時把已記住的這些視窗重算尺寸並重新置中，
+  // 讓既有使用者不必清快取即可套用新的大尺寸（其餘視窗與開啟狀態保留）。
+  version: 2,
+  migrate: (persisted: unknown, _version: number) => {
+    const state = persisted as { windows?: Record<string, WindowState>; activeWindowId?: string | null } | undefined
+    if (!state || !state.windows) return state as never
+    const windows = { ...state.windows }
+    for (const id of Object.keys(windows)) {
+      const config = WINDOW_CONFIGS.find(c => c.id === id)
+      if (config?.responsive) {
+        const { width, height } = getOpenSize(config)
+        const pos = getCenterPosition(width, height)
+        windows[id] = { ...windows[id], width, height, x: pos.x, y: pos.y }
+      }
+    }
+    return { ...state, windows } as never
+  },
   partialize: (state) => ({
     windows: state.windows,
     activeWindowId: state.activeWindowId,
