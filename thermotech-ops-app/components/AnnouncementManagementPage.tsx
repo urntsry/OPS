@@ -24,6 +24,10 @@ const inputBase: React.CSSProperties = {
 const labelBase: React.CSSProperties = {
   fontSize: '8px', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '2px',
 }
+const selectBtn: React.CSSProperties = {
+  fontSize: '9px', fontFamily: 'monospace', padding: '1px 8px', cursor: 'pointer',
+  background: 'var(--bg-button, #C0C0C0)', color: 'var(--text-primary)', border: '1px solid var(--border-mid-dark)',
+}
 
 export default function AnnouncementManagementPage({ userProfile }: AnnouncementManagementPageProps) {
   const [bulletins, setBulletins] = useState<Bulletin[]>([])
@@ -183,6 +187,19 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
     const cur = editingBulletin.audience_user_ids || []
     setEditingBulletin({ ...editingBulletin, audience_user_ids: cur.includes(uid) ? cur.filter(x => x !== uid) : [...cur, uid] })
   }
+  const selectAllUsers = () => {
+    if (!editingBulletin) return
+    setEditingBulletin({ ...editingBulletin, audience_user_ids: profiles.map(p => p.id) })
+  }
+  const invertUsers = () => {
+    if (!editingBulletin) return
+    const cur = new Set(editingBulletin.audience_user_ids || [])
+    setEditingBulletin({ ...editingBulletin, audience_user_ids: profiles.filter(p => !cur.has(p.id)).map(p => p.id) })
+  }
+  const clearUsers = () => {
+    if (!editingBulletin) return
+    setEditingBulletin({ ...editingBulletin, audience_user_ids: [] })
+  }
 
   // ---------- 已讀統計視圖 ----------
   if (statsFor) {
@@ -305,7 +322,16 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
             )}
 
             {aud === 'custom' && (
-              <div style={{ marginBottom: '4px', maxHeight: '120px', overflow: 'auto', padding: '4px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)' }}>
+              <div style={{ marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
+                  <button type="button" onClick={selectAllUsers} style={selectBtn}>全選</button>
+                  <button type="button" onClick={invertUsers} style={selectBtn}>反選</button>
+                  <button type="button" onClick={clearUsers} style={selectBtn}>全不選</button>
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                    已選 {(editingBulletin.audience_user_ids || []).length} / {profiles.length} 人
+                  </span>
+                </div>
+                <div style={{ maxHeight: '120px', overflow: 'auto', padding: '4px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)' }}>
                 {profiles.map(p => (
                   <label key={p.id} style={{ fontSize: '9px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '1px 0' }}>
                     <input type="checkbox" checked={(editingBulletin.audience_user_ids || []).includes(p.id)} onChange={() => toggleUser(p.id)} />
@@ -313,6 +339,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
                     {p.full_name} <span style={{ color: 'var(--text-muted)' }}>{p.department}</span>
                   </label>
                 ))}
+                </div>
               </div>
             )}
 
