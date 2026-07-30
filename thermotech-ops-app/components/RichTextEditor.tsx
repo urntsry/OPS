@@ -8,6 +8,8 @@ interface RichTextEditorProps {
   onChange: (html: string) => void
   rows?: number
   placeholder?: string
+  /** 填滿父層剩餘高度（編輯區自動長高，取代固定 maxHeight） */
+  fill?: boolean
 }
 
 const HILITE = '#FFF275'
@@ -59,7 +61,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export default function RichTextEditor({ value, onChange, rows = 6, placeholder }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, rows = 6, placeholder, fill = false }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<MenuKind>(null)
@@ -117,9 +119,9 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder 
   const toggleMenu = (kind: Exclude<MenuKind, null>) => setMenu(m => (m === kind ? null : kind))
 
   return (
-    <div ref={wrapRef} style={{ border: '1px solid var(--border-mid-dark)' }}>
+    <div ref={wrapRef} style={{ border: '1px solid var(--border-mid-dark)', ...(fill ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}) }}>
       {/* 工具列 */}
-      <div style={{ display: 'flex', gap: '3px', padding: '3px', flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-window, #C0C0C0)', borderBottom: '1px solid var(--border-mid-dark)' }}>
+      <div style={{ display: 'flex', gap: '3px', padding: '3px', flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-window, #C0C0C0)', borderBottom: '1px solid var(--border-mid-dark)', flexShrink: 0 }}>
         {/* 基本格式 */}
         <button type="button" title="粗體" onMouseDown={keepSelection} onClick={() => exec('bold')} style={{ ...toolBtn, fontWeight: 'bold' }}>B</button>
         <button type="button" title="底線" onMouseDown={keepSelection} onClick={() => exec('underline')} style={{ ...toolBtn, textDecoration: 'underline' }}>U</button>
@@ -218,7 +220,10 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder 
         onPaste={onPaste}
         data-placeholder={placeholder}
         style={{
-          minHeight: `${rows * 18}px`, maxHeight: '260px', overflowY: 'auto',
+          ...(fill
+            ? { flex: 1, minHeight: 0, maxHeight: 'none' }
+            : { minHeight: `${rows * 18}px`, maxHeight: '260px' }),
+          overflowY: 'auto',
           fontSize: '10px', fontFamily: 'monospace', lineHeight: 1.5,
           padding: '4px 6px', background: 'var(--bg-input)', color: 'var(--text-primary)',
           outline: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word',

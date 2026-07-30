@@ -266,21 +266,21 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
   if (editingBulletin) {
     const aud = editingBulletin.audience || 'all'
     return (
-      <div>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px', flexShrink: 0 }}>
           <button className="btn" onClick={() => { setEditingBulletin(null); setIsNew(false) }} style={{ fontSize: '9px', padding: '1px 6px' }}>← BACK</button>
           <span style={{ fontWeight: 'bold' }}>{isNew ? '新增公告' : '編輯公告'}</span>
         </div>
 
-        <div className="window" style={{ padding: 0, marginBottom: '6px' }}>
-          <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px' }}>DETAILS</div>
-          <div style={{ padding: '6px', background: 'var(--bg-inset)' }}>
-            <div style={{ marginBottom: '4px' }}>
+        <div className="window" style={{ padding: 0, marginBottom: '6px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div className="titlebar" style={{ padding: '1px 6px', fontSize: '9px', flexShrink: 0 }}>DETAILS</div>
+          <div style={{ padding: '6px', background: 'var(--bg-inset)', flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: '4px', flexShrink: 0 }}>
               <label style={labelBase}>標題</label>
               <input value={editingBulletin.title || ''} onChange={e => setEditingBulletin({ ...editingBulletin, title: e.target.value })} style={inputBase} />
             </div>
 
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', flexShrink: 0 }}>
               <div style={{ flex: 1 }}>
                 <label style={labelBase}>分類</label>
                 <select value={editingBulletin.category || 'general'} onChange={e => setEditingBulletin({ ...editingBulletin, category: e.target.value as any })} style={inputBase}>
@@ -305,7 +305,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
             </div>
 
             {/* 置頂 + 已讀確認 */}
-            <div style={{ display: 'flex', gap: '14px', marginBottom: '6px', fontSize: '9px' }}>
+            <div style={{ display: 'flex', gap: '14px', marginBottom: '6px', fontSize: '9px', flexShrink: 0 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={!!editingBulletin.pinned} onChange={e => setEditingBulletin({ ...editingBulletin, pinned: e.target.checked })} />
                 📌 置頂（登入時提醒）
@@ -317,7 +317,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
             </div>
 
             {/* 發布對象 */}
-            <div style={{ marginBottom: '4px' }}>
+            <div style={{ marginBottom: '4px', flexShrink: 0 }}>
               <label style={labelBase}>發布對象</label>
               <select value={aud} onChange={e => setEditingBulletin({ ...editingBulletin, audience: e.target.value as BulletinAudience })} style={inputBase}>
                 <option value="all">全員</option>
@@ -327,7 +327,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
             </div>
 
             {aud === 'department' && (
-              <div style={{ marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '4px 10px', padding: '4px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)' }}>
+              <div style={{ marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '4px 10px', padding: '4px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', flexShrink: 0 }}>
                 {departments.map(d => (
                   <label key={d} style={{ fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
                     <input type="checkbox" checked={(editingBulletin.audience_departments || []).includes(d)} onChange={() => toggleDept(d)} />
@@ -340,7 +340,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
             {aud === 'custom' && (() => {
               const visible = getVisibleProfiles()
               return (
-              <div style={{ marginBottom: '4px' }}>
+              <div style={{ marginBottom: '4px', flexShrink: 0 }}>
                 <input
                   type="text"
                   value={userSearch}
@@ -373,19 +373,20 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
               )
             })()}
 
-            <div style={{ marginBottom: '4px' }}>
-              <label style={labelBase}>內容</label>
+            <div style={{ marginBottom: '4px', flex: 1, minHeight: '160px', display: 'flex', flexDirection: 'column' }}>
+              <label style={{ ...labelBase, flexShrink: 0 }}>內容</label>
               <RichTextEditor
                 value={editingBulletin.content || ''}
                 onChange={html => setEditingBulletin({ ...editingBulletin, content: html })}
                 rows={6}
+                fill
               />
-              <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px', flexShrink: 0 }}>
                 可選取文字後點上方按鈕標示重點；也可直接貼上已排版的內容（LINE 推播會自動轉為純文字）。
               </div>
             </div>
 
-            <div style={{ marginBottom: '4px' }}>
+            <div style={{ marginBottom: '4px', flexShrink: 0 }}>
               <label style={labelBase}>附件</label>
               {(editingBulletin.attachments || []).map((att, idx) => (
                 <div key={idx} style={{ fontSize: '9px', display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px' }}>
@@ -397,14 +398,14 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
             </div>
 
             {/* 通知 LINE */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '9px', marginTop: '4px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '9px', marginTop: '4px', flexShrink: 0 }}>
               <input type="checkbox" checked={useLine} onChange={e => setUseLine(e.target.checked)} />
               發布時同時推播 LINE 通知 <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>（未綁定者仍收站內通知）</span>
             </label>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
           <button className="btn" disabled={publishing} onClick={() => handleSave('draft')} style={{ fontSize: '9px', padding: '2px 10px' }}>儲存草稿</button>
           <button className="btn" disabled={publishing} onClick={() => handleSave('publish')} style={{ fontSize: '9px', padding: '2px 14px', fontWeight: 'bold', background: '#005FAF', color: '#FFF', border: '1px solid #003F7F' }}>
             {publishing ? '發布中...' : '發布'}
