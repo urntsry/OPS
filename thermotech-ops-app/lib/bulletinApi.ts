@@ -201,12 +201,12 @@ export async function publishBulletinNotifications(bulletin: Bulletin, opts: Pub
   // 若要推 LINE，額外建立 Flex（有顏色/粗體/字級/清單）；過長或無法解析則回傳 null，dispatch 會 fallback 純文字
   let flex: object | null = null
   if (opts.useLine) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
     flex = buildBulletinFlex(bulletin.content, {
       title,
       titleColor: bulletin.priority === 'urgent' ? '#D40000' : bulletin.priority === 'important' ? '#B8860B' : '#005FAF',
       requireAck: !!bulletin.require_ack,
-      url: origin ? `${origin}/home` : null,
+      // 不帶連結：全文已顯示在 LINE 上，避免同仁誤以為要登入才能看
+      url: null,
     })
   }
 
