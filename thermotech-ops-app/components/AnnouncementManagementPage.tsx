@@ -41,6 +41,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
   const [publishing, setPublishing] = useState(false)
   const [reads, setReads] = useState<BulletinRead[]>([])
   const [statsFor, setStatsFor] = useState<Bulletin | null>(null)
+  const [userSearch, setUserSearch] = useState('')
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -187,18 +188,33 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
     const cur = editingBulletin.audience_user_ids || []
     setEditingBulletin({ ...editingBulletin, audience_user_ids: cur.includes(uid) ? cur.filter(x => x !== uid) : [...cur, uid] })
   }
+  // 依搜尋關鍵字過濾人員（工號 / 姓名 / 部門）
+  const getVisibleProfiles = () => {
+    const q = userSearch.trim().toLowerCase()
+    if (!q) return profiles
+    return profiles.filter(p => `${p.employee_id || ''} ${p.full_name || ''} ${p.department || ''}`.toLowerCase().includes(q))
+  }
+  // 全選/反選/全不選皆針對「目前搜尋後可見」的人員操作
   const selectAllUsers = () => {
     if (!editingBulletin) return
-    setEditingBulletin({ ...editingBulletin, audience_user_ids: profiles.map(p => p.id) })
+    const vis = getVisibleProfiles().map(p => p.id)
+    const cur = editingBulletin.audience_user_ids || []
+    setEditingBulletin({ ...editingBulletin, audience_user_ids: Array.from(new Set([...cur, ...vis])) })
   }
   const invertUsers = () => {
     if (!editingBulletin) return
     const cur = new Set(editingBulletin.audience_user_ids || [])
-    setEditingBulletin({ ...editingBulletin, audience_user_ids: profiles.filter(p => !cur.has(p.id)).map(p => p.id) })
+    for (const p of getVisibleProfiles()) {
+      if (cur.has(p.id)) cur.delete(p.id)
+      else cur.add(p.id)
+    }
+    setEditingBulletin({ ...editingBulletin, audience_user_ids: Array.from(cur) })
   }
   const clearUsers = () => {
     if (!editingBulletin) return
-    setEditingBulletin({ ...editingBulletin, audience_user_ids: [] })
+    const vis = new Set(getVisibleProfiles().map(p => p.id))
+    const cur = editingBulletin.audience_user_ids || []
+    setEditingBulletin({ ...editingBulletin, audience_user_ids: cur.filter(id => !vis.has(id)) })
   }
 
   // ---------- 已讀統計視圖 ----------
@@ -321,27 +337,41 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
               </div>
             )}
 
-            {aud === 'custom' && (
+            {aud === 'custom' && (() => {
+              const visible = getVisibleProfiles()
+              return (
               <div style={{ marginBottom: '4px' }}>
+                <input
+                  type="text"
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  placeholder="搜尋人員（工號 / 姓名 / 部門）"
+                  style={{ ...inputBase, marginBottom: '3px' }}
+                />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
                   <button type="button" onClick={selectAllUsers} style={selectBtn}>全選</button>
                   <button type="button" onClick={invertUsers} style={selectBtn}>反選</button>
                   <button type="button" onClick={clearUsers} style={selectBtn}>全不選</button>
                   <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
                     已選 {(editingBulletin.audience_user_ids || []).length} / {profiles.length} 人
+                    {userSearch.trim() && `（符合 ${visible.length}）`}
                   </span>
                 </div>
                 <div style={{ maxHeight: '120px', overflow: 'auto', padding: '4px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)' }}>
-                {profiles.map(p => (
+                {visible.map(p => (
                   <label key={p.id} style={{ fontSize: '9px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '1px 0' }}>
                     <input type="checkbox" checked={(editingBulletin.audience_user_ids || []).includes(p.id)} onChange={() => toggleUser(p.id)} />
                     <span style={{ color: 'var(--text-muted)', minWidth: '44px' }}>{p.employee_id}</span>
                     {p.full_name} <span style={{ color: 'var(--text-muted)' }}>{p.department}</span>
                   </label>
                 ))}
+                {visible.length === 0 && (
+                  <div style={{ fontSize: '9px', color: 'var(--text-muted)', padding: '4px' }}>查無符合人員</div>
+                )}
                 </div>
               </div>
-            )}
+              )
+            })()}
 
             <div style={{ marginBottom: '4px' }}>
               <label style={labelBase}>內容</label>
