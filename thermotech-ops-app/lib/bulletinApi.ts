@@ -267,6 +267,50 @@ export async function getReadsForBulletins(ids: string[]): Promise<BulletinRead[
   return (data || []) as BulletinRead[]
 }
 
+export interface BulletinDelivery {
+  user_id: string
+  line: 'sent' | 'skipped' | 'failed' | 'none'
+  in_app: 'sent' | 'skipped' | 'failed' | 'none'
+  status: string
+  error: string | null
+  created_at: string
+}
+
+/**
+ * 取得某則公告實際的發送/送達紀錄（依 notifications 表）。
+ * 一位使用者可能因重複發布而有多筆，這裡只保留最新一筆。
+ */
+export async function getDeliveryForBulletin(bulletinId: string): Promise<BulletinDelivery[]> {
+  if (!bulletinId) return []
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('user_id, channels, channel_status, status, error, created_at')
+    .eq('type', 'new_announcement')
+    .eq('metadata->>bulletin_id', bulletinId)
+    .order('created_at', { ascending: false })
+  if (error) { console.warn('[bulletin] getDeliveryForBulletin failed:', error.message); return [] }
+
+  const seen = new Set<string>()
+  const out: BulletinDelivery[] = []
+  for (const n of (data || []) as any[]) {
+    if (seen.has(n.user_id)) continue // 已保留最新（依 created_at desc）
+    seen.add(n.user_id)
+    const cs = n.channel_status || {}
+    const chans: string[] = n.channels || []
+    const pick = (ch: string): BulletinDelivery['line'] =>
+      !chans.includes(ch) ? 'none' : (cs[ch] === 'sent' || cs[ch] === 'failed' || cs[ch] === 'skipped' ? cs[ch] : 'none')
+    out.push({
+      user_id: n.user_id,
+      line: pick('line'),
+      in_app: pick('in_app'),
+      status: n.status,
+      error: n.error || null,
+      created_at: n.created_at,
+    })
+  }
+  return out
+}
+
 /** 取得某使用者已讀過的公告 id 集合（+ 是否已確認） */
 export async function getMyReadMap(userId: string): Promise<Record<string, { read: boolean; acked: boolean }>> {
   if (!userId) return {}

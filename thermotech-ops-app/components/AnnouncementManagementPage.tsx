@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   getAllBulletins, createBulletin, updateBulletin, deleteBulletin, uploadBulletinFile,
-  publishBulletinNotifications, getReadsForBulletins,
-  type Bulletin, type BulletinAudience, type BulletinRead,
+  publishBulletinNotifications, getReadsForBulletins, getDeliveryForBulletin,
+  type Bulletin, type BulletinAudience, type BulletinRead, type BulletinDelivery,
 } from '@/lib/bulletinApi'
 import { getAllProfiles } from '@/lib/api'
 import { sanitizeRichText } from '@/lib/richText'
 import RichTextEditor from './RichTextEditor'
 
-interface ProfileLite { id: string; full_name: string; department: string | null; employee_id: string }
+interface ProfileLite { id: string; full_name: string; department: string | null; employee_id: string; line_user_id?: string | null }
 
 interface AnnouncementManagementPageProps {
   isAdmin?: boolean
@@ -41,6 +41,8 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
   const [publishing, setPublishing] = useState(false)
   const [reads, setReads] = useState<BulletinRead[]>([])
   const [statsFor, setStatsFor] = useState<Bulletin | null>(null)
+  const [delivery, setDelivery] = useState<BulletinDelivery[]>([])
+  const [deliveryLoading, setDeliveryLoading] = useState(false)
   const [userSearch, setUserSearch] = useState('')
 
   const loadData = useCallback(async () => {
@@ -58,6 +60,15 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
   useEffect(() => { loadData() }, [loadData])
   useEffect(() => { getAllProfiles().then(p => setProfiles((p || []) as any)).catch(() => {}) }, [])
+
+  useEffect(() => {
+    if (!statsFor) { setDelivery([]); return }
+    setDeliveryLoading(true)
+    getDeliveryForBulletin(statsFor.id)
+      .then(d => setDelivery(d))
+      .catch(() => setDelivery([]))
+      .finally(() => setDeliveryLoading(false))
+  }, [statsFor])
 
   const departments = useMemo(
     () => Array.from(new Set(profiles.map(p => p.department).filter(Boolean))) as string[],
@@ -217,39 +228,83 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
     setEditingBulletin({ ...editingBulletin, audience_user_ids: cur.filter(id => !vis.has(id)) })
   }
 
-  // ---------- 已讀統計視圖 ----------
+  // ---------- 已讀 / 送達統計視圖 ----------
   if (statsFor) {
     const readSet = new Set(reads.filter(r => r.bulletin_id === statsFor.id).map(r => r.user_id))
     const ackSet = new Set(reads.filter(r => r.bulletin_id === statsFor.id && r.acked_at).map(r => r.user_id))
-    // 目標對象
-    const targets = (statsFor.audience === 'custom')
+    const deliveryMap = new Map(delivery.map(d => [d.user_id, d]))
+
+    // 目標對象（依目前設定的收件範圍）
+    const audienceTargets = (statsFor.audience === 'custom')
       ? profiles.filter(p => (statsFor.audience_user_ids || []).includes(p.id))
       : (statsFor.audience === 'department')
         ? profiles.filter(p => p.department && (statsFor.audience_departments || []).includes(p.department))
         : profiles
+
+    // 實際名單 = 目標對象 ∪ 真正有發送紀錄者（涵蓋重複發布/改過收件範圍的情況）
+    const profileById = new Map(profiles.map(p => [p.id, p]))
+    const rowIds = new Set<string>(audienceTargets.map(p => p.id))
+    for (const d of delivery) rowIds.add(d.user_id)
+    const rows = Array.from(rowIds)
+      .map(id => profileById.get(id) || ({ id, full_name: '(已離職/不存在)', department: null, employee_id: '—', line_user_id: null } as ProfileLite))
+      .sort((a, b) => (a.department || '').localeCompare(b.department || '') || a.employee_id.localeCompare(b.employee_id))
+
+    // 送達統計
+    const lineSentCnt = delivery.filter(d => d.line === 'sent').length
+    const lineFailCnt = delivery.filter(d => d.line === 'failed').length
+    const unboundCnt = rows.filter(p => !p.line_user_id).length
+    const notSentCnt = rows.filter(p => !deliveryMap.has(p.id)).length
+
+    const lineLabel = (p: ProfileLite) => {
+      const d = deliveryMap.get(p.id)
+      if (!d) return { text: '未發送', color: 'var(--text-muted)' }
+      if (d.line === 'sent') return { text: '✔ 已送', color: 'var(--status-success)' }
+      if (d.line === 'failed') return { text: '✖ 失敗', color: 'var(--status-error, #c00)' }
+      if (d.line === 'skipped' || d.line === 'none') return { text: p.line_user_id ? '略過' : '未綁LINE', color: 'var(--accent-orange, #d80)' }
+      return { text: '—', color: 'var(--text-muted)' }
+    }
+
     return (
       <div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
           <button className="btn" onClick={() => setStatsFor(null)} style={{ fontSize: '9px', padding: '1px 6px' }}>← BACK</button>
-          <span style={{ fontWeight: 'bold', flex: 1 }}>已讀統計: {statsFor.title}</span>
+          <span style={{ fontWeight: 'bold', flex: 1 }}>發送狀況: {statsFor.title}</span>
         </div>
-        <div style={{ fontSize: '9px', marginBottom: '6px', display: 'flex', gap: '12px' }}>
-          <span>目標 {targets.length} 人</span>
+        <div style={{ fontSize: '9px', marginBottom: '4px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <span>名單 {rows.length} 人</span>
           <span style={{ color: 'var(--status-success)' }}>已讀 {readSet.size}</span>
           {statsFor.require_ack && <span style={{ color: 'var(--accent-teal)' }}>已確認 {ackSet.size}</span>}
-          <span style={{ color: 'var(--text-muted)' }}>未讀 {targets.length - readSet.size}</span>
+          <span style={{ color: 'var(--text-muted)' }}>未讀 {rows.length - readSet.size}</span>
+        </div>
+        <div style={{ fontSize: '9px', marginBottom: '6px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--status-success)' }}>LINE已送 {lineSentCnt}</span>
+          {lineFailCnt > 0 && <span style={{ color: 'var(--status-error, #c00)' }}>LINE失敗 {lineFailCnt}</span>}
+          <span style={{ color: 'var(--accent-orange, #d80)' }}>未綁LINE {unboundCnt}</span>
+          {notSentCnt > 0 && <span style={{ color: 'var(--text-muted)' }}>未發送 {notSentCnt}</span>}
+          {deliveryLoading && <span style={{ color: 'var(--text-muted)' }}>載入送達紀錄…</span>}
         </div>
         <div className="inset" style={{ background: 'var(--bg-inset)', padding: '1px', overflow: 'hidden auto', maxHeight: '360px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', fontFamily: 'monospace' }}>
+            <thead>
+              <tr style={{ position: 'sticky', top: 0, background: 'var(--bg-window)' }}>
+                <th style={{ padding: '2px 4px', textAlign: 'left', width: '46px', color: 'var(--text-muted)' }}>員編</th>
+                <th style={{ padding: '2px 4px', textAlign: 'left' }}>姓名</th>
+                <th style={{ padding: '2px 4px', textAlign: 'left', width: '54px', color: 'var(--text-muted)' }}>部門</th>
+                <th style={{ padding: '2px 4px', textAlign: 'right', width: '62px' }}>LINE</th>
+                <th style={{ padding: '2px 4px', textAlign: 'right', width: '62px' }}>閱讀</th>
+              </tr>
+            </thead>
             <tbody>
-              {targets.map(p => {
+              {rows.map(p => {
                 const r = readSet.has(p.id), a = ackSet.has(p.id)
+                const ln = lineLabel(p)
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--table-border)' }}>
-                    <td style={{ padding: '2px 4px', width: '50px', color: 'var(--text-muted)' }}>{p.employee_id}</td>
+                    <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>{p.employee_id}</td>
                     <td style={{ padding: '2px 4px' }}>{p.full_name}</td>
-                    <td style={{ padding: '2px 4px', width: '50px', color: 'var(--text-muted)' }}>{p.department || '-'}</td>
-                    <td style={{ padding: '2px 4px', width: '70px', textAlign: 'right', color: a ? 'var(--accent-teal)' : r ? 'var(--status-success)' : 'var(--text-muted)' }}>
+                    <td style={{ padding: '2px 4px', color: 'var(--text-muted)' }}>{p.department || '-'}</td>
+                    <td style={{ padding: '2px 4px', textAlign: 'right', color: ln.color }}>{ln.text}</td>
+                    <td style={{ padding: '2px 4px', textAlign: 'right', color: a ? 'var(--accent-teal)' : r ? 'var(--status-success)' : 'var(--text-muted)' }}>
                       {statsFor.require_ack ? (a ? '✔已確認' : r ? '已讀' : '— 未讀') : (r ? '已讀' : '— 未讀')}
                     </td>
                   </tr>
@@ -257,6 +312,9 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
               })}
             </tbody>
           </table>
+        </div>
+        <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+          說明：「LINE已送」代表系統已成功推播；若對方仍收不到，多為<b>封鎖官方帳號</b>或<b>換機未重綁</b>。「未綁LINE」者只會收到站內通知。「未發送」代表此人不在實際發送紀錄內（發布時未選到）。
         </div>
       </div>
     )
@@ -478,7 +536,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
                     </td>
                     <td style={{ padding: '2px 4px', textAlign: 'center' }}>
                       {b.status === 'published' && (
-                        <button onClick={() => setStatsFor(b)} style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', cursor: 'pointer', padding: '0 3px', marginRight: '2px' }} title="已讀統計">📊</button>
+                        <button onClick={() => setStatsFor(b)} style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', cursor: 'pointer', padding: '0 3px', marginRight: '2px' }} title="發送/已讀狀況">📊</button>
                       )}
                       <button onClick={() => { setEditingBulletin(b); setUseLine(false); setIsNew(false) }} style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', cursor: 'pointer', padding: '0 3px', marginRight: '2px' }} title="編輯">✎</button>
                       <button onClick={() => handleDelete(b.id)} style={{ fontSize: '8px', border: '1px solid var(--border-mid-dark)', background: 'var(--bg-window)', color: 'var(--accent-red)', cursor: 'pointer', padding: '0 3px' }} title="刪除">×</button>
