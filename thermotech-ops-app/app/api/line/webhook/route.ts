@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
       if (event.type === 'join') {
         await captureLineGroup(ops, event)
-        await handleGroupJoin(capacity, event)
+        await handleGroupJoin(event)
         continue
       }
 
@@ -410,15 +410,11 @@ async function deactivateLineGroup(ops: SupabaseClient, event: any) {
 }
 
 // === Group join ===
-async function handleGroupJoin(capacity: SupabaseClient, event: any) {
+// 注意：不要在這裡自動設定 Capacity 的 line_supervisor_group_id，
+// 否則官方帳號被加進任何群組都會把「加班/回報通報」目標覆蓋掉。
+// 回報通報的目標群組應由 Capacity 端另行明確設定。
+async function handleGroupJoin(event: any) {
   const groupId = event.source.groupId
-  // 沿用：Capacity 加班回報群組設定（維持既有行為）
-  await capacity.from('system_settings').upsert({
-    setting_key: 'line_supervisor_group_id',
-    setting_value: groupId,
-    description: 'LINE supervisor group ID',
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'setting_key' })
   await sendLineMessage(groupId, `✅ 振禹系統已加入本群組，之後可在此接收公司公告與系統通知。`)
 }
 
