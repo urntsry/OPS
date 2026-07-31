@@ -57,6 +57,21 @@ export async function POST(request: NextRequest) {
     const capacity = getCapacitySupabase()
 
     for (const event of events) {
+      const srcType = event.source?.type
+
+      // 官方帳號被移出群組 → 標記為停用
+      if (event.type === 'leave') {
+        await deactivateLineGroup(ops, event)
+        continue
+      }
+
+      // 群組/多人聊天室的訊息或事件：只記錄 groupId，不跑一對一指令，
+      // 避免有人在群組打「70231」「加班」等字誤觸發綁定/加班流程
+      if (event.type !== 'join' && srcType && srcType !== 'user') {
+        await captureLineGroup(ops, event)
+        continue
+      }
+
       if (event.type === 'follow') {
         await handleFollow(event)
         continue
@@ -73,6 +88,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (event.type === 'join') {
+        await captureLineGroup(ops, event)
         await handleGroupJoin(capacity, event)
         continue
       }
@@ -355,16 +371,55 @@ async function handlePostback(capacity: SupabaseClient, event: any) {
   if (action === 'ot_approve' || action === 'ot_reject') { const otId = params.get('id'); if (otId) await handleSupervisorDecision(capacity, userId, otId, action === 'ot_approve' ? 'approved' : 'rejected') }
 }
 
+// === Group capture (OPS) ===
+// 記錄官方帳號所在的群組/多人聊天室，供「公告推播到群組」使用
+async function captureLineGroup(ops: SupabaseClient, event: any) {
+  const src = event.source || {}
+  const gid = src.groupId || src.roomId
+  if (!gid) return
+
+  const row: Record<string, unknown> = {
+    group_id: gid,
+    source_type: src.roomId ? 'room' : 'group',
+    is_active: true,
+    last_seen_at: new Date().toISOString(),
+  }
+
+  // 盡量取得群組名稱（多人聊天室無此 API）
+  if (src.groupId && LINE_CHANNEL_ACCESS_TOKEN) {
+    try {
+      const res = await fetch(`https://api.line.me/v2/bot/group/${src.groupId}/summary`, {
+        headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
+      })
+      if (res.ok) { const s = await res.json(); if (s.groupName) row.name = s.groupName }
+    } catch { /* ignore */ }
+  }
+
+  try {
+    await ops.from('line_groups').upsert(row, { onConflict: 'group_id' })
+  } catch (err) { console.error('[line_groups] upsert error:', err) }
+}
+
+async function deactivateLineGroup(ops: SupabaseClient, event: any) {
+  const src = event.source || {}
+  const gid = src.groupId || src.roomId
+  if (!gid) return
+  try {
+    await ops.from('line_groups').update({ is_active: false }).eq('group_id', gid)
+  } catch (err) { console.error('[line_groups] deactivate error:', err) }
+}
+
 // === Group join ===
 async function handleGroupJoin(capacity: SupabaseClient, event: any) {
   const groupId = event.source.groupId
+  // 沿用：Capacity 加班回報群組設定（維持既有行為）
   await capacity.from('system_settings').upsert({
     setting_key: 'line_supervisor_group_id',
     setting_value: groupId,
     description: 'LINE supervisor group ID',
     updated_at: new Date().toISOString()
   }, { onConflict: 'setting_key' })
-  await sendLineMessage(groupId, `✅ THERMOTECH回報系統已加入群組！\n每天18:00會自動發送回報檢查結果。`)
+  await sendLineMessage(groupId, `✅ 振禹系統已加入本群組，之後可在此接收公司公告與系統通知。`)
 }
 
 // === Voice WO confirm/cancel ===
