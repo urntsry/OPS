@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   getAllBulletins, createBulletin, updateBulletin, deleteBulletin, uploadBulletinFile,
   publishBulletinNotifications, getReadsForBulletins, getDeliveryForBulletin,
-  type Bulletin, type BulletinAudience, type BulletinRead, type BulletinDelivery,
+  getLineGroups, pushBulletinToGroups,
+  type Bulletin, type BulletinAudience, type BulletinRead, type BulletinDelivery, type LineGroup,
 } from '@/lib/bulletinApi'
 import { getAllProfiles } from '@/lib/api'
 import { sanitizeRichText } from '@/lib/richText'
@@ -38,6 +39,8 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
   const [toast, setToast] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<ProfileLite[]>([])
   const [useLine, setUseLine] = useState(false)
+  const [lineGroups, setLineGroups] = useState<LineGroup[]>([])
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [publishing, setPublishing] = useState(false)
   const [reads, setReads] = useState<BulletinRead[]>([])
   const [statsFor, setStatsFor] = useState<Bulletin | null>(null)
@@ -60,6 +63,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
   useEffect(() => { loadData() }, [loadData])
   useEffect(() => { getAllProfiles().then(p => setProfiles((p || []) as any)).catch(() => {}) }, [])
+  useEffect(() => { getLineGroups().then(setLineGroups).catch(() => {}) }, [])
 
   useEffect(() => {
     if (!statsFor) { setDelivery([]); return }
@@ -101,6 +105,7 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
       audience_departments: [], audience_user_ids: [],
     })
     setUseLine(false)
+    setSelectedGroupIds([])
     setIsNew(true)
   }
 
@@ -142,10 +147,22 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
 
       if (mode === 'publish') {
         const n = await publishBulletinNotifications(saved, { useLine, actorId: userProfile?.id })
-        if (n === 0) {
+        let groupNote = ''
+        if (selectedGroupIds.length > 0) {
+          try {
+            const gr = await pushBulletinToGroups(saved, selectedGroupIds)
+            const ok = gr.results.filter(r => r.status === 'sent').length
+            const fail = gr.results.length - ok
+            groupNote = `，群組 ${ok} 個${fail > 0 ? `（${fail} 個失敗）` : ''}`
+          } catch (ge) {
+            groupNote = '，群組推播失敗'
+            console.error('[bulletin] group push failed:', ge)
+          }
+        }
+        if (n === 0 && !groupNote) {
           setToast('已發布（無通知對象）')
         } else {
-          setToast(`已發布並通知 ${n} 人${useLine ? '（含 LINE）' : ''}`)
+          setToast(`已發布並通知 ${n} 人${useLine ? '（含 LINE）' : ''}${groupNote}`)
         }
       } else {
         setToast('草稿已儲存')
@@ -460,6 +477,33 @@ export default function AnnouncementManagementPage({ userProfile }: Announcement
               <input type="checkbox" checked={useLine} onChange={e => setUseLine(e.target.checked)} />
               發布時同時推播 LINE 通知 <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>（未綁定者仍收站內通知）</span>
             </label>
+
+            {/* 推播到 LINE 群組 */}
+            {lineGroups.length > 0 && (
+              <div style={{ marginTop: '4px', flexShrink: 0 }}>
+                <div style={{ fontSize: '9px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>同時推播到 LINE 群組</span>
+                  {selectedGroupIds.length > 0 && (
+                    <span style={{ fontSize: '8px', color: 'var(--accent-teal)' }}>已選 {selectedGroupIds.length}</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '2px', padding: '3px 4px', background: 'var(--bg-inset)', border: '1px solid var(--border-mid-dark)' }}>
+                  {lineGroups.map(g => (
+                    <label key={g.group_id} style={{ display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', fontSize: '9px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedGroupIds.includes(g.group_id)}
+                        onChange={e => setSelectedGroupIds(prev => e.target.checked ? [...prev, g.group_id] : prev.filter(id => id !== g.group_id))}
+                      />
+                      {g.name || g.group_id.slice(0, 8)}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  群組推播為整群共用一則訊息，不分個人、也不計入已讀/送達統計。
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

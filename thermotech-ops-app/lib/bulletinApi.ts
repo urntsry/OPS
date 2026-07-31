@@ -222,6 +222,64 @@ export async function publishBulletinNotifications(bulletin: Bulletin, opts: Pub
 }
 
 // =========================================================================
+// LINE 群組推播
+// =========================================================================
+
+export interface LineGroup {
+  group_id: string
+  name: string | null
+  source_type: string
+  is_active: boolean
+  push_enabled: boolean
+}
+
+/** 取得可推播的 LINE 群組（官方帳號目前在裡面且允許推播的） */
+export async function getLineGroups(): Promise<LineGroup[]> {
+  const { data, error } = await supabase
+    .from('line_groups')
+    .select('group_id, name, source_type, is_active, push_enabled')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+  if (error) { console.warn('[bulletin] getLineGroups failed:', error.message); return [] }
+  return (data || []) as LineGroup[]
+}
+
+export interface GroupPushResult {
+  processed: number
+  results: Array<{ group_id: string; status: string; error?: string }>
+}
+
+/** 把公告推播到指定 LINE 群組（走伺服器端 API，Token 不外露） */
+export async function pushBulletinToGroups(bulletin: Bulletin, groupIds: string[]): Promise<GroupPushResult> {
+  if (!groupIds || groupIds.length === 0) return { processed: 0, results: [] }
+
+  const tag = bulletin.priority === 'urgent' ? '[緊急] 公告' : bulletin.priority === 'important' ? '[重要] 公告' : '公告'
+  const title = `${tag}｜${bulletin.title}`
+  const ackHint = bulletin.require_ack ? '\n＊ 此公告需確認已閱' : ''
+  const plain = richTextToPlainText(bulletin.content)
+  const MAX_BODY = 4500
+  const body = (plain.length > MAX_BODY ? `${plain.slice(0, MAX_BODY)}…（內容過長，完整內容請至系統查看）` : plain) + ackHint
+
+  const flex = buildBulletinFlex(bulletin.content, {
+    title,
+    titleColor: bulletin.priority === 'urgent' ? '#D40000' : bulletin.priority === 'important' ? '#B8860B' : '#005FAF',
+    requireAck: !!bulletin.require_ack,
+    url: null,
+  })
+
+  const res = await fetch('/api/line/push-groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupIds, title, body, flex }),
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`群組推播失敗：${res.status} ${t.slice(0, 200)}`)
+  }
+  return res.json()
+}
+
+// =========================================================================
 // 已讀 / 已確認回條
 // =========================================================================
 
