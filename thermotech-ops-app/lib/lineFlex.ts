@@ -23,7 +23,7 @@ export interface FlexSpan {
   style?: 'normal' | 'italic'
 }
 
-interface LineSpans { spans: FlexSpan[] }
+interface LineSpans { spans: FlexSpan[]; href?: string }
 
 interface StyleCtx {
   color?: string
@@ -32,6 +32,7 @@ interface StyleCtx {
   strike?: boolean
   italic?: boolean
   size?: string
+  href?: string
 }
 
 function rgbToHex(v: string): string | undefined {
@@ -113,10 +114,14 @@ function deriveStyle(el: HTMLElement, parent: StyleCtx): StyleCtx {
   // <mark> → 螢光 → 橘色文字
   if (tag === 'mark') ctx.color = HILITE_FALLBACK_COLOR
 
-  // <a> 連結 → 藍色底線（實際可點的按鈕在 bubble 底部）
+  // <a> 連結 → 藍色底線；記住 href（整行僅一個連結時讓整行可點）
   if (tag === 'a') {
-    ctx.color = LINK_COLOR
-    ctx.underline = true
+    const href = (el.getAttribute?.('href') || '').trim()
+    if (/^(https?:\/\/|mailto:|tel:)/i.test(href)) {
+      ctx.color = LINK_COLOR
+      ctx.underline = true
+      ctx.href = href
+    }
   }
 
   const size = mapFontSize(el)
@@ -146,7 +151,14 @@ function parseLines(html: string): LineSpans[] {
 
   const lines: LineSpans[] = []
   let current: FlexSpan[] = []
-  const flush = () => { lines.push({ spans: current }); current = [] }
+  let currentHrefs = new Set<string>()
+  const flush = () => {
+    // 整行只有單一連結時，讓整行的 text 元件可點
+    const href = currentHrefs.size === 1 ? Array.from(currentHrefs)[0] : undefined
+    lines.push({ spans: current, href })
+    current = []
+    currentHrefs = new Set<string>()
+  }
 
   interface ListCtx { ordered: boolean; n: number }
 
@@ -160,6 +172,7 @@ function parseLines(html: string): LineSpans[] {
         const text = raw.replace(/\s+/g, ' ')
         if (text.trim() === '' && current.length === 0) continue
         current.push(ctxToSpan(text, ctx))
+        if (ctx.href) currentHrefs.add(ctx.href)
       } else if (child.nodeType === 1) {
         const el = child as HTMLElement
         const tag = el.tagName.toLowerCase()
@@ -194,27 +207,6 @@ function parseLines(html: string): LineSpans[] {
     }
   }
   return cleaned
-}
-
-export interface FlexLink { label: string; url: string }
-
-/** 從公告 HTML 抽出所有超連結（去重、只保留可用的 http/mailto/tel） */
-function extractLinks(html: string): FlexLink[] {
-  if (typeof DOMParser === 'undefined') return []
-  const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, 'text/html')
-  const root = doc.getElementById('__root')
-  if (!root) return []
-  const out: FlexLink[] = []
-  const seen = new Set<string>()
-  root.querySelectorAll('a[href]').forEach(a => {
-    const url = (a.getAttribute('href') || '').trim()
-    if (!/^(https?:\/\/|mailto:|tel:)/i.test(url)) return
-    if (seen.has(url)) return
-    seen.add(url)
-    const label = (a.textContent || '').replace(/\s+/g, ' ').trim() || url
-    out.push({ label, url })
-  })
-  return out
 }
 
 export interface BuildFlexOptions {
@@ -252,13 +244,16 @@ export function buildBulletinFlex(contentHtml: string | null | undefined, opts: 
       bodyContents.push({ type: 'text', text: ' ', size: 'xs', wrap: true })
       continue
     }
-    bodyContents.push({
+    const textNode: Record<string, unknown> = {
       type: 'text',
       wrap: true,
       size: 'sm',
       color: DEFAULT_TEXT_COLOR,
       contents: ln.spans,
-    })
+    }
+    // 整行僅單一連結 → 整行可點（同事只要反白 URL 變連結即可）
+    if (ln.href) textNode.action = { type: 'uri', uri: ln.href }
+    bodyContents.push(textNode)
   }
 
   if (opts.requireAck) {
@@ -277,32 +272,19 @@ export function buildBulletinFlex(contentHtml: string | null | undefined, opts: 
     },
   }
 
-  // 底部可點按鈕：內文中的每個超連結各一顆（Flex 行內文字無法點擊）
-  const links = extractLinks(contentHtml || '')
-  const footerButtons: object[] = []
-  for (const lk of links.slice(0, 4)) {
-    footerButtons.push({
-      type: 'button',
-      style: 'link',
-      height: 'sm',
-      action: { type: 'uri', label: `🔗 ${lk.label}`.slice(0, 40), uri: lk.url },
-    })
-  }
   if (opts.url) {
-    footerButtons.push({
-      type: 'button',
-      style: 'primary',
-      height: 'sm',
-      color: '#005FAF',
-      action: { type: 'uri', label: '開啟系統查看', uri: opts.url },
-    })
-  }
-  if (footerButtons.length > 0) {
     bubble.footer = {
       type: 'box',
       layout: 'vertical',
-      spacing: 'sm',
-      contents: footerButtons,
+      contents: [
+        {
+          type: 'button',
+          style: 'primary',
+          height: 'sm',
+          color: '#005FAF',
+          action: { type: 'uri', label: '開啟系統查看', uri: opts.url },
+        },
+      ],
     }
   }
 
