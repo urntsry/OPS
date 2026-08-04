@@ -11,6 +11,7 @@
 
 const HILITE_FALLBACK_COLOR = '#E67300' // 螢光 → 橘色文字（Flex 不支援行內底色）
 const DEFAULT_TEXT_COLOR = '#111111'
+const LINK_COLOR = '#005FAF' // 連結文字顏色（Flex 行內文字無法點擊，另在底部加可點按鈕）
 
 export interface FlexSpan {
   type: 'span'
@@ -112,6 +113,12 @@ function deriveStyle(el: HTMLElement, parent: StyleCtx): StyleCtx {
   // <mark> → 螢光 → 橘色文字
   if (tag === 'mark') ctx.color = HILITE_FALLBACK_COLOR
 
+  // <a> 連結 → 藍色底線（實際可點的按鈕在 bubble 底部）
+  if (tag === 'a') {
+    ctx.color = LINK_COLOR
+    ctx.underline = true
+  }
+
   const size = mapFontSize(el)
   if (size) ctx.size = size
 
@@ -189,6 +196,27 @@ function parseLines(html: string): LineSpans[] {
   return cleaned
 }
 
+export interface FlexLink { label: string; url: string }
+
+/** 從公告 HTML 抽出所有超連結（去重、只保留可用的 http/mailto/tel） */
+function extractLinks(html: string): FlexLink[] {
+  if (typeof DOMParser === 'undefined') return []
+  const doc = new DOMParser().parseFromString(`<div id="__root">${html}</div>`, 'text/html')
+  const root = doc.getElementById('__root')
+  if (!root) return []
+  const out: FlexLink[] = []
+  const seen = new Set<string>()
+  root.querySelectorAll('a[href]').forEach(a => {
+    const url = (a.getAttribute('href') || '').trim()
+    if (!/^(https?:\/\/|mailto:|tel:)/i.test(url)) return
+    if (seen.has(url)) return
+    seen.add(url)
+    const label = (a.textContent || '').replace(/\s+/g, ' ').trim() || url
+    out.push({ label, url })
+  })
+  return out
+}
+
 export interface BuildFlexOptions {
   /** 標題（含 [緊急]/[重要] 前綴） */
   title: string
@@ -249,19 +277,32 @@ export function buildBulletinFlex(contentHtml: string | null | undefined, opts: 
     },
   }
 
+  // 底部可點按鈕：內文中的每個超連結各一顆（Flex 行內文字無法點擊）
+  const links = extractLinks(contentHtml || '')
+  const footerButtons: object[] = []
+  for (const lk of links.slice(0, 4)) {
+    footerButtons.push({
+      type: 'button',
+      style: 'link',
+      height: 'sm',
+      action: { type: 'uri', label: `🔗 ${lk.label}`.slice(0, 40), uri: lk.url },
+    })
+  }
   if (opts.url) {
+    footerButtons.push({
+      type: 'button',
+      style: 'primary',
+      height: 'sm',
+      color: '#005FAF',
+      action: { type: 'uri', label: '開啟系統查看', uri: opts.url },
+    })
+  }
+  if (footerButtons.length > 0) {
     bubble.footer = {
       type: 'box',
       layout: 'vertical',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          height: 'sm',
-          color: '#005FAF',
-          action: { type: 'uri', label: '開啟系統查看', uri: opts.url },
-        },
-      ],
+      spacing: 'sm',
+      contents: footerButtons,
     }
   }
 

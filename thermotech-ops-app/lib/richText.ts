@@ -39,6 +39,12 @@ export function isProbablyHtml(s: string | null | undefined): boolean {
 export function richTextToPlainText(html: string | null | undefined): string {
   if (!html) return ''
   let s = String(html)
+  // 連結：保留網址（LINE 純文字訊息會自動把網址變成可點）
+  s = s.replace(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, inner: string) => {
+    const label = inner.replace(/<[^>]+>/g, '').trim()
+    if (!label || label === href) return href
+    return `${label}（${href}）`
+  })
   // 區塊/換行標籤 → 換行
   s = s.replace(/<\s*br\s*\/?\s*>/gi, '\n')
   s = s.replace(/<\/\s*(p|div|li|h1|h2|h3|tr)\s*>/gi, '\n')

@@ -61,6 +61,10 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+function escapeAttr(s: string): string {
+  return escapeHtml(s).replace(/"/g, '&quot;')
+}
+
 export default function RichTextEditor({ value, onChange, rows = 6, placeholder, fill = false }: RichTextEditorProps) {
   const ref = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -99,6 +103,23 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder,
     if (!document.execCommand('insertText', false, s)) {
       document.execCommand('insertHTML', false, escapeHtml(s))
     }
+    emit()
+  }, [emit])
+
+  const insertLink = useCallback(() => {
+    ref.current?.focus()
+    const sel = window.getSelection()
+    const selectedText = sel && !sel.isCollapsed ? sel.toString().trim() : ''
+    const input = window.prompt('請輸入連結網址（要以 https:// 開頭）', 'https://')
+    if (!input) return
+    const url = input.trim()
+    if (!/^(https?:\/\/|mailto:|tel:)/i.test(url)) {
+      alert('網址格式不正確，請以 https:// 開頭。')
+      return
+    }
+    const label = selectedText || url
+    const anchor = `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`
+    document.execCommand('insertHTML', false, anchor)
     emit()
   }, [emit])
 
@@ -175,6 +196,12 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder,
         {/* 清單 */}
         <button type="button" title="項目清單（•）" onMouseDown={keepSelection} onClick={() => exec('insertUnorderedList')} style={toolBtn}>• 清單</button>
         <button type="button" title="編號清單（1. 2. 3.）" onMouseDown={keepSelection} onClick={() => exec('insertOrderedList')} style={toolBtn}>1. 編號</button>
+
+        <span style={groupSep} />
+
+        {/* 連結 */}
+        <button type="button" title="插入超連結（可先選取文字再按）" onMouseDown={keepSelection} onClick={insertLink} style={toolBtn}>🔗 連結</button>
+        <button type="button" title="移除連結" onMouseDown={keepSelection} onClick={() => exec('unlink')} style={toolBtn}>取消連結</button>
 
         <span style={groupSep} />
 
