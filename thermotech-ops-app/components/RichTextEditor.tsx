@@ -110,14 +110,28 @@ export default function RichTextEditor({ value, onChange, rows = 6, placeholder,
     ref.current?.focus()
     const sel = window.getSelection()
     const selectedText = sel && !sel.isCollapsed ? sel.toString().trim() : ''
-    const input = window.prompt('請輸入連結網址（要以 https:// 開頭）', 'https://')
-    if (!input) return
-    const url = input.trim()
-    if (!/^(https?:\/\/|mailto:|tel:)/i.test(url)) {
-      alert('網址格式不正確，請以 https:// 開頭。')
-      return
+
+    const hasScheme = (s: string) => /^(https?:\/\/|mailto:|tel:)/i.test(s)
+    // 反白的文字本身就是網址（含未帶 http 的網域，如 www.x.com、forms.gle/xxx）
+    const looksLikeUrl = (s: string) => hasScheme(s) || /^(www\.)?[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(s)
+
+    let url = ''
+    let label = selectedText
+    if (selectedText && looksLikeUrl(selectedText)) {
+      // 反白就是網址 → 直接變連結，不再詢問
+      url = hasScheme(selectedText) ? selectedText : `https://${selectedText}`
+    } else {
+      // 反白的是一般文字（或沒選取）→ 才詢問網址
+      const input = window.prompt('請輸入連結網址（要以 https:// 開頭）', 'https://')
+      if (!input) return
+      url = input.trim()
+      if (!hasScheme(url)) {
+        alert('網址格式不正確，請以 https:// 開頭。')
+        return
+      }
+      label = selectedText || url
     }
-    const label = selectedText || url
+
     const anchor = `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`
     document.execCommand('insertHTML', false, anchor)
     emit()
