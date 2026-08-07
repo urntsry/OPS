@@ -85,11 +85,8 @@ export default function Calendar({
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month
   const todayDate = isCurrentMonth ? today.getDate() : -1
 
-  const getAdjustedDay = (day: number) => {
-    if (day === 0) return 6
-    if (day === 6) return 0
-    return day
-  }
+  // 週一起始：週日(0)→6，週一(1)→0 … 週六(6)→5
+  const getAdjustedDay = (day: number) => (day + 6) % 7
   const adjustedFirstDay = getAdjustedDay(firstDayOfWeek)
   const daysToShow = hideWeekend ? 5 : 7
 
@@ -113,8 +110,8 @@ export default function Calendar({
     return dayEvents.sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0))
   }
 
-  const allWeekDays = ['六', '一', '二', '三', '四', '五', '日']
-  const weekDays = hideWeekend ? allWeekDays.slice(1, 6) : allWeekDays
+  const allWeekDays = ['一', '二', '三', '四', '五', '六', '日']
+  const weekDays = hideWeekend ? allWeekDays.slice(0, 5) : allWeekDays
   const monthNames = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
 
   const handlePrevMonth = () => {
@@ -184,7 +181,7 @@ export default function Calendar({
           <thead>
             <tr>
               {weekDays.map((day, idx) => {
-                const isWeekendHeader = !hideWeekend && (idx === 0 || idx === 6)
+                const isWeekendHeader = !hideWeekend && (idx === 5 || idx === 6)
                 return (
                   <th key={day} style={{ textAlign: 'center', padding: compact ? '1px' : '2px', background: 'var(--bg-window)', border: '1px solid var(--border-mid-dark)', width: `${100 / daysToShow}%`, fontSize, color: isWeekendHeader ? 'var(--text-muted)' : 'var(--text-primary)', fontWeight: 'bold' }}>
                     {day}
@@ -196,9 +193,9 @@ export default function Calendar({
           <tbody>
             {weeks.map((week, weekIdx) => (
               <tr key={weekIdx}>
-                {(hideWeekend ? week.slice(1, 6) : week).map((day, dayIdx) => {
+                {(hideWeekend ? week.slice(0, 5) : week).map((day, dayIdx) => {
                   const dayEvents = day ? getEventsForDay(day) : []
-                  const isWeekend = !hideWeekend && (dayIdx === 0 || dayIdx === 6)
+                  const isWeekend = !hideWeekend && (dayIdx === 5 || dayIdx === 6)
                   const isToday = day === todayDate
                   const isEditing = day === editingDay
                   return (
